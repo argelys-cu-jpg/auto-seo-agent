@@ -1,0 +1,20 @@
+{
+  "name": "@cookunity-seo-agent/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start:mock": "tsx src/index.ts",
+    "run:discovery": "tsx src/runners/discovery.ts",
+    "run:monitoring": "tsx src/runners/monitoring.ts"
+  },
+  "dependencies": {
+    "@cookunity-seo-agent/core": "workspace:*",
+    "@cookunity-seo-agent/shared": "workspace:*",
+    "bullmq": "^5.46.1",
+    "ioredis": "^5.4.2",
+    "node-cron": "^3.0.3"
+  }
+}

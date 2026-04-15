@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkflowState {
+  discovered
+  scored
+  queued
+  outline_generated
+  draft_generated
+  in_review
+  revision_requested
+  approved
+  published
+  monitoring
+  refresh_recommended
+  refreshed
+}
+
+enum RecommendationType {
+  write_now
+  monitor
+  refresh_existing
+  support_cluster
+  merge_or_decannibalize
+  skip
+}
+
+enum ApprovalDecision {
+  approve
+  request_revision
+  reject
+}
+
+enum PublicationStatus {
+  draft
+  pending_publish
+  published
+  unpublished
+  sync_error
+}
+
+model Keyword {
+  id              String   @id @default(cuid())
+  term            String
+  normalizedTerm  String   @unique
+  source          String
+  searchVolume    Int      @default(0)
+  keywordDifficulty Int    @default(0)
+  trendVelocity   Float    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  topicCandidates TopicCandidate[]
+}
+
+model TopicCandidate {
+  id                    String             @id @default(cuid())
+  keywordId             String?
+  keyword               Keyword?           @relation(fields: [keywordId], references: [id])
+  title                 String
+  normalizedKeyword     String             @unique
+  source                String
+  workflowState         WorkflowState      @default(discovered)
+  recommendation        RecommendationType @default(monitor)
+  totalScore            Float              @default(0)
+  scoreBreakdownJson    Json
+  rationale             String
+  businessValueNotes    String?
+  cannibalizationRisk   Float              @default(0)
+  topicType             String             @default("new_article")
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  briefs                ContentBrief[]
+  outlines              Outline[]
+  drafts                Draft[]
+  approvals             Approval[]
+  publications          Publication[]
+  optimizationTasks     OptimizationRecommendation[]
+  clusterMemberships    ContentClusterMember[]
+}
+
+model ContentBrief {
+  id                 String   @id @default(cuid())
+  topicCandidateId   String
+  topicCandidate     TopicCandidate @relation(fields: [topicCandidateId], references: [id])
+  promptVersionId    String?
+  primaryKeyword     String
+  secondaryKeywordsJson Json
+  briefJson          Json
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  drafts             Draft[]
+}
+
+model Outline {
+  id               String   @id @default(cuid())
+  topicCandidateId String
+  topicCandidate   TopicCandidate @relation(fields: [topicCandidateId], references: [id])
+  outlineJson      Json
+  promptVersionId  String?
+  createdAt        DateTime @default(now())
+}
+
+model Draft {
+  id               String   @id @default(cuid())
+  topicCandidateId String
+  topicCandidate   TopicCandidate @relation(fields: [topicCandidateId], references: [id])
+  briefId          String?
+  brief            ContentBrief? @relation(fields: [briefId], references: [id])
+  promptVersionId  String?
+  draftJson        Json
+  html             String
+  markdown         String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  approvals        Approval[]
+  publications     Publication[]
+}
+
+model Approval {
+  id               String           @id @default(cuid())
+  topicCandidateId String
+  topicCandidate   TopicCandidate   @relation(fields: [topicCandidateId], references: [id])
+  draftId          String?
+  draft            Draft?           @relation(fields: [draftId], references: [id])
+  reviewerEmail    String
+  decision         ApprovalDecision
+  notes            String?
+  createdAt        DateTime         @default(now())
+}
+
+model Publication {
+  id               String            @id @default(cuid())
+  topicCandidateId String
+  topicCandidate   TopicCandidate    @relation(fields: [topicCandidateId], references: [id])
+  draftId          String?
+  draft            Draft?            @relation(fields: [draftId], references: [id])
+  strapiEntryId    String?
+  strapiDocumentId String?
+  slug             String
+  canonicalUrl     String?
+  status           PublicationStatus @default(draft)
+  metadataJson     Json
+  fieldMappingJson Json?
+  publishedAt      DateTime?
+  updatedAt        DateTime          @updatedAt
+  metricSnapshots  MetricSnapshot[]
+  optimizationTasks OptimizationRecommendation[]
+}
+
+model MetricSnapshot {
+  id             String   @id @default(cuid())
+  publicationId  String
+  publication    Publication @relation(fields: [publicationId], references: [id])
+  capturedAt     DateTime @default(now())
+  impressions    Int      @default(0)
+  clicks         Int      @default(0)
+  ctr            Float    @default(0)
+  averagePosition Float   @default(0)
+  conversions    Int      @default(0)
+  metricsJson    Json
+}
+
+model OptimizationRecommendation {
+  id             String   @id @default(cuid())
+  topicCandidateId String?
+  topicCandidate TopicCandidate? @relation(fields: [topicCandidateId], references: [id])
+  publicationId  String
+  publication    Publication @relation(fields: [publicationId], references: [id])
+  type           String
+  priority       String
+  reason         String
+  recommendationJson Json
+  createdAt      DateTime @default(now())
+}
+
+model ContentCluster {
+  id             String   @id @default(cuid())
+  name           String
+  pillarKeyword  String
+  createdAt      DateTime @default(now())
+  members        ContentClusterMember[]
+}
+
+model ContentClusterMember {
+  id             String   @id @default(cuid())
+  clusterId      String
+  cluster        ContentCluster @relation(fields: [clusterId], references: [id])
+  topicCandidateId String
+  topicCandidate TopicCandidate @relation(fields: [topicCandidateId], references: [id])
+  role           String
+}
+
+model InternalLinkRecommendation {
+  id               String   @id @default(cuid())
+  sourceTopicId    String
+  targetTopicId    String?
+  sourceUrl        String?
+  targetUrl        String?
+  anchorText       String
+  rationale        String
+  confidence       Float    @default(0)
+  createdAt        DateTime @default(now())
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  entityType     String
+  entityId       String
+  action         String
+  actorType      String
+  actorId        String?
+  payload        Json
+  createdAt      DateTime @default(now())
+}
+
+model JobRun {
+  id             String   @id @default(cuid())
+  jobType        String
+  status         String
+  idempotencyKey String   @unique
+  payload        Json
+  result         Json?
+  error          String?
+  startedAt      DateTime @default(now())
+  finishedAt     DateTime?
+}
+
+model PromptVersion {
+  id          String   @id @default(cuid())
+  templateId  String
+  version     String
+  systemText  String
+  userText    String
+  createdAt   DateTime @default(now())
+}

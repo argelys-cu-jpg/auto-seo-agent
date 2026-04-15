@@ -1,0 +1,27 @@
+{
+  "name": "cookunity-seo-agent",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "postinstall": "pnpm db:generate",
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "vitest run",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @cookunity-seo-agent/db prisma:generate",
+    "db:migrate": "pnpm --filter @cookunity-seo-agent/db prisma:migrate",
+    "db:deploy": "pnpm --filter @cookunity-seo-agent/db prisma:deploy",
+    "db:seed": "pnpm --filter @cookunity-seo-agent/db seed",
+    "worker:run": "pnpm --filter @cookunity-seo-agent/worker start:mock",
+    "web:dev": "pnpm --filter @cookunity-seo-agent/web dev"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "turbo": "^2.4.4",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8"
+  }
+}

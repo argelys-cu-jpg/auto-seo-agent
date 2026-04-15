@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowJs": false,
+    "resolveJsonModule": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@cookunity-seo-agent/shared": ["packages/shared/src/index.ts"],
+      "@cookunity-seo-agent/shared/*": ["packages/shared/src/*"],
+      "@cookunity-seo-agent/prompts": ["packages/prompts/src/index.ts"],
+      "@cookunity-seo-agent/prompts/*": ["packages/prompts/src/*"],
+      "@cookunity-seo-agent/core": ["packages/core/src/index.ts"],
+      "@cookunity-seo-agent/core/*": ["packages/core/src/*"],
+      "@cookunity-seo-agent/integrations": ["packages/integrations/src/index.ts"],
+      "@cookunity-seo-agent/integrations/*": ["packages/integrations/src/*"],
+      "@cookunity-seo-agent/db": ["packages/db/src/index.ts"],
+      "@cookunity-seo-agent/db/*": ["packages/db/src/*"]
+    }
+  }
+}
