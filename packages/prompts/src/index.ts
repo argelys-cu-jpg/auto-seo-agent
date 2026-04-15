@@ -1,6 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { cookunityBrandVoiceFallback } from "./brand-voice-fallback";
 
 export interface PromptTemplate {
@@ -10,15 +7,8 @@ export interface PromptTemplate {
   userTemplate: string;
 }
 
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const brandVoicePath = path.resolve(currentDir, "../brand/cookunity_voice.md");
-
 export function loadBrandVoice(): string {
-  try {
-    return fs.readFileSync(brandVoicePath, "utf8");
-  } catch {
-    return cookunityBrandVoiceFallback;
-  }
+  return cookunityBrandVoiceFallback;
 }
 
 export const promptTemplates: Record<string, PromptTemplate> = {
