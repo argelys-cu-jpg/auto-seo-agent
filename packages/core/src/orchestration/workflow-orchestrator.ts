@@ -92,7 +92,7 @@ export class WorkflowOrchestrator {
   } {
     return {
       entryId: output.entryId,
-      documentId: output.documentId,
+      ...(output.documentId ? { documentId: output.documentId } : {}),
     };
   }
 }

@@ -1,6 +1,6 @@
 import { agentNames } from "@cookunity-seo-agent/shared";
 import { NextResponse } from "next/server";
-import { rerunAgent } from "../../../../lib/agent-control";
+import { rerunAgent } from "../../../../../lib/agent-control";
 
 export async function POST(
   request: Request,

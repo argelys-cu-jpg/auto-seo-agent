@@ -8,7 +8,7 @@ export interface AgentContext {
 
 export interface WorkflowAgent<TInput, TOutput> {
   readonly name: AgentName;
-  readonly promptVersionId?: string;
+  readonly promptVersionId: string | undefined;
   execute(input: TInput, context: AgentContext): Promise<AgentExecutionEnvelope<TInput, TOutput>>;
 }
 
@@ -16,7 +16,7 @@ export abstract class BaseWorkflowAgent<TInput, TOutput>
   implements WorkflowAgent<TInput, TOutput>
 {
   abstract readonly name: AgentName;
-  readonly promptVersionId?: string;
+  readonly promptVersionId: string | undefined;
 
   constructor(promptVersionId?: string) {
     this.promptVersionId = promptVersionId;
@@ -41,7 +41,7 @@ export abstract class BaseWorkflowAgent<TInput, TOutput>
     const envelope: AgentExecutionEnvelope<TInput, TOutput> = {
       agent: this.name,
       idempotencyKey,
-      promptVersionId: this.promptVersionId,
+      ...(this.promptVersionId ? { promptVersionId: this.promptVersionId } : {}),
       input,
       output,
       attempts,

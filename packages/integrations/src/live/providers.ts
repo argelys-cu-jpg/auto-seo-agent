@@ -100,11 +100,12 @@ export class LiveStrapiProvider implements StrapiProvider {
       body: JSON.stringify({ data: mapToStrapiData({ ...payload, status: "draft" }) }),
     });
     const json = await safeJson<{ data: Record<string, unknown> }>(response);
+    const documentId = json.data[this.contentModel.documentIdField]
+      ? String(json.data[this.contentModel.documentIdField])
+      : undefined;
     return {
       entryId: String(json.data[this.contentModel.entryIdField]),
-      documentId: json.data[this.contentModel.documentIdField]
-        ? String(json.data[this.contentModel.documentIdField])
-        : undefined,
+      ...(documentId ? { documentId } : {}),
     };
   }
 
@@ -155,12 +156,13 @@ export class LiveStrapiProvider implements StrapiProvider {
     );
     const json = await safeJson<{ data: Record<string, unknown> }>(response);
     const publishedAt = json.data[this.contentModel.fields.publishStatus];
+    const documentId = json.data[this.contentModel.documentIdField]
+      ? String(json.data[this.contentModel.documentIdField])
+      : undefined;
     return {
       status: publishedAt ? "published" : "draft",
-      publishedAt: publishedAt ? String(publishedAt) : undefined,
-      documentId: json.data[this.contentModel.documentIdField]
-        ? String(json.data[this.contentModel.documentIdField])
-        : undefined,
+      ...(publishedAt ? { publishedAt: String(publishedAt) } : {}),
+      ...(documentId ? { documentId } : {}),
     };
   }
 

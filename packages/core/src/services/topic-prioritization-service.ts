@@ -42,6 +42,14 @@ export class TopicPrioritizationService {
           authorityFit: record.authorityFit,
           cannibalizationRisk: cannibalization.riskScore,
         });
+        const topicType: PrioritizedTopic["topicType"] =
+          cannibalization.recommendation === "refresh_existing"
+            ? "refresh_existing"
+            : cannibalization.recommendation === "support_cluster"
+              ? "support_cluster"
+              : cannibalization.recommendation === "merge"
+                ? "merge"
+                : "new_article";
 
         return {
           keyword: record.keyword,
@@ -50,14 +58,7 @@ export class TopicPrioritizationService {
           explanation: `${score.explanation} Cannibalization: ${cannibalization.recommendation}.`,
           recommendation: score.recommendation,
           cannibalizationRisk: cannibalization.riskScore,
-          topicType:
-            cannibalization.recommendation === "refresh_existing"
-              ? "refresh_existing"
-              : cannibalization.recommendation === "support_cluster"
-                ? "support_cluster"
-                : cannibalization.recommendation === "merge"
-                  ? "merge"
-                  : "new_article",
+          topicType,
         };
       })
       .sort((left, right) => right.totalScore - left.totalScore);

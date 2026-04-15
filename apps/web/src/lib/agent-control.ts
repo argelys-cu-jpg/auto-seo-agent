@@ -237,7 +237,11 @@ export async function rerunAgent(agentName: AgentName, options?: { approved?: bo
             approved,
             tags: ["meal delivery", "healthy eating"],
             categories: ["Prepared Meals"],
-            excerpt: upstream.qa.output.normalizedDraft.metaDescriptionOptions[0],
+            ...(upstream.qa.output.normalizedDraft.metaDescriptionOptions[0]
+              ? {
+                  excerpt: upstream.qa.output.normalizedDraft.metaDescriptionOptions[0],
+                }
+              : {}),
           },
           { runId, entityId, attempt },
         ),

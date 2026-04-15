@@ -2,6 +2,11 @@ import { prisma } from "./client";
 import { mockBrief, mockDraft, mockOptimizationTask, mockTopicCandidates } from "@cookunity-seo-agent/shared";
 
 async function main(): Promise<void> {
+  const firstTopic = mockTopicCandidates[0];
+  if (!firstTopic) {
+    throw new Error("No mock topic candidates available for seeding.");
+  }
+
   for (const topic of mockTopicCandidates) {
     await prisma.topicCandidate.upsert({
       where: { normalizedKeyword: topic.normalizedKeyword },
@@ -32,7 +37,7 @@ async function main(): Promise<void> {
   }
 
   const topic = await prisma.topicCandidate.findFirstOrThrow({
-    where: { normalizedKeyword: mockTopicCandidates[0].normalizedKeyword },
+    where: { normalizedKeyword: firstTopic.normalizedKeyword },
   });
 
   const brief = await prisma.contentBrief.create({

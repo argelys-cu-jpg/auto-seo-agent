@@ -22,11 +22,11 @@ export class PublishingAgent extends BaseWorkflowAgent<
       approved: input.approved,
       tags: input.tags,
       categories: input.categories,
-      canonicalUrl: input.canonicalUrl,
-      excerpt: input.excerpt,
-      featuredImage: input.featuredImage,
-      existingEntryId: input.existingEntryId,
-      existingDocumentId: input.existingDocumentId,
+      ...(input.canonicalUrl ? { canonicalUrl: input.canonicalUrl } : {}),
+      ...(input.excerpt ? { excerpt: input.excerpt } : {}),
+      ...(input.featuredImage ? { featuredImage: input.featuredImage } : {}),
+      ...(input.existingEntryId ? { existingEntryId: input.existingEntryId } : {}),
+      ...(input.existingDocumentId ? { existingDocumentId: input.existingDocumentId } : {}),
     });
   }
 }

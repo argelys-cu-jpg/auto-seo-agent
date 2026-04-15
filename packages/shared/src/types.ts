@@ -279,7 +279,7 @@ export interface PublishingAgentOutput {
   entryId: string;
   documentId?: string;
   previewUrl?: string;
-  fieldMapping: Record<string, unknown>;
+  fieldMapping: unknown;
 }
 
 export interface PerformanceMonitoringInput {

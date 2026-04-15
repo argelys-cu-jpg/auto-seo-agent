@@ -17,6 +17,27 @@ export interface PublishInput {
 export class PublishingService {
   private providers = createProviders();
 
+  private buildStrapiPayload(input: PublishInput, status: "draft" | "publish") {
+    const excerpt = input.excerpt ?? input.draft.metaDescriptionOptions[0];
+
+    return {
+      title: input.draft.h1,
+      slug: input.draft.slugRecommendation,
+      ...(excerpt ? { excerpt } : {}),
+      body: input.draft.html,
+      metaTitle: input.draft.titleTagOptions[0] ?? input.draft.h1,
+      metaDescription: input.draft.metaDescriptionOptions[0] ?? "",
+      tags: input.tags,
+      categories: input.categories,
+      ...(input.canonicalUrl ? { canonicalUrl: input.canonicalUrl } : {}),
+      ...(input.featuredImage ? { featuredImage: input.featuredImage } : {}),
+      schemaJson: {
+        types: input.draft.schemaSuggestions,
+      },
+      status,
+    };
+  }
+
   validateRequiredFieldsBeforePublish(draft: Draft): string[] {
     const issues: string[] = [];
     if (!draft.titleTagOptions.length) issues.push("Missing title tag options.");
@@ -26,7 +47,7 @@ export class PublishingService {
     return issues;
   }
 
-  async publishArticle(input: PublishInput): Promise<{ entryId: string; documentId?: string; previewUrl?: string; fieldMapping: Record<string, unknown> }> {
+  async publishArticle(input: PublishInput): Promise<{ entryId: string; documentId?: string; previewUrl?: string; fieldMapping: unknown }> {
     if (!input.approved) {
       throw new Error("Manual approval is required before publishing.");
     }
@@ -34,46 +55,20 @@ export class PublishingService {
     const config = getConfig();
     const fieldMapping = this.providers.strapi.getContentModelConfig();
     if (!config.PUBLISH_ENABLED) {
-      const created = await this.providers.strapi.createDraft({
-        title: input.draft.h1,
-        slug: input.draft.slugRecommendation,
-        excerpt: input.excerpt ?? input.draft.metaDescriptionOptions[0],
-        body: input.draft.html,
-        metaTitle: input.draft.titleTagOptions[0] ?? input.draft.h1,
-        metaDescription: input.draft.metaDescriptionOptions[0] ?? "",
-        tags: input.tags,
-        categories: input.categories,
-        canonicalUrl: input.canonicalUrl,
-        featuredImage: input.featuredImage,
-        schemaJson: {
-          types: input.draft.schemaSuggestions,
-        },
-        status: "draft",
-      });
+      const created = await this.providers.strapi.createDraft(this.buildStrapiPayload(input, "draft"));
       return { ...created, fieldMapping };
     }
 
-    const payload = {
-      title: input.draft.h1,
-      slug: input.draft.slugRecommendation,
-      excerpt: input.excerpt ?? input.draft.metaDescriptionOptions[0],
-      body: input.draft.html,
-      metaTitle: input.draft.titleTagOptions[0] ?? input.draft.h1,
-      metaDescription: input.draft.metaDescriptionOptions[0] ?? "",
-      tags: input.tags,
-      categories: input.categories,
-      canonicalUrl: input.canonicalUrl,
-      featuredImage: input.featuredImage,
-      schemaJson: {
-        types: input.draft.schemaSuggestions,
-      },
-      status: "publish" as const,
-    };
+    const payload = this.buildStrapiPayload(input, "publish");
 
     if (input.existingEntryId) {
       await this.providers.strapi.updateArticle(input.existingEntryId, payload, input.existingDocumentId);
       await this.providers.strapi.publishArticle(input.existingEntryId, input.existingDocumentId);
-      return { entryId: input.existingEntryId, documentId: input.existingDocumentId, fieldMapping };
+      return {
+        entryId: input.existingEntryId,
+        ...(input.existingDocumentId ? { documentId: input.existingDocumentId } : {}),
+        fieldMapping,
+      };
     }
 
     const created = await this.providers.strapi.createDraft(payload);
@@ -82,20 +77,11 @@ export class PublishingService {
   }
 
   async updateArticle(entryId: string, input: PublishInput): Promise<void> {
-    await this.providers.strapi.updateArticle(entryId, {
-      title: input.draft.h1,
-      slug: input.draft.slugRecommendation,
-      excerpt: input.excerpt ?? input.draft.metaDescriptionOptions[0],
-      body: input.draft.html,
-      metaTitle: input.draft.titleTagOptions[0] ?? input.draft.h1,
-      metaDescription: input.draft.metaDescriptionOptions[0] ?? "",
-      tags: input.tags,
-      categories: input.categories,
-      canonicalUrl: input.canonicalUrl,
-      featuredImage: input.featuredImage,
-      schemaJson: { types: input.draft.schemaSuggestions },
-      status: "draft",
-    }, input.existingDocumentId);
+    await this.providers.strapi.updateArticle(
+      entryId,
+      this.buildStrapiPayload(input, "draft"),
+      input.existingDocumentId,
+    );
   }
 
   async unpublishArticle(entryId: string, documentId?: string): Promise<void> {

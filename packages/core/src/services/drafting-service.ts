@@ -4,6 +4,9 @@ import type { ContentBrief, Draft } from "@cookunity-seo-agent/shared";
 export class DraftingService {
   generate(brief: ContentBrief): Draft {
     const prompt = promptTemplates.articleDraft;
+    if (!prompt) {
+      throw new Error("Missing article draft prompt template.");
+    }
     const brandVoice = loadBrandVoice();
     const title = brief.titleOptions[0] ?? brief.primaryKeyword;
     const slug = brief.primaryKeyword.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");

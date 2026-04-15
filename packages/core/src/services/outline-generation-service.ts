@@ -5,6 +5,9 @@ export class OutlineGenerationService {
   generate(topic: { id: string; keyword: string; recommendation: string }): ContentBrief {
     const brandVoice = loadBrandVoice();
     const prompt = promptTemplates.outlineGeneration;
+    if (!prompt) {
+      throw new Error("Missing outline generation prompt template.");
+    }
 
     return {
       id: `brief_${topic.id}`,

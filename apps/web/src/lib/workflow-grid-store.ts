@@ -9,8 +9,25 @@ import {
   withRetry,
 } from "@cookunity-seo-agent/core";
 import type { AuditRepository } from "@cookunity-seo-agent/core";
-import type { ApprovalDecision, Prisma, PublicationStatus, WorkflowState } from "@prisma/client";
 import type { WorkflowGridCell, WorkflowGridRow } from "./data";
+type ApprovalDecision = "approve" | "request_revision" | "reject";
+type WorkflowState =
+  | "discovered"
+  | "scored"
+  | "queued"
+  | "outline_generated"
+  | "draft_generated"
+  | "in_review"
+  | "revision_requested"
+  | "approved"
+  | "published"
+  | "monitoring"
+  | "refresh_recommended"
+  | "refreshed";
+
+function toJsonInput(value: unknown) {
+  return value as never;
+}
 
 async function getPrismaClient() {
   const dbModule = await import("@cookunity-seo-agent/db");
@@ -39,17 +56,7 @@ function slugify(value: string): string {
 }
 
 class PrismaAuditRepository implements AuditRepository {
-  async record(event: {
-    runId: string;
-    entityId: string;
-    entityType: string;
-    fromState?: string;
-    toState: string;
-    agent: string;
-    approvedByHuman?: boolean;
-    occurredAt: string;
-    details: Record<string, unknown>;
-  }): Promise<void> {
+  async record(event: Parameters<AuditRepository["record"]>[0]): Promise<void> {
     const prisma = await getPrismaClient();
     await prisma.auditLog.create({
       data: {
@@ -57,7 +64,7 @@ class PrismaAuditRepository implements AuditRepository {
         entityId: event.entityId,
         action: `${event.agent}:${event.toState}`,
         actorType: event.approvedByHuman ? "reviewer" : "system",
-        payload: event as unknown as Prisma.InputJsonValue,
+        payload: toJsonInput(event),
       },
     });
   }
@@ -70,7 +77,7 @@ async function createJobRun(jobType: string, idempotencyKey: string, payload: Re
       jobType,
       status: "running",
       idempotencyKey,
-      payload: payload as Prisma.InputJsonValue,
+      payload: toJsonInput(payload),
     },
   });
 }
@@ -81,7 +88,7 @@ async function completeJobRun(id: string, result: Record<string, unknown>) {
     where: { id },
     data: {
       status: "completed",
-      result: result as Prisma.InputJsonValue,
+      result: toJsonInput(result),
       finishedAt: new Date(),
     },
   });
@@ -267,7 +274,7 @@ export async function runWorkflowForTopic(topicCandidateId: string) {
         workflowState: "queued",
         recommendation: prioritized.recommendation,
         totalScore: prioritized.totalScore,
-        scoreBreakdownJson: prioritized.breakdown as unknown as Prisma.InputJsonValue,
+        scoreBreakdownJson: toJsonInput(prioritized.breakdown),
         rationale: prioritized.explanation,
         cannibalizationRisk: prioritized.cannibalizationRisk,
         topicType: prioritized.topicType,
@@ -308,22 +315,22 @@ export async function runWorkflowForTopic(topicCandidateId: string) {
     const brief = await prisma.contentBrief.create({
       data: {
         topicCandidateId: topic.id,
-        promptVersionId: briefEnvelope.promptVersionId,
+        promptVersionId: briefEnvelope.promptVersionId ?? null,
         primaryKeyword: briefEnvelope.output.brief.primaryKeyword,
-        secondaryKeywordsJson: briefEnvelope.output.brief.secondaryKeywords as unknown as Prisma.InputJsonValue,
-        briefJson: briefEnvelope.output.brief as unknown as Prisma.InputJsonValue,
+        secondaryKeywordsJson: toJsonInput(briefEnvelope.output.brief.secondaryKeywords),
+        briefJson: toJsonInput(briefEnvelope.output.brief),
       },
     });
 
     await prisma.outline.create({
       data: {
         topicCandidateId: topic.id,
-        promptVersionId: briefEnvelope.promptVersionId,
+        promptVersionId: briefEnvelope.promptVersionId ?? null,
         outlineJson: {
           titleOptions: briefEnvelope.output.brief.titleOptions,
           faqCandidates: briefEnvelope.output.brief.faqCandidates,
           recommendedInternalLinks: briefEnvelope.output.brief.recommendedInternalLinks,
-        } as Prisma.InputJsonValue,
+        },
       },
     });
 
@@ -355,8 +362,8 @@ export async function runWorkflowForTopic(topicCandidateId: string) {
       data: {
         topicCandidateId: topic.id,
         briefId: brief.id,
-        promptVersionId: draftEnvelope.promptVersionId,
-        draftJson: draftEnvelope.output.draft as unknown as Prisma.InputJsonValue,
+        promptVersionId: draftEnvelope.promptVersionId ?? null,
+        draftJson: toJsonInput(draftEnvelope.output.draft),
         html: draftEnvelope.output.draft.html,
         markdown: JSON.stringify(draftEnvelope.output.draft.sections),
       },
@@ -592,7 +599,7 @@ export async function submitReviewForDraft(
       draftId: draft.id,
       reviewerEmail,
       decision,
-      notes: notes || undefined,
+      notes: notes ?? null,
     },
   });
 
@@ -619,7 +626,7 @@ export async function submitReviewForDraft(
         decision,
         notes,
         topicCandidateId: draft.topicCandidateId,
-      } as Prisma.InputJsonValue,
+      },
     },
   });
 
@@ -658,7 +665,9 @@ export async function publishApprovedDraft(topicCandidateId: string) {
         status: "published",
         slug: publication.slug || slugify(topic.title),
         publishedAt: new Date(),
-        metadataJson: publication.metadataJson,
+        ...(publication.metadataJson !== null
+          ? { metadataJson: toJsonInput(publication.metadataJson) }
+          : {}),
       },
     });
   } else {
@@ -670,7 +679,7 @@ export async function publishApprovedDraft(topicCandidateId: string) {
         status: "published",
         metadataJson: {
           title: topic.title,
-        } as Prisma.InputJsonValue,
+        },
         publishedAt: new Date(),
       },
     });
