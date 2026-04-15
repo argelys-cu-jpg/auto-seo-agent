@@ -5,12 +5,16 @@ import type {
   GscProvider,
   KeywordDiscoveryRecord,
   PerformanceRecord,
+  ReviewDocumentPayload,
+  ReviewDocumentProvider,
+  ReviewDocumentRecord,
   SerpProvider,
   StrapiArticlePayload,
   StrapiContentModelConfig,
   StrapiProvider,
   TrendsProvider,
 } from "../providers/types";
+import { getGoogleServiceAccessToken } from "../providers/google-service-account";
 import { getStrapiContentModelConfig, mapToStrapiData } from "../providers/strapi-mapper";
 
 async function safeJson<T>(response: Response): Promise<T> {
@@ -51,11 +55,129 @@ export class LiveAhrefsProvider implements AhrefsProvider {
 
 export class LiveGscProvider implements GscProvider {
   async discoverContentDecay(): Promise<KeywordDiscoveryRecord[]> {
-    throw new Error("Live GSC discovery is stubbed. Add Search Console API client wiring.");
+    const config = getConfig();
+    if (!config.GSC_SITE_URL) {
+      throw new Error("GSC_SITE_URL is required for live GSC mode.");
+    }
+
+    const token = await getGoogleServiceAccessToken([
+      "https://www.googleapis.com/auth/webmasters.readonly",
+    ]);
+
+    const [recent, previous] = await Promise.all([
+      this.querySearchConsole(token, {
+        siteUrl: config.GSC_SITE_URL,
+        startDate: this.daysAgo(28),
+        endDate: this.daysAgo(1),
+      }),
+      this.querySearchConsole(token, {
+        siteUrl: config.GSC_SITE_URL,
+        startDate: this.daysAgo(56),
+        endDate: this.daysAgo(29),
+      }),
+    ]);
+
+    const previousByQuery = new Map(previous.map((row) => [row.keys?.[0] ?? "", row]));
+    return recent.slice(0, 25).map((row) => {
+      const keyword = row.keys?.[0] ?? "";
+      const baseline = previousByQuery.get(keyword);
+      const recentClicks = Number(row.clicks ?? 0);
+      const previousClicks = Number(baseline?.clicks ?? 0);
+      const trendVelocity =
+        previousClicks > 0 ? ((recentClicks - previousClicks) / previousClicks) * 100 : 0;
+
+      return {
+        keyword,
+        source: "gsc",
+        searchVolume: Number(row.impressions ?? 0),
+        keywordDifficulty: Math.min(60, Math.max(10, Math.round(Number(row.position ?? 20) * 3))),
+        trendVelocity,
+        intent: "existing content decay",
+        notes: `Avg position ${Number(row.position ?? 0).toFixed(1)}, CTR ${(Number(row.ctr ?? 0) * 100).toFixed(1)}%.`,
+      };
+    });
   }
 
-  async fetchPerformance(): Promise<PerformanceRecord[]> {
-    throw new Error("Live GSC performance sync is stubbed. Add Search Console API client wiring.");
+  async fetchPerformance(urls?: string[]): Promise<PerformanceRecord[]> {
+    const config = getConfig();
+    const token = await getGoogleServiceAccessToken([
+      "https://www.googleapis.com/auth/webmasters.readonly",
+    ]);
+
+    const rows = await this.querySearchConsole(token, {
+      siteUrl: config.GSC_SITE_URL,
+      startDate: this.daysAgo(28),
+      endDate: this.daysAgo(1),
+      dimensions: ["page", "query"],
+      rowLimit: 250,
+      ...(urls?.length ? { urls } : {}),
+    });
+
+    return rows
+      .filter((row) => row.keys?.[0] && row.keys?.[1])
+      .map((row) => ({
+        url: String(row.keys?.[0]),
+        query: String(row.keys?.[1]),
+        impressions: Number(row.impressions ?? 0),
+        clicks: Number(row.clicks ?? 0),
+        ctr: Number(row.ctr ?? 0),
+        averagePosition: Number(row.position ?? 0),
+        conversions: 0,
+      }));
+  }
+
+  private async querySearchConsole(
+    token: string,
+    args: {
+      siteUrl: string;
+      startDate: string;
+      endDate: string;
+      dimensions?: string[];
+      rowLimit?: number;
+      urls?: string[];
+    },
+  ): Promise<Array<{ keys?: string[]; clicks?: number; impressions?: number; ctr?: number; position?: number }>> {
+    const siteUrl = encodeURIComponent(args.siteUrl);
+    const response = await fetch(
+      `https://searchconsole.googleapis.com/webmasters/v3/sites/${siteUrl}/searchAnalytics/query`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          startDate: args.startDate,
+          endDate: args.endDate,
+          dimensions: args.dimensions ?? ["query"],
+          rowLimit: args.rowLimit ?? 100,
+          ...(args.urls?.length
+            ? {
+                dimensionFilterGroups: [
+                  {
+                    filters: [
+                      {
+                        dimension: "page",
+                        operator: "includingRegex",
+                        expression: args.urls.map((url) => url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
+                      },
+                    ],
+                  },
+                ],
+              }
+            : {}),
+        }),
+      },
+    );
+
+    const payload = await safeJson<{ rows?: Array<{ keys?: string[]; clicks?: number; impressions?: number; ctr?: number; position?: number }> }>(response);
+    return payload.rows ?? [];
+  }
+
+  private daysAgo(days: number): string {
+    const date = new Date();
+    date.setUTCDate(date.getUTCDate() - days);
+    return date.toISOString().slice(0, 10);
   }
 }
 
@@ -72,8 +194,165 @@ export class LiveSerpProvider implements SerpProvider {
 }
 
 export class LiveAnalyticsProvider implements AnalyticsProvider {
-  async fetchConversions(): Promise<Array<{ url: string; conversions: number }>> {
-    throw new Error("Live analytics provider is stubbed. Add provider implementation.");
+  async fetchConversions(urls: string[]): Promise<Array<{ url: string; conversions: number }>> {
+    const config = getConfig();
+    if (!config.GA4_PROPERTY_ID) {
+      throw new Error("GA4_PROPERTY_ID is required for live analytics mode.");
+    }
+    if (!config.GOOGLE_SERVICE_ACCOUNT_EMAIL || !config.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY) {
+      throw new Error("Google service account credentials are required for GA4 access.");
+    }
+
+    const token = await getGoogleServiceAccessToken([
+      "https://www.googleapis.com/auth/analytics.readonly",
+    ]);
+    const response = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/properties/${config.GA4_PROPERTY_ID}:runReport`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dimensions: [{ name: "pageLocation" }],
+          metrics: [{ name: "conversions" }],
+          dimensionFilter: {
+            filter: {
+              fieldName: "pageLocation",
+              inListFilter: { values: urls },
+            },
+          },
+          dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
+        }),
+      },
+    );
+
+    const payload = await safeJson<{ rows?: Array<{ dimensionValues?: Array<{ value?: string }>; metricValues?: Array<{ value?: string }> }> }>(response);
+    const rows = payload.rows ?? [];
+    return urls.map((url) => {
+      const row = rows.find((item) => item.dimensionValues?.[0]?.value === url);
+      return {
+        url,
+        conversions: Number(row?.metricValues?.[0]?.value ?? 0),
+      };
+    });
+  }
+}
+
+export class LiveReviewDocumentProvider implements ReviewDocumentProvider {
+  private async getHeaders(): Promise<HeadersInit> {
+    const token = await getGoogleServiceAccessToken([
+      "https://www.googleapis.com/auth/documents",
+      "https://www.googleapis.com/auth/drive",
+    ]);
+
+    return {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+  }
+
+  async createDocument(payload: ReviewDocumentPayload): Promise<ReviewDocumentRecord> {
+    const config = getConfig();
+    if (!config.GOOGLE_DOCS_REVIEW_ENABLED) {
+      throw new Error("GOOGLE_DOCS_REVIEW_ENABLED must be true to create live review docs.");
+    }
+
+    const createResponse = await fetch("https://docs.googleapis.com/v1/documents", {
+      method: "POST",
+      headers: await this.getHeaders(),
+      body: JSON.stringify({ title: payload.title }),
+    });
+    const created = await safeJson<{ documentId: string; title?: string }>(createResponse);
+
+    await this.replaceDocumentContent(created.documentId, payload);
+
+    if (config.GOOGLE_DRIVE_REVIEW_FOLDER_ID) {
+      await this.moveDocumentToFolder(created.documentId, config.GOOGLE_DRIVE_REVIEW_FOLDER_ID);
+    }
+
+    return {
+      id: created.documentId,
+      title: created.title ?? payload.title,
+      url: `https://docs.google.com/document/d/${created.documentId}/edit`,
+      provider: "google_docs",
+    };
+  }
+
+  async updateDocument(documentId: string, payload: ReviewDocumentPayload): Promise<ReviewDocumentRecord> {
+    await this.replaceDocumentContent(documentId, payload);
+    return {
+      id: documentId,
+      title: payload.title,
+      url: `https://docs.google.com/document/d/${documentId}/edit`,
+      provider: "google_docs",
+    };
+  }
+
+  private async replaceDocumentContent(documentId: string, payload: ReviewDocumentPayload): Promise<void> {
+    const docResponse = await fetch(`https://docs.googleapis.com/v1/documents/${documentId}`, {
+      method: "GET",
+      headers: await this.getHeaders(),
+    });
+    const existing = await safeJson<{ body?: { content?: Array<{ endIndex?: number }> } }>(docResponse);
+    const endIndex = existing.body?.content?.at(-1)?.endIndex ?? 1;
+
+    const content = [
+      `Title: ${payload.title}`,
+      "",
+      `Summary: ${payload.summary}`,
+      "",
+      payload.markdown,
+      "",
+      `Source HTML length: ${payload.html.length}`,
+      payload.reviewerEmail ? `Reviewer: ${payload.reviewerEmail}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    await fetch(`https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`, {
+      method: "POST",
+      headers: await this.getHeaders(),
+      body: JSON.stringify({
+        requests: [
+          ...(endIndex > 1 ? [{ deleteContentRange: { range: { startIndex: 1, endIndex: endIndex - 1 } } }] : []),
+          {
+            insertText: {
+              location: { index: 1 },
+              text: content,
+            },
+          },
+        ],
+      }),
+    }).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Google Docs update failed: ${response.status} ${await response.text()}`);
+      }
+    });
+  }
+
+  private async moveDocumentToFolder(documentId: string, folderId: string): Promise<void> {
+    const metadataResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${documentId}?fields=parents`, {
+      method: "GET",
+      headers: await this.getHeaders(),
+    });
+    const metadata = await safeJson<{ parents?: string[] }>(metadataResponse);
+    const removeParents = (metadata.parents ?? []).join(",");
+    const url = new URL(`https://www.googleapis.com/drive/v3/files/${documentId}`);
+    url.searchParams.set("addParents", folderId);
+    if (removeParents) {
+      url.searchParams.set("removeParents", removeParents);
+    }
+
+    await fetch(url, {
+      method: "PATCH",
+      headers: await this.getHeaders(),
+    }).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Google Drive move failed: ${response.status} ${await response.text()}`);
+      }
+    });
   }
 }
 

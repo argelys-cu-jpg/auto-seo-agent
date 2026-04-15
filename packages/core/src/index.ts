@@ -16,6 +16,8 @@ export * from "./services/topic-prioritization-service";
 export * from "./services/outline-generation-service";
 export * from "./services/drafting-service";
 export * from "./services/review-workflow-service";
+export * from "./services/review-document-service";
+export * from "./services/operational-workflow-service";
 export * from "./services/publishing-service";
 export * from "./services/monitoring-service";
 export * from "./services/optimization-service";

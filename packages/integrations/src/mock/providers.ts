@@ -4,6 +4,9 @@ import type {
   GscProvider,
   KeywordDiscoveryRecord,
   PerformanceRecord,
+  ReviewDocumentPayload,
+  ReviewDocumentProvider,
+  ReviewDocumentRecord,
   SerpProvider,
   StrapiArticlePayload,
   StrapiContentModelConfig,
@@ -105,6 +108,27 @@ export class MockAnalyticsProvider implements AnalyticsProvider {
       url,
       conversions: url.includes("healthy-prepared") ? 19 : 7,
     }));
+  }
+}
+
+export class MockReviewDocumentProvider implements ReviewDocumentProvider {
+  async createDocument(payload: ReviewDocumentPayload): Promise<ReviewDocumentRecord> {
+    const slug = payload.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return {
+      id: `mock_doc_${slug}`,
+      title: payload.title,
+      url: `https://docs.mock.local/document/d/${slug}`,
+      provider: "mock",
+    };
+  }
+
+  async updateDocument(documentId: string, payload: ReviewDocumentPayload): Promise<ReviewDocumentRecord> {
+    return {
+      id: documentId,
+      title: payload.title,
+      url: `https://docs.mock.local/document/d/${documentId}`,
+      provider: "mock",
+    };
   }
 }
 

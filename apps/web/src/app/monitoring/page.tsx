@@ -1,23 +1,28 @@
-import { AutonomousSeoAgent } from "@cookunity-seo-agent/core";
 import { PageShell } from "../../components/page-shell";
 import { Panel } from "../../components/cards";
+import { getDashboardData } from "../../lib/data";
 
 export default async function MonitoringPage() {
-  const agent = new AutonomousSeoAgent();
-  const tasks = await agent.runMonitoring([
-    "https://www.cookunity.com/blog/healthy-prepared-meal-delivery-guide",
-  ]);
+  const data = await getDashboardData();
+  const monitored = data.persistedTopics.filter((topic) => topic.publications[0]?.metricSnapshots.length);
 
   return (
     <PageShell title="Post-Publish Monitoring">
       <Panel title="Active Signals">
-        <ul>
-          {tasks.map((task) => (
-            <li key={task.id}>
-              <strong>{task.type}</strong>: {task.reason}
-            </li>
-          ))}
-        </ul>
+        {monitored.length ? (
+          <ul>
+            {monitored.map((topic) => {
+              const snapshot = topic.publications[0]?.metricSnapshots[0];
+              return (
+                <li key={topic.title}>
+                  <strong>{topic.title}</strong>: impressions {snapshot?.impressions ?? 0}, CTR {snapshot?.ctr ?? 0}, avg position {snapshot?.averagePosition ?? 0}
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p style={{ marginBottom: 0 }}>No persisted monitoring snapshots yet. Run the worker monitoring job.</p>
+        )}
       </Panel>
     </PageShell>
   );

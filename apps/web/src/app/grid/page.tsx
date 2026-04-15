@@ -137,6 +137,14 @@ export default async function WorkflowGridPage({
                                   <div><strong>Metadata:</strong> {reviewPackage.titleTag} / {reviewPackage.metaDescription}</div>
                                   <div><strong>Links:</strong> {reviewPackage.internalLinks.join(", ") || "None yet"}</div>
                                   <div><strong>Schema:</strong> {reviewPackage.schema.join(", ")}</div>
+                                  {reviewPackage.reviewDocUrl ? (
+                                    <div>
+                                      <strong>Review doc:</strong>{" "}
+                                      <a href={reviewPackage.reviewDocUrl} target="_blank" rel="noreferrer">
+                                        Open {reviewPackage.reviewDocProvider ?? "review"} doc
+                                      </a>
+                                    </div>
+                                  ) : null}
                                 </div>
 
                                 <div style={{ fontSize: 13, lineHeight: 1.6 }}>

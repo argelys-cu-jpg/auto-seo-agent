@@ -17,13 +17,16 @@ export default async function PublishedPage() {
             </tr>
           </thead>
           <tbody>
-            <tr style={{ borderTop: "1px solid #eadfce" }}>
-              <td>{data.draft.slugRecommendation}</td>
-              <td>{data.draft.h1}</td>
-              <td>published</td>
-            </tr>
+            {data.publishedInventory.map((item) => (
+              <tr key={item.id} style={{ borderTop: "1px solid #eadfce" }}>
+                <td>{item.slug}</td>
+                <td>{item.title}</td>
+                <td>{item.status}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
+        {data.publishedInventory.length === 0 ? <p style={{ marginBottom: 0 }}>No published records yet.</p> : null}
       </Panel>
     </PageShell>
   );

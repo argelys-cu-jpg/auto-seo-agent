@@ -22,6 +22,14 @@ export default async function ReviewPage() {
           <p><strong>Metadata:</strong> {data.draft.titleTagOptions[0]} / {data.draft.metaDescriptionOptions[0]}</p>
           <p><strong>Internal links:</strong> {data.brief.recommendedInternalLinks.map((link) => link.anchorText).join(", ")}</p>
           <p><strong>Schema:</strong> {data.draft.schemaSuggestions.join(", ")}</p>
+          {"reviewDocUrl" in data.draft && typeof data.draft.reviewDocUrl === "string" ? (
+            <p>
+              <strong>Review doc:</strong>{" "}
+              <a href={data.draft.reviewDocUrl} target="_blank" rel="noreferrer">
+                Open review document
+              </a>
+            </p>
+          ) : null}
 
           <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid #eadfce" }}>
             <p style={{ marginTop: 0 }}><strong>Draft copy</strong></p>

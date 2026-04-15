@@ -1,6 +1,6 @@
-import { AutonomousSeoAgent } from "@cookunity-seo-agent/core";
 import {
   agentNames,
+  getConfig,
   mockBrief,
   mockDraft,
   mockOptimizationTask,
@@ -11,7 +11,120 @@ import {
 import { safeListWorkflowGridRows } from "./workflow-grid-store";
 import { isDatabaseReady } from "./runtime";
 
-const agent = new AutonomousSeoAgent();
+export interface DashboardTopicDraftSummary {
+  id: string;
+  reviewDocUrl?: string;
+  reviewDocProvider?: string;
+  approvalDecision?: string;
+  approvalNotes?: string;
+}
+
+export interface DashboardMetricSnapshotSummary {
+  id: string;
+  capturedAt: string;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  averagePosition: number;
+  conversions: number;
+}
+
+export interface DashboardOptimizationTaskSummary {
+  id: string;
+  type: string;
+  priority: string;
+  reason: string;
+  actions: string[];
+  createdAt: string;
+}
+
+export interface DashboardPublicationSummary {
+  id: string;
+  slug: string;
+  status: string;
+  title: string;
+  publishedAt?: string;
+  metricSnapshots: DashboardMetricSnapshotSummary[];
+  optimizationTasks: DashboardOptimizationTaskSummary[];
+}
+
+export interface DashboardTopicSummary {
+  id: string;
+  title: string;
+  workflowState: string;
+  rationale: string;
+  totalScore: number;
+  recommendation: string;
+  cannibalizationRisk: number;
+  topicType: "new_article" | "refresh_existing" | "support_cluster" | "merge";
+  drafts: DashboardTopicDraftSummary[];
+  publications: DashboardPublicationSummary[];
+}
+
+export interface DashboardData {
+  prioritized: Array<{
+    keyword: string;
+    totalScore: number;
+    explanation: string;
+    recommendation: string;
+    cannibalizationRisk: number;
+    topicType: "new_article" | "refresh_existing" | "support_cluster" | "merge";
+    breakdown: Record<string, number>;
+  }>;
+  queuedTopics: Array<{
+    keyword: string;
+    explanation: string;
+  }>;
+  brief: ContentBrief;
+  draft: Draft;
+  qa: {
+    passed: boolean;
+    flags: string[];
+    requiresHumanReview: boolean;
+    normalizedDraft: Draft;
+  };
+  optimizationTask: {
+    type: string;
+    priority: string;
+    reason: string;
+    actions: string[];
+  };
+  workflowRun: {
+    id: string;
+    orchestrator: string;
+    state: string;
+    approvalRequired: boolean;
+    currentTopic: string;
+  };
+  automationStatus: {
+    discoveryCron: string;
+    monitoringCron: string;
+    refreshCron: string;
+  };
+  integrations: Array<{
+    name: string;
+    status: string;
+  }>;
+  agentControlRows: Array<{
+    name: string;
+    responsibility: string;
+    inputContract: string;
+    outputContract: string;
+    latestStatus: string;
+    latestRunAt: string;
+    retrySafe: boolean;
+    promptIsolation: string;
+  }>;
+  orchestratorTimeline: Array<{
+    at: string;
+    state: string;
+    agent: string;
+    summary: string;
+  }>;
+  agentNames: readonly string[];
+  publishedInventory: DashboardPublicationSummary[];
+  persistedTopics: DashboardTopicSummary[];
+}
 
 export interface WorkflowGridCell {
   step:
@@ -51,43 +164,25 @@ export interface WorkflowGridRow {
     ctaSuggestions: string[];
     editorNotes: string[];
     html: string;
+    reviewDocUrl?: string;
+    reviewDocProvider?: string;
   };
 }
 
-export async function getDashboardData() {
-  const prioritized = await agent.runDiscovery(
-    ["prepared meals", "healthy meal delivery", "chef-crafted meals"],
-    [
-      {
-        id: "pub_meal_delivery_basics",
-        title: "What Is Prepared Meal Delivery?",
-        primaryKeyword: "prepared meal delivery",
-        secondaryKeywords: ["meal delivery explained", "prepared meals"],
-        cluster: "prepared meal delivery",
-      },
-    ],
-  );
-  const draftPipeline = await agent.runDraftPipeline();
-  const monitorTasks = await agent.runMonitoring([
-    "https://www.cookunity.com/blog/healthy-prepared-meal-delivery-guide",
-  ]);
+async function getPrismaClient() {
+  const dbModule = await import("@cookunity-seo-agent/db");
+  return dbModule.prisma;
+}
 
-  const workflowRun = {
-    id: "workflow_run_mock_001",
-    orchestrator: "WorkflowOrchestrator",
-    state: "in_review",
-    approvalRequired: true,
-    currentTopic: draftPipeline.brief.primaryKeyword,
-  };
-
-  const agentControlRows = [
+function defaultAgentControlRows() {
+  return [
     {
       name: "keyword_discovery",
       responsibility: "Collect keyword opportunities from Ahrefs, GSC, Trends, and SERP-style discovery.",
       inputContract: "KeywordDiscoveryInput",
       outputContract: "KeywordDiscoveryOutput",
-      latestStatus: "completed",
-      latestRunAt: "2026-04-14T10:00:00.000Z",
+      latestStatus: "idle",
+      latestRunAt: "not yet run",
       retrySafe: true,
       promptIsolation: "keyword_cluster:v1",
     },
@@ -96,8 +191,8 @@ export async function getDashboardData() {
       responsibility: "Score, rank, and classify candidate topics with cannibalization-aware logic.",
       inputContract: "TopicPrioritizationInput",
       outputContract: "TopicPrioritizationOutput",
-      latestStatus: "completed",
-      latestRunAt: "2026-04-14T10:01:00.000Z",
+      latestStatus: "idle",
+      latestRunAt: "not yet run",
       retrySafe: true,
       promptIsolation: "topic_scoring:v1",
     },
@@ -106,8 +201,8 @@ export async function getDashboardData() {
       responsibility: "Generate SEO brief, title options, outline, FAQs, schema draft, and CTA recommendations.",
       inputContract: "ContentBriefAgentInput",
       outputContract: "ContentBriefAgentOutput",
-      latestStatus: "completed",
-      latestRunAt: "2026-04-14T10:03:00.000Z",
+      latestStatus: "idle",
+      latestRunAt: "not yet run",
       retrySafe: true,
       promptIsolation: "outline_generation:v1",
     },
@@ -116,8 +211,8 @@ export async function getDashboardData() {
       responsibility: "Generate article draft package with metadata, sections, HTML, and editorial checklist.",
       inputContract: "ArticleDraftingInput",
       outputContract: "ArticleDraftingOutput",
-      latestStatus: "completed",
-      latestRunAt: "2026-04-14T10:05:00.000Z",
+      latestStatus: "idle",
+      latestRunAt: "not yet run",
       retrySafe: true,
       promptIsolation: "article_draft:v1",
     },
@@ -126,8 +221,8 @@ export async function getDashboardData() {
       responsibility: "Apply brand, quality, banned-phrase, and YMYL-adjacent checks before human review.",
       inputContract: "EditorialQaInput",
       outputContract: "EditorialQaOutput",
-      latestStatus: draftPipeline.qa.passed ? "completed" : "flagged",
-      latestRunAt: "2026-04-14T10:06:00.000Z",
+      latestStatus: "idle",
+      latestRunAt: "not yet run",
       retrySafe: true,
       promptIsolation: "editorial_qa:v1",
     },
@@ -137,7 +232,7 @@ export async function getDashboardData() {
       inputContract: "PublishingAgentInput",
       outputContract: "PublishingAgentOutput",
       latestStatus: "waiting_for_approval",
-      latestRunAt: "2026-04-14T10:07:00.000Z",
+      latestRunAt: "not yet run",
       retrySafe: true,
       promptIsolation: "publishing_strapi:v1",
     },
@@ -146,59 +241,290 @@ export async function getDashboardData() {
       responsibility: "Monitor post-publish performance and create refresh tasks for the orchestrator.",
       inputContract: "PerformanceMonitoringInput",
       outputContract: "PerformanceMonitoringOutput",
-      latestStatus: monitorTasks.length > 0 ? "completed_with_recommendations" : "completed",
-      latestRunAt: "2026-04-14T10:08:00.000Z",
+      latestStatus: "idle",
+      latestRunAt: "not yet run",
       retrySafe: true,
       promptIsolation: "refresh_draft:v1",
     },
   ] as const;
+}
 
-  const orchestratorTimeline = [
-    {
-      at: "2026-04-14T10:00:00.000Z",
-      state: "discovered",
-      agent: "keyword_discovery",
-      summary: `Collected ${prioritized.length} candidate opportunities.`,
-    },
-    {
-      at: "2026-04-14T10:01:00.000Z",
-      state: "scored",
-      agent: "topic_prioritization",
-      summary: `Top recommendation: ${prioritized[0]?.keyword ?? "n/a"}.`,
-    },
-    {
-      at: "2026-04-14T10:03:00.000Z",
-      state: "outline_generated",
-      agent: "content_brief_outline",
-      summary: `Brief created for ${draftPipeline.brief.primaryKeyword}.`,
-    },
-    {
-      at: "2026-04-14T10:05:00.000Z",
-      state: "draft_generated",
-      agent: "article_drafting",
-      summary: `Draft ${draftPipeline.draft.id} generated with ${draftPipeline.draft.sections.length} sections.`,
-    },
-    {
-      at: "2026-04-14T10:06:00.000Z",
-      state: "in_review",
-      agent: "editorial_qa",
-      summary: draftPipeline.qa.flags.length
-        ? `QA flagged ${draftPipeline.qa.flags.length} issue(s).`
-        : "QA passed, but human review remains required.",
-    },
-  ];
+async function getPersistedOperationalData() {
+  if (!(await isDatabaseReady())) {
+    return null;
+  }
+
+  try {
+    const prisma = await getPrismaClient();
+    const [topics, recentAuditLogs, latestOptimization, latestPublished] = await Promise.all([
+      prisma.topicCandidate.findMany({
+        include: {
+          keyword: true,
+          briefs: { orderBy: { createdAt: "desc" }, take: 1 },
+          drafts: { orderBy: { createdAt: "desc" }, take: 1, include: { approvals: { orderBy: { createdAt: "desc" }, take: 1 } } },
+          publications: {
+            orderBy: { updatedAt: "desc" },
+            take: 1,
+            include: {
+              metricSnapshots: { orderBy: { capturedAt: "desc" }, take: 5 },
+              optimizationTasks: { orderBy: { createdAt: "desc" }, take: 5 },
+            },
+          },
+        },
+        orderBy: [{ totalScore: "desc" }, { updatedAt: "desc" }],
+        take: 100,
+      }),
+      prisma.auditLog.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      prisma.optimizationRecommendation.findFirst({
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.publication.findMany({
+        where: { status: "published" },
+        orderBy: { publishedAt: "desc" },
+        take: 20,
+        include: { topicCandidate: true },
+      }),
+    ]);
+
+    return { topics, recentAuditLogs, latestOptimization, latestPublished };
+  } catch {
+    return null;
+  }
+}
+
+export async function getDashboardData(): Promise<DashboardData> {
+  const config = getConfig();
+  const persisted = await getPersistedOperationalData();
+
+  if (persisted && persisted.topics.length > 0) {
+    const topTopic = persisted.topics[0]!;
+    const latestBriefJson = topTopic.briefs[0]?.briefJson as ContentBrief | undefined;
+    const latestDraftJson = topTopic.drafts[0]?.draftJson as Draft | undefined;
+    const latestApproval = topTopic.drafts[0]?.approvals[0];
+    const auditByAgent = new Map<string, (typeof persisted.recentAuditLogs)[number]>();
+    for (const event of persisted.recentAuditLogs) {
+      const [agent] = event.action.split(":");
+      if (agent && !auditByAgent.has(agent)) {
+        auditByAgent.set(agent, event);
+      }
+    }
+
+    const persistedTopics: DashboardTopicSummary[] = persisted.topics.map((topic) => ({
+      id: topic.id,
+      title: topic.title,
+      workflowState: topic.workflowState,
+      rationale: topic.rationale,
+      totalScore: topic.totalScore,
+      recommendation: topic.recommendation,
+      cannibalizationRisk: topic.cannibalizationRisk,
+      topicType: topic.topicType as DashboardTopicSummary["topicType"],
+      drafts: topic.drafts.map((draft) => {
+        const draftJson = draft.draftJson as Record<string, unknown>;
+        const latestDraftApproval = draft.approvals[0];
+
+        return {
+          id: draft.id,
+          ...(typeof draftJson.reviewDocUrl === "string" ? { reviewDocUrl: draftJson.reviewDocUrl } : {}),
+          ...(typeof draftJson.reviewDocProvider === "string" ? { reviewDocProvider: draftJson.reviewDocProvider } : {}),
+          ...(latestDraftApproval ? { approvalDecision: latestDraftApproval.decision } : {}),
+          ...(latestDraftApproval?.notes ? { approvalNotes: latestDraftApproval.notes } : {}),
+        };
+      }),
+      publications: topic.publications.map((publication) => ({
+        id: publication.id,
+        slug: publication.slug,
+        status: publication.status,
+        title: topic.title,
+        ...(publication.publishedAt ? { publishedAt: publication.publishedAt.toISOString() } : {}),
+        metricSnapshots: publication.metricSnapshots.map((snapshot) => ({
+          id: snapshot.id,
+          capturedAt: snapshot.capturedAt.toISOString(),
+          impressions: snapshot.impressions,
+          clicks: snapshot.clicks,
+          ctr: snapshot.ctr,
+          averagePosition: snapshot.averagePosition,
+          conversions: snapshot.conversions,
+        })),
+        optimizationTasks: publication.optimizationTasks.map((task) => ({
+          id: task.id,
+          type: task.type,
+          priority: task.priority,
+          reason: task.reason,
+          actions:
+            typeof task.recommendationJson === "object" &&
+            task.recommendationJson &&
+            "actions" in (task.recommendationJson as Record<string, unknown>) &&
+            Array.isArray((task.recommendationJson as Record<string, unknown>).actions)
+              ? ((task.recommendationJson as Record<string, unknown>).actions as string[])
+              : [],
+          createdAt: task.createdAt.toISOString(),
+        })),
+      })),
+    }));
+
+    const publishedInventory: DashboardPublicationSummary[] = persisted.latestPublished.map((publication) => ({
+      id: publication.id,
+      slug: publication.slug,
+      status: publication.status,
+      title: publication.topicCandidate.title,
+      ...(publication.publishedAt ? { publishedAt: publication.publishedAt.toISOString() } : {}),
+      metricSnapshots: [],
+      optimizationTasks: [],
+    }));
+
+    const optimizationTask =
+      persisted.latestOptimization
+        ? {
+            type: persisted.latestOptimization.type,
+            priority: persisted.latestOptimization.priority,
+            reason: persisted.latestOptimization.reason,
+            actions:
+              typeof persisted.latestOptimization.recommendationJson === "object" &&
+              persisted.latestOptimization.recommendationJson &&
+              "actions" in (persisted.latestOptimization.recommendationJson as Record<string, unknown>) &&
+              Array.isArray((persisted.latestOptimization.recommendationJson as Record<string, unknown>).actions)
+                ? ((persisted.latestOptimization.recommendationJson as Record<string, unknown>).actions as string[])
+                : [],
+          }
+        : {
+            type: mockOptimizationTask.type,
+            priority: mockOptimizationTask.priority,
+            reason: mockOptimizationTask.reason,
+            actions: mockOptimizationTask.actions,
+          };
+
+    return {
+      prioritized: persistedTopics.map((topic) => ({
+        keyword: topic.title,
+        totalScore: topic.totalScore,
+        explanation: topic.rationale,
+        recommendation: topic.recommendation,
+        cannibalizationRisk: topic.cannibalizationRisk,
+        topicType: topic.topicType,
+        breakdown:
+          ((persisted.topics.find((persistedTopic) => persistedTopic.id === topic.id)?.scoreBreakdownJson as Record<string, number> | undefined) ??
+            {}),
+      })),
+      queuedTopics: persistedTopics.map((topic) => ({
+        keyword: topic.title,
+        explanation: topic.rationale,
+      })),
+      brief: latestBriefJson ?? mockBrief,
+      draft: latestDraftJson ?? mockDraft,
+      qa: {
+        passed: topTopic.workflowState !== "revision_requested",
+        flags: latestApproval?.notes ? [latestApproval.notes] : [],
+        requiresHumanReview: true,
+        normalizedDraft: latestDraftJson ?? mockDraft,
+      },
+      optimizationTask,
+      workflowRun: {
+        id: `workflow_${topTopic.id}`,
+        orchestrator: "WorkflowOrchestrator",
+        state: topTopic.workflowState,
+        approvalRequired: true,
+        currentTopic: topTopic.title,
+      },
+      automationStatus: {
+        discoveryCron: config.DISCOVERY_CRON,
+        monitoringCron: config.MONITORING_CRON,
+        refreshCron: config.REFRESH_CRON,
+      },
+      integrations: [
+        { name: "Google Search Console", status: config.GSC_CLIENT_EMAIL ? "configured" : "missing credentials" },
+        { name: "Google Analytics 4", status: config.GA4_PROPERTY_ID ? "configured" : "missing property id" },
+        { name: "Google Docs Review", status: config.GOOGLE_DOCS_REVIEW_ENABLED ? "enabled" : "disabled" },
+        { name: "Strapi", status: config.STRAPI_API_TOKEN ? "configured" : "missing token" },
+        { name: "OpenAI Drafting", status: config.OPENAI_API_KEY ? "configured" : "missing api key" },
+      ],
+      agentControlRows: defaultAgentControlRows().map((row) => {
+        const latest = auditByAgent.get(row.name);
+        return {
+          ...row,
+          latestStatus: latest ? latest.action.split(":")[1] ?? "completed" : row.latestStatus,
+          latestRunAt: latest ? latest.createdAt.toISOString() : row.latestRunAt,
+        };
+      }),
+      orchestratorTimeline: persisted.recentAuditLogs
+        .slice()
+        .reverse()
+        .map((event) => {
+          const [agent, state = event.action] = event.action.split(":");
+          return {
+            at: event.createdAt.toISOString(),
+            state,
+            agent: agent ?? "system",
+            summary: `${event.entityType} ${event.entityId}`,
+          };
+        }),
+      agentNames,
+      publishedInventory,
+      persistedTopics,
+    };
+  }
 
   return {
-    prioritized,
+    prioritized: mockTopicCandidates.map((topic) => ({
+      keyword: topic.keyword,
+      totalScore: 78,
+      explanation: topic.explanation,
+      recommendation: topic.recommendation,
+      cannibalizationRisk: 12,
+      topicType: "new_article" as const,
+      breakdown: {
+        volumeScore: 70,
+        difficultyInverseScore: 68,
+        trendScore: 66,
+        businessRelevanceScore: 90,
+        conversionIntentScore: 84,
+        competitorGapScore: 65,
+        freshnessScore: 58,
+        clusterValueScore: 76,
+        authorityFitScore: 88,
+      },
+    })),
     queuedTopics: mockTopicCandidates,
-    brief: draftPipeline.brief ?? mockBrief,
-    draft: draftPipeline.draft ?? mockDraft,
-    qa: draftPipeline.qa,
-    optimizationTask: mockOptimizationTask,
-    workflowRun,
-    agentControlRows,
-    orchestratorTimeline,
+    brief: mockBrief,
+    draft: mockDraft,
+    qa: {
+      passed: true,
+      flags: [],
+      requiresHumanReview: true,
+      normalizedDraft: mockDraft,
+    },
+    optimizationTask: {
+      type: mockOptimizationTask.type,
+      priority: mockOptimizationTask.priority,
+      reason: mockOptimizationTask.reason,
+      actions: mockOptimizationTask.actions,
+    },
+    workflowRun: {
+      id: "workflow_run_mock_001",
+      orchestrator: "WorkflowOrchestrator",
+      state: "in_review",
+      approvalRequired: true,
+      currentTopic: mockBrief.primaryKeyword,
+    },
+    automationStatus: {
+      discoveryCron: config.DISCOVERY_CRON,
+      monitoringCron: config.MONITORING_CRON,
+      refreshCron: config.REFRESH_CRON,
+    },
+    integrations: [
+      { name: "Google Search Console", status: config.GSC_CLIENT_EMAIL ? "configured" : "missing credentials" },
+      { name: "Google Analytics 4", status: config.GA4_PROPERTY_ID ? "configured" : "missing property id" },
+      { name: "Google Docs Review", status: config.GOOGLE_DOCS_REVIEW_ENABLED ? "enabled" : "disabled" },
+      { name: "Strapi", status: config.STRAPI_API_TOKEN ? "configured" : "missing token" },
+      { name: "OpenAI Drafting", status: config.OPENAI_API_KEY ? "configured" : "missing api key" },
+    ],
+    agentControlRows: [...defaultAgentControlRows()],
+    orchestratorTimeline: [],
     agentNames,
+    publishedInventory: [],
+    persistedTopics: [],
   };
 }
 
@@ -295,6 +621,8 @@ function createMockReviewPackage(primaryKeyword: string): NonNullable<WorkflowGr
     ctaSuggestions: mockDraft.ctaSuggestions,
     editorNotes: mockDraft.editorNotes,
     html: mockDraft.html,
+    reviewDocUrl: `https://docs.mock.local/document/d/${slug}`,
+    reviewDocProvider: "mock",
   };
 }
 
@@ -319,6 +647,18 @@ export function buildReviewPackageFromRecords(args: {
     ctaSuggestions: args.draft.ctaSuggestions,
     editorNotes: args.draft.editorNotes,
     html: args.draft.html,
+    ...(typeof args.draft === "object" &&
+    args.draft &&
+    "reviewDocUrl" in (args.draft as Record<string, unknown>) &&
+    typeof (args.draft as Record<string, unknown>).reviewDocUrl === "string"
+      ? { reviewDocUrl: String((args.draft as Record<string, unknown>).reviewDocUrl) }
+      : {}),
+    ...(typeof args.draft === "object" &&
+    args.draft &&
+    "reviewDocProvider" in (args.draft as Record<string, unknown>) &&
+    typeof (args.draft as Record<string, unknown>).reviewDocProvider === "string"
+      ? { reviewDocProvider: String((args.draft as Record<string, unknown>).reviewDocProvider) }
+      : {}),
   };
 }
 

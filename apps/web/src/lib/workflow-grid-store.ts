@@ -4,6 +4,7 @@ import {
   EditorialQaAgent,
   InMemoryAuditRepository,
   KeywordDiscoveryAgent,
+  ReviewDocumentService,
   TopicPrioritizationAgent,
   WorkflowOrchestrator,
   withRetry,
@@ -12,6 +13,7 @@ import type { AuditRepository } from "@cookunity-seo-agent/core";
 import type { ContentBrief, Draft } from "@cookunity-seo-agent/shared";
 import { buildReviewPackageFromRecords } from "./data";
 import type { WorkflowGridCell, WorkflowGridRow } from "./data";
+import { getConfig } from "@cookunity-seo-agent/shared";
 type ApprovalDecision = "approve" | "request_revision" | "reject";
 type WorkflowState =
   | "discovered"
@@ -214,6 +216,7 @@ export async function runWorkflowForTopic(topicCandidateId: string) {
   const contentBriefOutlineAgent = new ContentBriefOutlineAgent();
   const articleDraftingAgent = new ArticleDraftingAgent();
   const editorialQaAgent = new EditorialQaAgent();
+  const reviewDocumentService = new ReviewDocumentService();
 
   try {
     const existingInventory = await getExistingInventory();
@@ -374,12 +377,24 @@ export async function runWorkflowForTopic(topicCandidateId: string) {
       3,
     );
 
+    const reviewDocument = await reviewDocumentService.createReviewDocument({
+      brief: briefEnvelope.output.brief,
+      draft: draftEnvelope.output.draft,
+      reviewerEmail: getConfig().ADMIN_EMAIL,
+    });
+    const enrichedDraft = {
+      ...draftEnvelope.output.draft,
+      reviewDocUrl: reviewDocument.url,
+      reviewDocProvider: reviewDocument.provider,
+      reviewDocId: reviewDocument.id,
+    };
+
     const draft = await prisma.draft.create({
       data: {
         topicCandidateId: topic.id,
         briefId: brief.id,
         promptVersionId: draftEnvelope.promptVersionId ?? null,
-        draftJson: toJsonInput(draftEnvelope.output.draft),
+        draftJson: toJsonInput(enrichedDraft),
         html: draftEnvelope.output.draft.html,
         markdown: JSON.stringify(draftEnvelope.output.draft.sections),
       },

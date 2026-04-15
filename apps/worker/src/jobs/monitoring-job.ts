@@ -1,13 +1,7 @@
-import { AutonomousSeoAgent } from "@cookunity-seo-agent/core";
-import { log } from "@cookunity-seo-agent/shared";
+import { OperationalWorkflowService, logOperationalResult } from "@cookunity-seo-agent/core";
 
 export async function runMonitoringJob(): Promise<void> {
-  const agent = new AutonomousSeoAgent();
-  const tasks = await agent.runMonitoring([
-    "https://www.cookunity.com/blog/healthy-prepared-meal-delivery-guide",
-  ]);
-  log("info", "Monitoring job finished", {
-    service: "worker.monitoring",
-    recommendationCount: tasks.length,
-  });
+  const workflow = new OperationalWorkflowService();
+  const result = await workflow.monitorAndPersist();
+  logOperationalResult("worker.monitoring", "Monitoring job finished", result);
 }

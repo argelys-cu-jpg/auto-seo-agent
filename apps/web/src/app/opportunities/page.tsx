@@ -31,6 +31,7 @@ export default async function OpportunitiesPage() {
             ))}
           </tbody>
         </table>
+        {data.prioritized.length === 0 ? <p style={{ marginBottom: 0 }}>No persisted opportunities yet. Run the worker discovery job.</p> : null}
       </Panel>
     </PageShell>
   );

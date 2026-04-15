@@ -18,6 +18,22 @@ export interface PerformanceRecord {
   conversions?: number;
 }
 
+export interface ReviewDocumentPayload {
+  title: string;
+  summary: string;
+  markdown: string;
+  html: string;
+  reviewerEmail?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ReviewDocumentRecord {
+  id: string;
+  title: string;
+  url: string;
+  provider: "google_docs" | "mock";
+}
+
 export interface StrapiArticlePayload {
   title: string;
   slug: string;
@@ -71,6 +87,11 @@ export interface SerpProvider {
 
 export interface AnalyticsProvider {
   fetchConversions(urls: string[]): Promise<Array<{ url: string; conversions: number }>>;
+}
+
+export interface ReviewDocumentProvider {
+  createDocument(payload: ReviewDocumentPayload): Promise<ReviewDocumentRecord>;
+  updateDocument(documentId: string, payload: ReviewDocumentPayload): Promise<ReviewDocumentRecord>;
 }
 
 export interface StrapiProvider {

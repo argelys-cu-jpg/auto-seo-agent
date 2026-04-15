@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 const nav = [
   { href: "/", label: "Overview" },
+  { href: "/inbox", label: "Operational Inbox" },
   { href: "/grid", label: "Workflow Grid" },
   { href: "/agents", label: "Agent Control" },
   { href: "/cropper", label: "Image Cropper" },

@@ -17,7 +17,7 @@ export class ArticleDraftingAgent extends BaseWorkflowAgent<
     input: ArticleDraftingInput,
     _context: AgentContext,
   ): Promise<ArticleDraftingOutput> {
-    const draft = this.service.generate(input.brief);
+    const draft = await this.service.generate(input.brief);
     return { draft };
   }
 }

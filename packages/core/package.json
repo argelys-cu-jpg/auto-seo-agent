@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@cookunity-seo-agent/db": "workspace:*",
     "@cookunity-seo-agent/integrations": "workspace:*",
     "@cookunity-seo-agent/prompts": "workspace:*",
     "@cookunity-seo-agent/shared": "workspace:*",
