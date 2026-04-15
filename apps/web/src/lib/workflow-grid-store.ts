@@ -9,6 +9,8 @@ import {
   withRetry,
 } from "@cookunity-seo-agent/core";
 import type { AuditRepository } from "@cookunity-seo-agent/core";
+import type { ContentBrief, Draft } from "@cookunity-seo-agent/shared";
+import { buildReviewPackageFromRecords } from "./data";
 import type { WorkflowGridCell, WorkflowGridRow } from "./data";
 type ApprovalDecision = "approve" | "request_revision" | "reject";
 type WorkflowState =
@@ -27,6 +29,20 @@ type WorkflowState =
 
 function toJsonInput(value: unknown) {
   return value as never;
+}
+
+function readContentBrief(value: unknown): ContentBrief | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  return value as ContentBrief;
+}
+
+function readDraft(value: unknown): Draft | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  return value as Draft;
 }
 
 async function getPrismaClient() {
@@ -458,6 +474,8 @@ export async function listPersistedWorkflowGridRows(): Promise<WorkflowGridRow[]
     const latestDraft = topic.drafts[0];
     const latestApproval = latestDraft?.approvals[0];
     const latestPublication = topic.publications[0];
+    const briefRecord = readContentBrief(latestBrief?.briefJson);
+    const draftRecord = readDraft(latestDraft?.draftJson);
 
     const cells: WorkflowGridCell[] = [
       {
@@ -565,6 +583,15 @@ export async function listPersistedWorkflowGridRows(): Promise<WorkflowGridRow[]
       searchVolume: topic.keyword?.searchVolume ? String(topic.keyword.searchVolume) : "",
       contentType: "Guide",
       cells,
+      ...(draftRecord
+        ? {
+            reviewPackage: buildReviewPackageFromRecords({
+              draft: draftRecord,
+              topicRationale: topic.rationale,
+              ...(briefRecord ? { brief: briefRecord } : {}),
+            }),
+          }
+        : {}),
     };
   });
 }

@@ -89,6 +89,8 @@ export default async function WorkflowGridPage({
                   <td style={{ padding: "14px 12px", borderTop: "1px solid #eadfce", verticalAlign: "top" }}>{row.searchVolume || "TBD"}</td>
                   {row.cells.map((cell) => {
                     const colors = statusColors(cell.status);
+                    const reviewPackage = row.reviewPackage;
+                    const isReviewCell = cell.step === "editorial_qa" && reviewPackage;
                     return (
                       <td key={`${row.id}-${cell.step}`} style={{ padding: "14px 12px", borderTop: "1px solid #eadfce", verticalAlign: "top" }}>
                         <div
@@ -115,6 +117,101 @@ export default async function WorkflowGridPage({
                           </span>
                           <div style={{ marginTop: 10, fontWeight: 700 }}>{cell.label}</div>
                           <p style={{ marginBottom: 0, fontSize: 14, lineHeight: 1.5, color: "#58685d" }}>{cell.detail}</p>
+                          {isReviewCell ? (
+                            <details style={{ marginTop: 12 }}>
+                              <summary style={{ cursor: "pointer", fontWeight: 700 }}>
+                                Open article preview
+                              </summary>
+                              <div
+                                style={{
+                                  marginTop: 12,
+                                  paddingTop: 12,
+                                  borderTop: "1px solid #eadfce",
+                                  display: "grid",
+                                  gap: 12,
+                                }}
+                              >
+                                <div style={{ fontSize: 13, lineHeight: 1.6, color: "#445247" }}>
+                                  <div><strong>Rationale:</strong> {reviewPackage.topicRationale}</div>
+                                  <div><strong>Keywords:</strong> {reviewPackage.targetKeywords.join(", ")}</div>
+                                  <div><strong>Metadata:</strong> {reviewPackage.titleTag} / {reviewPackage.metaDescription}</div>
+                                  <div><strong>Links:</strong> {reviewPackage.internalLinks.join(", ") || "None yet"}</div>
+                                  <div><strong>Schema:</strong> {reviewPackage.schema.join(", ")}</div>
+                                </div>
+
+                                <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+                                  <div><strong>H1:</strong> {reviewPackage.h1}</div>
+                                  <div><strong>Slug:</strong> {reviewPackage.slug}</div>
+                                  <div style={{ marginTop: 8 }}><strong>Intro:</strong></div>
+                                  <p style={{ marginTop: 6 }}>{reviewPackage.intro}</p>
+                                  {reviewPackage.sections.map((section) => (
+                                    <div key={`${row.id}-${section.heading}`} style={{ marginTop: 10 }}>
+                                      <div style={{ fontWeight: 700 }}>{`H${section.level}: ${section.heading}`}</div>
+                                      <p style={{ margin: "6px 0 0", color: "#58685d" }}>{section.body}</p>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+                                  <div><strong>FAQ copy</strong></div>
+                                  <ul style={{ paddingLeft: 18, margin: "8px 0" }}>
+                                    {reviewPackage.faq.map((item) => (
+                                      <li key={`${row.id}-${item.question}`}>
+                                        <strong>{item.question}</strong>: {item.answer}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  <div><strong>CTA:</strong> {reviewPackage.ctaSuggestions.join(", ")}</div>
+                                  <div style={{ marginTop: 6 }}><strong>Editor notes:</strong> {reviewPackage.editorNotes.join(" ")}</div>
+                                </div>
+
+                                <div style={{ fontSize: 13, lineHeight: 1.6 }}>
+                                  <div style={{ fontWeight: 700, marginBottom: 8 }}>Rendered preview</div>
+                                  <div
+                                    style={{
+                                      maxHeight: 320,
+                                      overflowY: "auto",
+                                      border: "1px solid #e2d7c7",
+                                      borderRadius: 10,
+                                      padding: 12,
+                                      background: "#fff",
+                                    }}
+                                    dangerouslySetInnerHTML={{ __html: reviewPackage.html }}
+                                  />
+                                </div>
+
+                                <div style={{ display: "grid", gap: 10 }}>
+                                  <form action={`/api/review/${reviewPackage.draftId}`} method="post">
+                                    <input type="hidden" name="decision" value="approve" />
+                                    <textarea
+                                      name="notes"
+                                      placeholder="Add review notes"
+                                      style={{ width: "100%", minHeight: 90, marginBottom: 8 }}
+                                    />
+                                    <button type="submit">Approve</button>
+                                  </form>
+                                  <form action={`/api/review/${reviewPackage.draftId}`} method="post">
+                                    <input type="hidden" name="decision" value="request_revision" />
+                                    <textarea
+                                      name="notes"
+                                      placeholder="What should change?"
+                                      style={{ width: "100%", minHeight: 90, marginBottom: 8 }}
+                                    />
+                                    <button type="submit">Request Revision</button>
+                                  </form>
+                                  <form action={`/api/review/${reviewPackage.draftId}`} method="post">
+                                    <input type="hidden" name="decision" value="reject" />
+                                    <textarea
+                                      name="notes"
+                                      placeholder="Why reject this article?"
+                                      style={{ width: "100%", minHeight: 90, marginBottom: 8 }}
+                                    />
+                                    <button type="submit">Reject</button>
+                                  </form>
+                                </div>
+                              </div>
+                            </details>
+                          ) : null}
                         </div>
                       </td>
                     );

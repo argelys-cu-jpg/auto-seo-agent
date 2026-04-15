@@ -1,5 +1,13 @@
 import { AutonomousSeoAgent } from "@cookunity-seo-agent/core";
-import { agentNames, mockBrief, mockDraft, mockOptimizationTask, mockTopicCandidates } from "@cookunity-seo-agent/shared";
+import {
+  agentNames,
+  mockBrief,
+  mockDraft,
+  mockOptimizationTask,
+  mockTopicCandidates,
+  type ContentBrief,
+  type Draft,
+} from "@cookunity-seo-agent/shared";
 import { safeListWorkflowGridRows } from "./workflow-grid-store";
 import { isDatabaseReady } from "./runtime";
 
@@ -27,6 +35,23 @@ export interface WorkflowGridRow {
   searchVolume: string;
   contentType: string;
   cells: WorkflowGridCell[];
+  reviewPackage?: {
+    draftId: string;
+    topicRationale: string;
+    targetKeywords: string[];
+    titleTag: string;
+    metaDescription: string;
+    internalLinks: string[];
+    schema: string[];
+    slug: string;
+    h1: string;
+    intro: string;
+    sections: Draft["sections"];
+    faq: Draft["faq"];
+    ctaSuggestions: string[];
+    editorNotes: string[];
+    html: string;
+  };
 }
 
 export async function getDashboardData() {
@@ -184,6 +209,7 @@ function buildGridRow(args: {
   searchVolume: string;
   contentType: string;
   publishStatus?: "waiting" | "published";
+  reviewPackage?: WorkflowGridRow["reviewPackage"];
 }): WorkflowGridRow {
   const published = args.publishStatus === "published";
   const normalizedId = args.primaryKeyword.toLowerCase().replace(/[^a-z0-9]+/g, "_");
@@ -195,6 +221,7 @@ function buildGridRow(args: {
     primaryKeyword: args.primaryKeyword,
     searchVolume: args.searchVolume,
     contentType: args.contentType,
+    ...(args.reviewPackage ? { reviewPackage: args.reviewPackage } : {}),
     cells: [
       {
         step: "keyword_discovery",
@@ -246,6 +273,55 @@ function buildGridRow(args: {
   };
 }
 
+function createMockReviewPackage(primaryKeyword: string): NonNullable<WorkflowGridRow["reviewPackage"]> {
+  const slug = primaryKeyword.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  return {
+    draftId: `${mockDraft.id}_${slug}`,
+    topicRationale:
+      "This topic aligns with high-intent prepared-meal discovery and supports CookUnity's chef-driven positioning.",
+    targetKeywords: [primaryKeyword, `${primaryKeyword} guide`, `best ${primaryKeyword}`],
+    titleTag: mockDraft.titleTagOptions[0] ?? `${primaryKeyword} | CookUnity`,
+    metaDescription:
+      mockDraft.metaDescriptionOptions[0] ??
+      `Learn what to look for in ${primaryKeyword} and how CookUnity compares.`,
+    internalLinks: mockBrief.recommendedInternalLinks.map((link) => link.anchorText),
+    schema: mockDraft.schemaSuggestions,
+    slug,
+    h1: primaryKeyword.replace(/\b\w/g, (character) => character.toUpperCase()),
+    intro: mockDraft.intro,
+    sections: mockDraft.sections,
+    faq: mockDraft.faq,
+    ctaSuggestions: mockDraft.ctaSuggestions,
+    editorNotes: mockDraft.editorNotes,
+    html: mockDraft.html,
+  };
+}
+
+export function buildReviewPackageFromRecords(args: {
+  draft: Draft;
+  brief?: ContentBrief;
+  topicRationale?: string | null;
+}): NonNullable<WorkflowGridRow["reviewPackage"]> {
+  return {
+    draftId: args.draft.id,
+    topicRationale: args.topicRationale ?? "Awaiting scored topic rationale.",
+    targetKeywords: args.draft.targetKeywords,
+    titleTag: args.draft.titleTagOptions[0] ?? args.draft.h1,
+    metaDescription: args.draft.metaDescriptionOptions[0] ?? "",
+    internalLinks: args.brief?.recommendedInternalLinks.map((link) => link.anchorText) ?? [],
+    schema: args.draft.schemaSuggestions,
+    slug: args.draft.slugRecommendation,
+    h1: args.draft.h1,
+    intro: args.draft.intro,
+    sections: args.draft.sections,
+    faq: args.draft.faq,
+    ctaSuggestions: args.draft.ctaSuggestions,
+    editorNotes: args.draft.editorNotes,
+    html: args.draft.html,
+  };
+}
+
 export async function getWorkflowGridData(keyword?: string) {
   const databaseReady = await isDatabaseReady();
   const persistedRows = databaseReady ? await safeListWorkflowGridRows() : null;
@@ -274,6 +350,7 @@ export async function getWorkflowGridData(keyword?: string) {
       searchVolume: "22200",
       contentType: "Guide",
       publishStatus: "published",
+      reviewPackage: createMockReviewPackage("Mexican cuisine"),
     }),
     buildGridRow({
       pillar: "Mexican",
@@ -282,6 +359,7 @@ export async function getWorkflowGridData(keyword?: string) {
       searchVolume: "",
       contentType: "Guide",
       publishStatus: "waiting",
+      reviewPackage: createMockReviewPackage("Mexican chefs"),
     }),
     buildGridRow({
       pillar: "Mexican",
@@ -290,6 +368,7 @@ export async function getWorkflowGridData(keyword?: string) {
       searchVolume: "",
       contentType: "Guide",
       publishStatus: "waiting",
+      reviewPackage: createMockReviewPackage("mexican foods"),
     }),
   ];
 
@@ -303,6 +382,7 @@ export async function getWorkflowGridData(keyword?: string) {
         searchVolume: "TBD",
         contentType: "Guide",
         publishStatus: "waiting",
+        reviewPackage: createMockReviewPackage(cleanedKeyword),
       }),
     );
   }
