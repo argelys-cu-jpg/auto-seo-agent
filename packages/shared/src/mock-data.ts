@@ -121,14 +121,34 @@ export const mockDraft: Draft = {
     "Healthy prepared meal delivery can save time, but not every service balances convenience, ingredient quality, and variety the same way.",
   sections: [
     {
+      heading: "Key takeaways",
+      level: 2,
+      body: "Readers comparing healthy prepared meal delivery options usually care most about ingredient quality, menu variety, convenience, and whether the service feels realistic for everyday use.",
+    },
+    {
       heading: "What healthy prepared meal delivery should actually offer",
       level: 2,
       body: "Readers need clear criteria: ingredient transparency, balanced portions, menu rotation, and realistic convenience.",
     },
     {
+      heading: "How services differ once you move past the marketing",
+      level: 2,
+      body: "The real differences usually come down to chef quality, flavor range, flexibility, delivery cadence, and freshness window rather than generic wellness language.",
+    },
+    {
+      heading: "What to compare before you order",
+      level: 2,
+      body: "A useful comparison set includes menu rotation, dietary filters, ordering flexibility, storage guidance, and whether the meals feel satisfying enough to replace regular cooking during the week.",
+    },
+    {
       heading: "Why chef-crafted meals change the experience",
       level: 2,
       body: "CookUnity can differentiate on culinary quality, menu diversity, and food discovery.",
+    },
+    {
+      heading: "Bottom line",
+      level: 2,
+      body: "The best option is the one that balances convenience with food quality and gives you enough variety to keep ordering practical over time.",
     },
   ],
   faq: [
@@ -143,7 +163,7 @@ export const mockDraft: Draft = {
   targetKeywords: ["healthy prepared meal delivery", "healthy meal delivery service"],
   competitorNotes: ["Competitors focus heavily on macros; CookUnity can lead with chef quality plus convenience."],
   revisionChecklist: ["Confirm meta title length", "Check internal link anchors", "Review YMYL phrasing"],
-  html: "<article><p>Healthy prepared meal delivery can save time...</p></article>",
+  html: "<article><h1>How to Choose a Healthy Prepared Meal Delivery Service</h1><p>Healthy prepared meal delivery can save time, but not every service balances convenience, ingredient quality, and variety the same way.</p><h2>Key takeaways</h2><p>Readers comparing healthy prepared meal delivery options usually care most about ingredient quality, menu variety, convenience, and whether the service feels realistic for everyday use.</p><h2>What healthy prepared meal delivery should actually offer</h2><p>Readers need clear criteria: ingredient transparency, balanced portions, menu rotation, and realistic convenience.</p><h2>How services differ once you move past the marketing</h2><p>The real differences usually come down to chef quality, flavor range, flexibility, delivery cadence, and freshness window rather than generic wellness language.</p><h2>What to compare before you order</h2><p>A useful comparison set includes menu rotation, dietary filters, ordering flexibility, storage guidance, and whether the meals feel satisfying enough to replace regular cooking during the week.</p><h2>Why chef-crafted meals change the experience</h2><p>CookUnity can differentiate on culinary quality, menu diversity, and food discovery.</p><h2>Bottom line</h2><p>The best option is the one that balances convenience with food quality and gives you enough variety to keep ordering practical over time.</p><h2>Frequently Asked Questions</h2><h3>Are healthy prepared meal delivery services good for busy schedules?</h3><p>They can be a strong fit when they reduce prep time without forcing you into repetitive menus.</p></article>",
   createdAt: "2026-03-18T10:00:00.000Z",
 };
 

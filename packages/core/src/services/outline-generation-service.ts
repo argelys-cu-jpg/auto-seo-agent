@@ -65,6 +65,20 @@ export class OutlineGenerationService {
         promptVersion: prompt.version,
         brandVoicePreview: brandVoice.slice(0, 160),
         recommendation: topic.recommendation,
+        recommendedOutline: [
+          `What to know before choosing ${topic.keyword}`,
+          `How ${topic.keyword} options differ in practice`,
+          `Who ${topic.keyword} is best for`,
+          `What to compare before you order`,
+          "Common mistakes and tradeoffs",
+          "How CookUnity fits the decision set",
+          "Frequently asked questions",
+        ],
+        articleShape: {
+          minimumH2Count: 6,
+          includeKeyTakeaways: true,
+          includeConclusion: true,
+        },
       },
     };
   }

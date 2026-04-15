@@ -38,7 +38,7 @@ export const promptTemplates: Record<string, PromptTemplate> = {
     version: "v1",
     system: "You draft high-quality SEO articles for CookUnity. No unsupported claims. No keyword stuffing.",
     userTemplate:
-      "Draft the article package using the brief below. Include title tags, meta descriptions, slug, H1, intro, body sections, FAQ, CTA guidance, schema suggestions, editor notes, competitor notes, and revision checklist.\n\n{{input}}\n\nBrand voice:\n{{brandVoice}}",
+      "Draft the article package using the brief below. Include title tags, meta descriptions, slug, H1, intro, 6-8 substantial H2 sections with optional H3 subsections where useful, FAQ, CTA guidance, schema suggestions, editor notes, competitor notes, and revision checklist. The structure should feel publishable for a real SEO blog article, not like a short placeholder draft.\n\n{{input}}\n\nBrand voice:\n{{brandVoice}}",
   },
   refreshDraft: {
     id: "refresh_draft",
