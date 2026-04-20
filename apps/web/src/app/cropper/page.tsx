@@ -3,7 +3,10 @@ import { PageShell } from "../../components/page-shell";
 
 export default function CropperPage() {
   return (
-    <PageShell title="CookUnity Image Cropper">
+    <PageShell
+      title="Image cropper"
+      description="A production utility for generating consistent 1200 x 600 assets from blog pages, markdown, or uploaded images."
+    >
       <ImageCropperTool />
     </PageShell>
   );

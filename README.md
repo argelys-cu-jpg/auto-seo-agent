@@ -1,68 +1,212 @@
-# CookUnity SEO Agent
+# CookUnity growth workflow platform
 
-Deployable multi-agent SEO workflow for CookUnity with:
-- Next.js dashboard on Vercel
-- Prisma + Postgres persistence
-- Strapi publishing adapter
-- separate worker process for background jobs
+Internal operator product for CookUnity organic growth. The system is designed to feel close to AirOps, but opinionated around CookUnity’s business model, brand rules, and review process.
 
-## What is production-ready now
+The main control surface is [`/grid`](/Users/argelysoriach/Documents/New%20project/apps/web/src/app/grid/page.tsx). Each row represents a growth opportunity. Each row runs through a fixed workflow:
 
-- `apps/web` can be deployed to Vercel
-- grid UI can run in:
-  - `database-backed` mode when Prisma + Postgres are available
-  - `mock fallback` mode when they are not
-- Strapi publishing is already abstracted behind a provider
-- worker is isolated from the web app and can be deployed separately
-- health check route exists at `/api/health`
+1. Discovery
+2. Prioritization
+3. Brief
+4. Draft
+5. QA
+6. Publish
 
-## Recommended production architecture
+The product goal is straightforward:
 
-- Vercel:
-  - `apps/web`
-- Hosted Postgres:
-  - Neon, Supabase, Railway Postgres, or RDS
-- Hosted Redis:
-  - Upstash or Redis Cloud
-- Worker host:
-  - Railway, Render, or Fly.io
-- Strapi:
-  - existing CookUnity CMS
+- give the team a keyword or page opportunity
+- run a high-quality workflow
+- review and revise step by step
+- publish only after approval
 
-Vercel should host the dashboard and API routes.
-The worker should run outside Vercel.
+## Two growth paths
 
-## Repo structure
+The product encodes two distinct paths. They are not interchangeable.
 
-- `apps/web`
-  - dashboard, workflow grid, review UI, API routes
-- `apps/worker`
-  - background jobs and scheduling
-- `packages/core`
-  - orchestrator, agents, scoring, publishing, monitoring
-- `packages/db`
-  - Prisma schema, migrations, seed, Prisma client
-- `packages/integrations`
-  - Strapi, Ahrefs, GSC, Trends, SERP, analytics adapters
-- `packages/prompts`
-  - prompt templates and brand voice files
-- `packages/shared`
-  - config, types, mock data, logger
+### Path 1: Blog → email capture → nurture → trial
 
-## Environment files
+- Blog is not treated as a direct conversion page
+- Blog output should move users into email capture and nurture
+- Success metric: capture rate
+- Typical outputs:
+  - blog briefs
+  - blog drafts
+  - gated assets
+  - bridge pages
 
-Local development:
-- `.env.example`
+### Path 2: Landing pages → direct trial
 
-Production:
-- `.env.production.example`
+- Landing pages are direct conversion surfaces
+- Success metric: checkout CVR
+- Typical outputs:
+  - SEO landing pages
+  - comparison pages
+  - cost pages
+  - menu-adjacent pages
 
-Prisma local migration env:
-- `packages/db/.env`
+This distinction affects:
 
-## Local setup
+- workflow routing
+- CTA generation
+- review labels
+- publishing expectations
+- operator language in the UI
 
-From the repo root:
+## Product model
+
+### `/grid`
+
+`/grid` is the operator control plane. It is no longer a thin row creator.
+
+Each row shows:
+
+- opportunity / keyword
+- intent
+- path
+- discovery
+- prioritization
+- brief
+- draft
+- QA
+- publish
+- actions
+
+Each row supports:
+
+- workflow execution
+- step-level review
+- revision requests
+- manual draft edits
+- step reruns
+- publish action
+- audit history
+
+Clicking a row opens a right-side detail panel with:
+
+- step outputs
+- latest step version
+- revision notes
+- audit log
+- publish history
+- operator controls
+
+## Workflow model
+
+The workflow is fixed on purpose. This repo does not implement a generic workflow builder.
+
+### Top-level entities
+
+- `Opportunity`
+  - durable row record in the grid
+- `WorkflowRun`
+  - a top-level execution for an opportunity
+- `WorkflowStepRun`
+  - one execution record per step, including reruns and versions
+
+### Output artifacts
+
+Artifacts remain persisted separately so the operator workflow can sit on top of content records instead of replacing them.
+
+- `ContentBrief`
+- `Outline`
+- `Draft`
+- `Publication`
+- `PublishResult`
+- `RevisionNote`
+- `AuditLog`
+
+### Step lifecycle
+
+Per-step statuses:
+
+- `not_started`
+- `running`
+- `completed`
+- `failed`
+- `needs_review`
+- `approved`
+
+Per-row statuses:
+
+- `idle`
+- `running`
+- `blocked`
+- `needs_review`
+- `approved`
+- `published`
+- `failed`
+
+## Architecture
+
+Monorepo layout:
+
+- [`apps/web`](/Users/argelysoriach/Documents/New%20project/apps/web)
+  - operator UI
+  - grid control plane
+  - review flows
+  - API routes
+- [`apps/worker`](/Users/argelysoriach/Documents/New%20project/apps/worker)
+  - scheduled jobs
+  - queue-backed opportunity step execution hooks
+- [`packages/core`](/Users/argelysoriach/Documents/New%20project/packages/core)
+  - workflow services
+  - agents
+  - publishing logic
+  - opportunity control-plane service
+- [`packages/db`](/Users/argelysoriach/Documents/New%20project/packages/db)
+  - Prisma schema
+  - migrations
+  - Prisma client
+- [`packages/integrations`](/Users/argelysoriach/Documents/New%20project/packages/integrations)
+  - Strapi
+  - GSC
+  - GA / analytics
+  - Google Docs review
+  - mock and live providers
+- [`packages/prompts`](/Users/argelysoriach/Documents/New%20project/packages/prompts)
+  - prompt templates
+  - CookUnity brand voice
+- [`packages/shared`](/Users/argelysoriach/Documents/New%20project/packages/shared)
+  - shared types
+  - config
+  - logging
+
+## What changed in this productized version
+
+### Grid control plane
+
+The grid now behaves like an operator workflow tool instead of a status preview.
+
+Implemented:
+
+- creation + execution in one place
+- step-level action endpoints
+- right-side detail panel
+- manual edit storage
+- revision notes
+- publish action from the row
+- audit trail surfaced in-grid
+
+### Durable workflow state
+
+New schema concepts added:
+
+- `Opportunity`
+- `WorkflowRun`
+- `WorkflowStepRun`
+- `RevisionNote`
+- `PublishResult`
+
+Migration:
+
+- [`202604200001_operator_control_plane`](/Users/argelysoriach/Documents/New%20project/packages/db/prisma/migrations/202604200001_operator_control_plane/migration.sql)
+
+### Worker alignment
+
+The worker can now support opportunity-level execution and single-step execution using the same service contract that powers the web actions.
+
+## Local development
+
+From repo root:
 
 ```bash
 cd "/Users/argelysoriach/Documents/New project"
@@ -73,152 +217,160 @@ pnpm db:migrate
 pnpm db:seed
 ```
 
-Run the app:
+Run the web app:
 
 ```bash
-ADMIN_EMAIL=reviewer@cookunity.local ADMIN_PASSWORD=change-me NEXT_PUBLIC_BASE_URL=http://127.0.0.1:3001 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/cookunity_seo_agent REDIS_URL=redis://localhost:6379 STRAPI_BASE_URL=https://cms.example.com pnpm --filter @cookunity-seo-agent/web dev --hostname 127.0.0.1 --port 3001
+ADMIN_EMAIL=reviewer@cookunity.local \
+ADMIN_PASSWORD=change-me \
+NEXT_PUBLIC_BASE_URL=http://127.0.0.1:3001 \
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/cookunity_seo_agent \
+REDIS_URL=redis://localhost:6379 \
+STRAPI_BASE_URL=https://cms.example.com \
+pnpm --filter @cookunity-seo-agent/web dev --hostname 127.0.0.1 --port 3001
 ```
 
-Open:
-- `http://127.0.0.1:3001`
-- `http://127.0.0.1:3001/grid`
-- `http://127.0.0.1:3001/agents`
-- `http://127.0.0.1:3001/api/health`
-
-## Vercel deployment
-
-### 1. Create managed infrastructure
-
-Provision:
-- Postgres
-- Redis
-
-### 2. Set Vercel project
-
-Import the repo into Vercel.
-
-Use these settings:
-- Framework preset: `Next.js`
-- Root directory: repo root or `apps/web`
-- Install command:
-```bash
-pnpm install --frozen-lockfile=false
-```
-- Build command:
-```bash
-pnpm --filter @cookunity-seo-agent/web build
-```
-
-`vercel.json` is already included at the repo root.
-
-### 3. Add production environment variables
-
-Use `.env.production.example` as the source of truth.
-
-Minimum required:
-- `NODE_ENV=production`
-- `APP_MODE=live`
-- `ADMIN_EMAIL`
-- `ADMIN_PASSWORD`
-- `NEXT_PUBLIC_BASE_URL`
-- `DATABASE_URL`
-- `REDIS_URL`
-- `STRAPI_BASE_URL`
-- `STRAPI_API_TOKEN`
-- `STRAPI_COLLECTION`
-- `STRAPI_DOCUMENT_ID_FIELD`
-- `STRAPI_ENTRY_ID_FIELD`
-- `STRAPI_FIELD_MAPPING_JSON`
-
-Recommended:
-- `OPENAI_API_KEY`
-- `AHREFS_API_KEY`
-- `SERP_API_KEY`
-- `GSC_CLIENT_EMAIL`
-- `GSC_PRIVATE_KEY`
-- `ANALYTICS_API_KEY`
-
-### 4. Run production migrations
-
-Do not use `prisma migrate dev` in production.
-
-Run:
-
-```bash
-pnpm db:deploy
-```
-
-You can run this from CI or a one-time release job.
-
-### 5. Verify health
-
-After deploy:
-- open `/api/health`
-- open `/grid`
-
-If the database is connected, the grid should show:
-- `database-backed`
-- `db connected`
-
-## Worker deployment
-
-The worker should not run on Vercel.
-
-Use:
-- Railway
-- Render
-- Fly.io
-
-Included:
-- `apps/worker/Dockerfile`
-
-Worker start command:
+Run the worker:
 
 ```bash
 pnpm --filter @cookunity-seo-agent/worker start:mock
 ```
 
-For real execution set:
-- `APP_MODE=live`
-- same DB / Redis / Strapi env vars as the web app
+## Main grid flows to test
 
-## Workflow grid behavior
+### 1. Create a row
 
-`/grid` is the main internal workflow surface.
+Go to `/grid` and create an opportunity with:
 
-When DB is available:
-- creating a row persists a `Keyword`
-- upserts a `TopicCandidate`
-- runs the orchestrated pipeline through:
-  - discovery
-  - prioritization
-  - brief generation
-  - drafting
-  - editorial QA
-- persists:
-  - `ContentBrief`
-  - `Outline`
-  - `Draft`
-  - `AuditLog`
-  - `JobRun`
+- keyword
+- path
+- type
+- optional page idea
+- optional competitor URL
 
-When DB is not available:
-- grid falls back to seeded mock rows
-- app remains usable for interface preview
+Expected result:
+
+- a durable `Opportunity` is created
+- workflow steps begin running
+- the row appears in the grid
+
+### 2. Run the workflow
+
+From the row action column:
+
+- click `Run workflow`
+
+Expected result:
+
+- discovery, prioritization, brief, draft, and QA run in order
+- row stops at review rather than auto-publishing
+
+### 3. Approve a step
+
+Open the row detail drawer.
+
+Expected result:
+
+- any step can be approved
+- approving QA moves the row to `approved`
+
+### 4. Request revision
+
+Open the row detail drawer and add a revision note for a step.
+
+Expected result:
+
+- `RevisionNote` is persisted
+- step status reflects review state
+- row becomes `blocked`
+
+### 5. Rerun a step
+
+From the step card:
+
+- click `Rerun step`
+
+Expected result:
+
+- a new `WorkflowStepRun` version is created
+- latest version becomes the active one shown in the UI
+
+### 6. Save a manual edit
+
+For `brief` or `draft`:
+
+- edit the JSON payload in the drawer
+- save manual edit
+
+Expected result:
+
+- manual output is stored separately on the step run
+- for draft edits, draft HTML is updated so publish uses the edited version
+
+### 7. Publish
+
+After QA approval:
+
+- click `Publish`
+
+Expected result:
+
+- publish uses the Strapi abstraction
+- publish metadata is stored
+- row becomes `published`
+
+## Deployment
+
+Recommended:
+
+- web: Vercel
+- database: Postgres
+- Redis: Upstash or Redis Cloud
+- worker: Railway / Render / Fly
+- CMS: Strapi
+
+Environment examples:
+
+- [.env.example](/Users/argelysoriach/Documents/New%20project/.env.example)
+- [.env.production.example](/Users/argelysoriach/Documents/New%20project/.env.production.example)
+
+Production migration:
+
+```bash
+DATABASE_URL="your-production-url" pnpm db:deploy
+```
+
+## Mock and live modes
+
+The system keeps a graceful fallback path.
+
+When DB or providers are unavailable:
+
+- `/grid` can still render mock rows
+- the UI remains usable for product preview
+
+When DB and providers are available:
+
+- rows become durable opportunities
+- step actions mutate real workflow state
+- publishing and review artifacts are persisted
 
 ## Current limitations
 
-- publish approval and publish actions are persisted, but the full grid still needs inline approve/publish controls
-- monitoring snapshots are not yet running as real scheduled production jobs by default
-- live provider implementations for some sources remain intentionally stubbed
-- worker scheduling still needs production queue hardening
+Still stubbed or partial:
 
-## Recommended next product step
+- live Google Trends enrichment
+- live SERP/PAA enrichment
+- deep version diff UI in the drawer
+- publish media/image workflow
+- richer manual editing UX than raw JSON / HTML payload editing
+- worker queue orchestration is present, but not yet the primary execution path for all web actions
 
-Implement inline grid actions:
-- approve
-- request revision
-- publish
-- rerun step
+## Recommended next milestone
 
-That will make `/grid` the real AirOps-style control surface instead of just the creation/status surface.
+Focus on operator quality, not more scaffolding:
+
+1. Move row actions fully onto the queue for background execution
+2. Add per-step diffing between step versions
+3. Add a richer draft editor instead of raw JSON editing
+4. Expand path-specific templates for blog vs landing pages
+5. Harden live provider onboarding for GSC, Docs, GA4, and Strapi

@@ -17,7 +17,7 @@ export class ContentBriefOutlineAgent extends BaseWorkflowAgent<
     input: ContentBriefAgentInput,
     _context: AgentContext,
   ): Promise<ContentBriefAgentOutput> {
-    const brief = this.service.generate({
+    const brief = await this.service.generate({
       id: input.topic.keyword.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
       keyword: input.topic.keyword,
       recommendation: input.topic.recommendation,

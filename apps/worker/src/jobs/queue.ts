@@ -10,9 +10,11 @@ const connection = new IORedis(config.REDIS_URL, {
 export const workflowQueue = new Queue("seo-workflow", { connection });
 
 export function createWorkflowWorker(
-  processor: Parameters<typeof Worker>[1],
+  processor: (job: { name: string; data: Record<string, unknown> }) => Promise<unknown>,
 ): Worker {
-  return new Worker("seo-workflow", processor, { connection });
+  return new Worker("seo-workflow", async (job) => processor(job as { name: string; data: Record<string, unknown> }), {
+    connection,
+  });
 }
 
 export function attachQueueEvents(worker: Worker): void {

@@ -19,10 +19,11 @@ export class PublishingService {
 
   private buildStrapiPayload(input: PublishInput, status: "draft" | "publish") {
     const excerpt = input.excerpt ?? input.draft.metaDescriptionOptions[0];
+    const publishPackage = input.draft.publishPackage;
 
     return {
       title: input.draft.h1,
-      slug: input.draft.slugRecommendation,
+      slug: publishPackage?.slug ?? input.draft.slugRecommendation,
       ...(excerpt ? { excerpt } : {}),
       body: input.draft.html,
       metaTitle: input.draft.titleTagOptions[0] ?? input.draft.h1,
@@ -33,6 +34,12 @@ export class PublishingService {
       ...(input.featuredImage ? { featuredImage: input.featuredImage } : {}),
       schemaJson: {
         types: input.draft.schemaSuggestions,
+        ...(publishPackage
+          ? {
+              blocks: publishPackage.blocks,
+              mealCarouselInsertions: publishPackage.mealCarouselInsertions,
+            }
+          : {}),
       },
       status,
     };

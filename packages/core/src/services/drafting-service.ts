@@ -1,4 +1,4 @@
-import { getConfig } from "@cookunity-seo-agent/shared";
+import { getConfig, type OutlinePackage } from "@cookunity-seo-agent/shared";
 import { loadBrandVoice, promptTemplates } from "@cookunity-seo-agent/prompts";
 import type { ContentBrief, Draft } from "@cookunity-seo-agent/shared";
 
@@ -22,8 +22,12 @@ export class DraftingService {
     promptId: string,
     promptVersion: string,
   ): Draft {
-    const title = brief.titleOptions[0] ?? brief.primaryKeyword;
-    const slug = brief.primaryKeyword.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const outlinePackage = this.readOutlinePackage(brief);
+    const title = outlinePackage?.selectedTitle ?? brief.titleOptions[0] ?? brief.primaryKeyword;
+    const slug =
+      outlinePackage?.selectedSlug ??
+      brief.primaryKeyword.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const keyTakeaways = this.buildKeyTakeaways(brief, outlinePackage);
     const sections = this.buildFallbackSections(brief);
     const faq = brief.faqCandidates.map((question) => ({
       question,
@@ -34,6 +38,7 @@ export class DraftingService {
       title,
       intro:
         "If you're evaluating prepared meal options, the right choice usually comes down to quality, convenience, variety, and whether the service feels realistic for your week.",
+      keyTakeaways,
       brief,
       sections,
       faq,
@@ -52,6 +57,7 @@ export class DraftingService {
       h1: title,
       intro:
         "If you're evaluating prepared meal options, the right choice usually comes down to quality, convenience, variety, and whether the service feels realistic for your week.",
+      keyTakeaways,
       sections,
       faq,
       schemaSuggestions: ["Article", "FAQPage"],
@@ -69,6 +75,8 @@ export class DraftingService {
         "Confirm FAQ is non-duplicative",
         "Check internal links against published inventory",
       ],
+      imagePlan: this.buildImagePlan(title, sections),
+      publishPackage: this.buildPublishPackage(title, slug, brief, html),
       html,
       createdAt: new Date().toISOString(),
     };
@@ -153,7 +161,16 @@ export class DraftingService {
           answer: item.answer ?? "",
         })) ?? [];
       const intro = parsed.intro ?? brief.intentSummary;
-      const h1 = parsed.h1 ?? brief.titleOptions[0] ?? brief.primaryKeyword;
+      const outlinePackage = this.readOutlinePackage(brief);
+      const h1 = parsed.h1 ?? outlinePackage?.selectedTitle ?? brief.titleOptions[0] ?? brief.primaryKeyword;
+      const keyTakeaways = this.buildKeyTakeaways(brief, outlinePackage);
+      const html = parsed.html?.includes("<h2>")
+        ? parsed.html
+        : this.composeHtml({ title: h1, intro, keyTakeaways, brief, sections, faq });
+      const slugRecommendation =
+        parsed.slugRecommendation ??
+        outlinePackage?.selectedSlug ??
+        brief.primaryKeyword.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
       return {
         id: `draft_${brief.topicId}`,
@@ -165,11 +182,10 @@ export class DraftingService {
           parsed.metaDescriptionOptions?.length
             ? parsed.metaDescriptionOptions
             : [`Explore ${brief.primaryKeyword} with chef-driven perspective from CookUnity.`.slice(0, 155)],
-        slugRecommendation:
-          parsed.slugRecommendation ??
-          brief.primaryKeyword.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+        slugRecommendation,
         h1,
         intro,
+        keyTakeaways,
         sections,
         faq,
         schemaSuggestions: parsed.schemaSuggestions?.length ? parsed.schemaSuggestions : ["Article", "FAQPage"],
@@ -181,7 +197,9 @@ export class DraftingService {
           parsed.revisionChecklist?.length
             ? parsed.revisionChecklist
             : ["Fact-check claims", "Review tone against CookUnity brand voice", "Confirm internal links"],
-        html: parsed.html?.includes("<h2>") ? parsed.html : this.composeHtml({ title: h1, intro, brief, sections, faq }),
+        imagePlan: this.buildImagePlan(h1, sections),
+        publishPackage: this.buildPublishPackage(h1, slugRecommendation, brief, html),
+        html,
         createdAt: new Date().toISOString(),
       };
     } catch {
@@ -266,9 +284,47 @@ export class DraftingService {
     return cleaned;
   }
 
+  private buildKeyTakeaways(brief: ContentBrief, outlinePackage: OutlinePackage | null): string[] {
+    const seoOpportunity = outlinePackage?.analysis.seoOpportunities[0];
+    return [
+      `Use ${brief.primaryKeyword} as the primary decision frame throughout the article.`,
+      ...(seoOpportunity ? [seoOpportunity] : []),
+      ...(brief.recommendedInternalLinks[0] ? [`Link early to ${brief.recommendedInternalLinks[0].anchorText}.`] : []),
+      ...(brief.ctaRecommendations[0] ? [`Close with a CTA aligned to "${brief.ctaRecommendations[0]}".`] : []),
+    ].slice(0, 4);
+  }
+
+  private buildImagePlan(title: string, sections: Draft["sections"]) {
+    return {
+      headerImageTerm: title.toLowerCase().replace(/[^a-z0-9\s]+/g, "").trim(),
+      sectionImages: sections
+        .filter((section) => section.level >= 2)
+        .map((section) => ({
+          header: section.heading,
+          searchTerm: section.heading.toLowerCase().replace(/[^a-z0-9\s]+/g, "").trim(),
+        })),
+    };
+  }
+
+  private buildPublishPackage(title: string, slug: string, brief: ContentBrief, html: string) {
+    const blocks = [
+      {
+        __component: "shared.rich-text",
+        body: html,
+      },
+    ];
+    return {
+      slug,
+      description: brief.intentSummary,
+      blocks,
+      mealCarouselInsertions: 2,
+    };
+  }
+
   private composeHtml(args: {
     title: string;
     intro: string;
+    keyTakeaways?: string[];
     brief: ContentBrief;
     sections: Draft["sections"];
     faq: Draft["faq"];
@@ -281,6 +337,14 @@ export class DraftingService {
       "<article>",
       `<h1>${this.escapeHtml(args.title)}</h1>`,
       `<p>${this.escapeHtml(args.intro)}</p>`,
+      ...(args.keyTakeaways?.length
+        ? [
+            "<h2>Key takeaways</h2>",
+            "<ul>",
+            ...args.keyTakeaways.map((item) => `<li>${this.escapeHtml(item)}</li>`),
+            "</ul>",
+          ]
+        : []),
       ...args.sections.map((section) => {
         const tag = section.level >= 3 ? "h3" : "h2";
         return `<${tag}>${this.escapeHtml(section.heading)}</${tag}><p>${this.escapeHtml(section.body)}</p>`;
@@ -303,5 +367,16 @@ export class DraftingService {
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#39;");
+  }
+
+  private readOutlinePackage(brief: ContentBrief): OutlinePackage | null {
+    if (!brief.briefJson || typeof brief.briefJson !== "object") {
+      return null;
+    }
+    const outlinePackage = (brief.briefJson as Record<string, unknown>).outlinePackage;
+    if (!outlinePackage || typeof outlinePackage !== "object") {
+      return null;
+    }
+    return outlinePackage as OutlinePackage;
   }
 }

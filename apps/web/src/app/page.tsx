@@ -1,7 +1,7 @@
-import { getDashboardData } from "../lib/data";
-import { Panel, Badge, MetricCard } from "../components/cards";
-import { PageShell } from "../components/page-shell";
 import Link from "next/link";
+
+import { PageShell } from "../components/page-shell";
+import { getDashboardData } from "../lib/data";
 
 export default async function HomePage() {
   const data = await getDashboardData();
@@ -12,122 +12,139 @@ export default async function HomePage() {
   const refreshCount = data.persistedTopics.filter((topic) => topic.workflowState === "refresh_recommended").length;
 
   return (
-    <PageShell title="Autonomous SEO Operations">
-      <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(4, minmax(0, 1fr))", marginBottom: 18 }}>
-        <MetricCard label="App Model" value="Single App" detail="All agents run inside one governed product surface." />
-        <MetricCard label="Orchestrator" value={data.workflowRun.orchestrator} detail={`State: ${data.workflowRun.state}`} />
-        <MetricCard label="Internal Agents" value={data.agentControlRows.length} detail="Specialized, prompt-isolated, retry-safe." />
-        <MetricCard label="Pending Review" value={pendingReviewCount} detail={`${approvedCount} approved • ${refreshCount} refresh tasks`} />
-      </div>
-      <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(12, minmax(0, 1fr))" }}>
-        <div style={{ gridColumn: "span 8" }}>
-          <Panel title="Operational Inbox Snapshot">
-            <div style={{ display: "grid", gap: 12 }}>
-              {data.persistedTopics.slice(0, 5).map((topic) => (
-                <div key={topic.id} style={{ borderTop: "1px solid #eee3d2", paddingTop: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <strong>{topic.title}</strong>
-                    <Badge>{topic.workflowState}</Badge>
-                  </div>
-                  <div style={{ fontSize: 14, color: "#4f5d53", marginTop: 6 }}>
-                    Score {topic.totalScore} • Recommendation {topic.recommendation} • Cannibalization risk {topic.cannibalizationRisk}
-                  </div>
-                  <p style={{ marginBottom: 0 }}>{topic.rationale}</p>
-                </div>
-              ))}
-              {data.persistedTopics.length === 0 ? <p style={{ marginBottom: 0 }}>No persisted topics yet. Run discovery from the worker.</p> : null}
-            </div>
-          </Panel>
+    <PageShell
+      title="Operations overview"
+      description="One product surface for opportunity intake, workflow control, human review, publishing, and refresh work."
+      actions={
+        <>
+          <Link href="/grid" className="app-button is-primary">
+            Open workflow grid
+          </Link>
+          <Link href="/inbox" className="app-button">
+            Open inbox
+          </Link>
+        </>
+      }
+    >
+      <section className="app-stat-grid">
+        <div className="app-stat">
+          <div className="app-stat-label">Workflow model</div>
+          <div className="app-stat-value">Single app</div>
+          <div className="app-stat-detail">All operators, workflows, and review gates live in one governed surface.</div>
         </div>
-        <div style={{ gridColumn: "span 4", display: "grid", gap: 18 }}>
-          <Panel title="Ops Inbox">
-            <p style={{ marginTop: 0 }}>
-              Review live queues for discovery, Docs review, approved drafts, and refresh work from a single operational inbox.
-            </p>
-            <Link
-              href="/inbox"
-              style={{
-                display: "inline-flex",
-                padding: "10px 14px",
-                borderRadius: 999,
-                background: "#203a2d",
-                color: "#fffaf2",
-                textDecoration: "none",
-                fontWeight: 700,
-              }}
-            >
-              Open Operational Inbox
-            </Link>
-          </Panel>
-          <Panel title="Agent Control">
-            <p style={{ marginTop: 0 }}>
-              All seven agents work from the same app and the same orchestrator-controlled workflow.
-            </p>
-            <Link
-              href="/agents"
-              style={{
-                display: "inline-flex",
-                padding: "10px 14px",
-                borderRadius: 999,
-                background: "#203a2d",
-                color: "#fffaf2",
-                textDecoration: "none",
-                fontWeight: 700,
-              }}
-            >
-              Open Agent Control Center
-            </Link>
-          </Panel>
-          <Panel title="Image Cropper">
-            <p style={{ marginTop: 0 }}>
-              Upload any image and export a 1200 x 600 asset with a center-first smart crop for CookUnity creative.
-            </p>
-            <Link
-              href="/cropper"
-              style={{
-                display: "inline-flex",
-                padding: "10px 14px",
-                borderRadius: 999,
-                background: "#203a2d",
-                color: "#fffaf2",
-                textDecoration: "none",
-                fontWeight: 700,
-              }}
-            >
-              Open Cropper
-            </Link>
-          </Panel>
-          <Panel title="Review Gate">
-            <p style={{ marginTop: 0 }}>
-              The system can discover, score, outline, draft, monitor, and recommend refreshes automatically.
-            </p>
-            <p style={{ marginBottom: 0, fontWeight: 700 }}>Publishing remains blocked until a reviewer approves.</p>
-          </Panel>
-          <Panel title="Continuous Ops">
-            <p style={{ marginTop: 0, marginBottom: 8 }}>
-              Discovery: <strong>{data.automationStatus.discoveryCron}</strong>
-            </p>
-            <p style={{ margin: "0 0 8px" }}>
-              Monitoring: <strong>{data.automationStatus.monitoringCron}</strong>
-            </p>
-            <p style={{ margin: "0 0 12px" }}>
-              Refresh: <strong>{data.automationStatus.refreshCron}</strong>
-            </p>
-            <div style={{ display: "grid", gap: 6, fontSize: 14 }}>
-              {data.integrations.map((integration) => (
-                <div key={integration.name}>
-                  <strong>{integration.name}:</strong> {integration.status}
-                </div>
-              ))}
-            </div>
-          </Panel>
-          <Panel title="Current Draft">
-            <div style={{ fontWeight: 700 }}>{data.draft.h1}</div>
-            <p>{data.draft.metaDescriptionOptions[0]}</p>
-            <Badge>in_review</Badge>
-          </Panel>
+        <div className="app-stat">
+          <div className="app-stat-label">Orchestrator</div>
+          <div className="app-stat-value">{data.workflowRun.orchestrator}</div>
+          <div className="app-stat-detail">State: {data.workflowRun.state}</div>
         </div>
-      </div>
+        <div className="app-stat">
+          <div className="app-stat-label">Internal agents</div>
+          <div className="app-stat-value">{data.agentControlRows.length}</div>
+          <div className="app-stat-detail">Prompt-isolated, retry-safe, review-gated.</div>
+        </div>
+        <div className="app-stat">
+          <div className="app-stat-label">Review queue</div>
+          <div className="app-stat-value">{pendingReviewCount}</div>
+          <div className="app-stat-detail">{approvedCount} approved • {refreshCount} refresh tasks</div>
+        </div>
+      </section>
+
+      <section className="app-grid-sidebar">
+        <div className="app-section">
+          <div className="app-card">
+            <div className="app-card-head">
+              <div className="app-card-title">Operational queue</div>
+              <div className="app-card-meta">Persisted workflow state</div>
+            </div>
+            <div className="app-card-body">
+              <div className="app-list">
+                {data.persistedTopics.slice(0, 6).map((topic) => (
+                  <div key={topic.id} className="app-list-item">
+                    <div className="app-list-title">
+                      <span>{topic.title}</span>
+                      <span className="app-badge">{topic.workflowState}</span>
+                    </div>
+                    <div className="app-list-meta">
+                      Score {topic.totalScore} • {topic.recommendation} • Cannibalization {topic.cannibalizationRisk}
+                    </div>
+                    <div className="app-muted">{topic.rationale}</div>
+                  </div>
+                ))}
+                {data.persistedTopics.length === 0 ? (
+                  <div className="app-muted">No persisted topics yet. Run discovery from the worker.</div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="app-card">
+            <div className="app-card-head">
+              <div className="app-card-title">Live system status</div>
+              <div className="app-card-meta">Automation and integrations</div>
+            </div>
+            <div className="app-card-body app-grid-2">
+              <div className="app-stack">
+                <div className="app-muted">Discovery cadence</div>
+                <div>{data.automationStatus.discoveryCron}</div>
+              </div>
+              <div className="app-stack">
+                <div className="app-muted">Monitoring cadence</div>
+                <div>{data.automationStatus.monitoringCron}</div>
+              </div>
+              <div className="app-stack">
+                <div className="app-muted">Refresh cadence</div>
+                <div>{data.automationStatus.refreshCron}</div>
+              </div>
+              <div className="app-stack">
+                <div className="app-muted">Publish gate</div>
+                <div>Manual approval required</div>
+              </div>
+            </div>
+            <div className="app-card-body" style={{ borderTop: "1px solid #eef2f6" }}>
+              <div className="app-list">
+                {data.integrations.map((integration) => (
+                  <div key={integration.name} className="app-list-item">
+                    <div className="app-list-title">
+                      <span>{integration.name}</span>
+                      <span className={`app-badge${integration.status === "connected" ? " is-success" : ""}`}>{integration.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="app-stack">
+          <div className="app-card">
+            <div className="app-card-head">
+              <div className="app-card-title">Operator workspaces</div>
+            </div>
+            <div className="app-card-body app-stack">
+              <Link href="/grid" className="app-inline-link">Workflow grid</Link>
+              <Link href="/review" className="app-inline-link">Human review</Link>
+              <Link href="/published" className="app-inline-link">Published inventory</Link>
+              <Link href="/monitoring" className="app-inline-link">Monitoring</Link>
+              <Link href="/recommendations" className="app-inline-link">Refresh tasks</Link>
+            </div>
+          </div>
+
+          <div className="app-card">
+            <div className="app-card-head">
+              <div className="app-card-title">Current draft</div>
+              <div className="app-card-meta">In review</div>
+            </div>
+            <div className="app-card-body app-stack">
+              <div style={{ fontWeight: 600 }}>{data.draft.h1}</div>
+              <div className="app-muted">{data.draft.metaDescriptionOptions[0]}</div>
+              <div>
+                <span className="app-badge is-warning">in_review</span>
+              </div>
+              <Link href="/review" className="app-inline-link">Open review package</Link>
+            </div>
+          </div>
+        </div>
+      </section>
     </PageShell>
   );
 }

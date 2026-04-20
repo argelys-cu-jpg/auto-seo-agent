@@ -1,38 +1,56 @@
 import Link from "next/link";
+
 import { PageShell } from "../../components/page-shell";
-import { Panel, Badge } from "../../components/cards";
 import { getDashboardData } from "../../lib/data";
 
 export default async function OpportunitiesPage() {
   const data = await getDashboardData();
 
   return (
-    <PageShell title="Opportunity Queue">
-      <Panel title="Ranked Backlog">
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left" }}>
-              <th>Keyword</th>
-              <th>Score</th>
-              <th>Recommendation</th>
-              <th>Topic Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.prioritized.map((topic) => (
-              <tr key={topic.keyword} style={{ borderTop: "1px solid #eadfce" }}>
-                <td style={{ padding: "12px 0" }}>
-                  <Link href={`/topics/${encodeURIComponent(topic.keyword)}`}>{topic.keyword}</Link>
-                </td>
-                <td>{topic.totalScore}</td>
-                <td><Badge>{topic.recommendation}</Badge></td>
-                <td>{topic.topicType}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {data.prioritized.length === 0 ? <p style={{ marginBottom: 0 }}>No persisted opportunities yet. Run the worker discovery job.</p> : null}
-      </Panel>
+    <PageShell
+      title="Opportunity queue"
+      description="Scored backlog of topics and page opportunities before they move into active workflow runs."
+      actions={<Link href="/grid" className="app-button is-primary">Move to grid</Link>}
+    >
+      <section className="app-card">
+        <div className="app-card-head">
+          <div className="app-card-title">Ranked backlog</div>
+          <div className="app-card-meta">{data.prioritized.length} opportunities</div>
+        </div>
+        <div className="app-card-body">
+          <div className="app-table-shell">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Keyword</th>
+                  <th>Score</th>
+                  <th>Recommendation</th>
+                  <th>Topic type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.prioritized.map((topic) => (
+                  <tr key={topic.keyword}>
+                    <td>
+                      <Link href={`/topics/${encodeURIComponent(topic.keyword)}`} className="app-inline-link">
+                        {topic.keyword}
+                      </Link>
+                    </td>
+                    <td>{topic.totalScore}</td>
+                    <td><span className="app-badge">{topic.recommendation}</span></td>
+                    <td>{topic.topicType}</td>
+                  </tr>
+                ))}
+                {data.prioritized.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="app-muted">No persisted opportunities yet. Run the worker discovery job.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </PageShell>
   );
 }

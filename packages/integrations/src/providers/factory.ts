@@ -7,6 +7,7 @@ import {
   MockSerpProvider,
   MockStrapiProvider,
   MockTrendsProvider,
+  MockWorkflowResearchProvider,
 } from "../mock/providers";
 import {
   LiveAhrefsProvider,
@@ -16,6 +17,7 @@ import {
   LiveSerpProvider,
   LiveStrapiProvider,
   LiveTrendsProvider,
+  LiveWorkflowResearchProvider,
 } from "../live/providers";
 import type {
   AhrefsProvider,
@@ -25,6 +27,7 @@ import type {
   SerpProvider,
   StrapiProvider,
   TrendsProvider,
+  WorkflowResearchProvider,
 } from "./types";
 
 export interface ProviderBundle {
@@ -34,6 +37,7 @@ export interface ProviderBundle {
   serp: SerpProvider;
   analytics: AnalyticsProvider;
   reviewDocuments: ReviewDocumentProvider;
+  workflowResearch: WorkflowResearchProvider;
   strapi: StrapiProvider;
 }
 
@@ -47,6 +51,7 @@ export function createProviders(): ProviderBundle {
       serp: new MockSerpProvider(),
       analytics: new MockAnalyticsProvider(),
       reviewDocuments: new MockReviewDocumentProvider(),
+      workflowResearch: new MockWorkflowResearchProvider(),
       strapi: new MockStrapiProvider(),
     };
   }
@@ -58,6 +63,7 @@ export function createProviders(): ProviderBundle {
     serp: new LiveSerpProvider(),
     analytics: new LiveAnalyticsProvider(),
     reviewDocuments: new LiveReviewDocumentProvider(),
+    workflowResearch: new LiveWorkflowResearchProvider(),
     strapi: new LiveStrapiProvider(),
   };
 }

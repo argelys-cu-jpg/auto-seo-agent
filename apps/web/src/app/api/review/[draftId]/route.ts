@@ -20,7 +20,10 @@ export async function POST(
     return NextResponse.json({
       success: true,
       draftId: params.draftId,
-      approvalId: approval.id,
+      approvalId:
+        approval && typeof approval === "object" && "id" in approval && typeof approval.id === "string"
+          ? approval.id
+          : null,
       message: "Review action persisted to Prisma.",
     });
   } catch (error) {

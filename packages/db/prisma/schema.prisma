@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "client"
 }
 
 datasource db {
@@ -45,6 +46,46 @@ enum PublicationStatus {
   sync_error
 }
 
+enum OpportunityPath {
+  blog
+  landing_page
+}
+
+enum OpportunityType {
+  keyword
+  page_idea
+  competitor_page
+  lp_optimization
+}
+
+enum RowStatus {
+  idle
+  running
+  blocked
+  needs_review
+  approved
+  published
+  failed
+}
+
+enum WorkflowStepName {
+  discovery
+  prioritization
+  brief
+  draft
+  qa
+  publish
+}
+
+enum WorkflowStepStatus {
+  not_started
+  running
+  completed
+  failed
+  needs_review
+  approved
+}
+
 model Keyword {
   id              String   @id @default(cuid())
   term            String
@@ -82,6 +123,7 @@ model TopicCandidate {
   publications          Publication[]
   optimizationTasks     OptimizationRecommendation[]
   clusterMemberships    ContentClusterMember[]
+  opportunities         Opportunity[]
 }
 
 model ContentBrief {
@@ -151,6 +193,97 @@ model Publication {
   updatedAt        DateTime          @updatedAt
   metricSnapshots  MetricSnapshot[]
   optimizationTasks OptimizationRecommendation[]
+  publishResults   PublishResult[]
+}
+
+model Opportunity {
+  id                  String         @id @default(cuid())
+  keyword             String
+  normalizedKeyword   String         @unique
+  pageIdea            String?
+  competitorPageUrl   String?
+  intent              String
+  path                OpportunityPath
+  type                OpportunityType @default(keyword)
+  rowStatus           RowStatus      @default(idle)
+  lastError           String?
+  topicCandidateId    String?
+  topicCandidate      TopicCandidate? @relation(fields: [topicCandidateId], references: [id])
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  workflowRuns        WorkflowRun[]
+  stepRuns            WorkflowStepRun[]
+  revisionNotes       RevisionNote[]
+  publishResults      PublishResult[]
+}
+
+model WorkflowRun {
+  id                  String       @id @default(cuid())
+  opportunityId       String
+  opportunity         Opportunity  @relation(fields: [opportunityId], references: [id])
+  status              RowStatus    @default(idle)
+  trigger             String
+  currentStep         WorkflowStepName?
+  startedAt           DateTime     @default(now())
+  completedAt         DateTime?
+  error               String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  stepRuns            WorkflowStepRun[]
+  publishResults      PublishResult[]
+}
+
+model WorkflowStepRun {
+  id                  String             @id @default(cuid())
+  opportunityId       String
+  opportunity         Opportunity        @relation(fields: [opportunityId], references: [id])
+  workflowRunId       String
+  workflowRun         WorkflowRun        @relation(fields: [workflowRunId], references: [id])
+  stepName            WorkflowStepName
+  status              WorkflowStepStatus @default(not_started)
+  version             Int                @default(1)
+  inputJson           Json?
+  outputJson          Json?
+  manualOutputJson    Json?
+  artifactType        String?
+  artifactId          String?
+  error               String?
+  revisionNote        String?
+  approvedBy          String?
+  approvedAt          DateTime?
+  startedAt           DateTime?
+  completedAt         DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  revisionNotes       RevisionNote[]
+  publishResults      PublishResult[]
+}
+
+model RevisionNote {
+  id                  String          @id @default(cuid())
+  opportunityId       String
+  opportunity         Opportunity     @relation(fields: [opportunityId], references: [id])
+  workflowStepRunId   String
+  workflowStepRun     WorkflowStepRun @relation(fields: [workflowStepRunId], references: [id])
+  note                String
+  requestedBy         String
+  createdAt           DateTime        @default(now())
+}
+
+model PublishResult {
+  id                  String           @id @default(cuid())
+  opportunityId       String
+  opportunity         Opportunity      @relation(fields: [opportunityId], references: [id])
+  workflowRunId       String?
+  workflowRun         WorkflowRun?     @relation(fields: [workflowRunId], references: [id])
+  workflowStepRunId   String?
+  workflowStepRun     WorkflowStepRun? @relation(fields: [workflowStepRunId], references: [id])
+  publicationId       String?
+  publication         Publication?     @relation(fields: [publicationId], references: [id])
+  status              String
+  message             String?
+  metadataJson        Json
+  createdAt           DateTime         @default(now())
 }
 
 model MetricSnapshot {

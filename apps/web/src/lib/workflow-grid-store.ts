@@ -1,734 +1,501 @@
-import {
-  ArticleDraftingAgent,
-  ContentBriefOutlineAgent,
-  EditorialQaAgent,
-  InMemoryAuditRepository,
-  KeywordDiscoveryAgent,
-  ReviewDocumentService,
-  TopicPrioritizationAgent,
-  WorkflowOrchestrator,
-  withRetry,
-} from "@cookunity-seo-agent/core";
-import type { AuditRepository } from "@cookunity-seo-agent/core";
-import type { ContentBrief, Draft } from "@cookunity-seo-agent/shared";
-import { buildReviewPackageFromRecords } from "./data";
-import type { WorkflowGridCell, WorkflowGridRow } from "./data";
-import { getConfig } from "@cookunity-seo-agent/shared";
-type ApprovalDecision = "approve" | "request_revision" | "reject";
-type WorkflowState =
-  | "discovered"
-  | "scored"
-  | "queued"
-  | "outline_generated"
-  | "draft_generated"
-  | "in_review"
-  | "revision_requested"
-  | "approved"
-  | "published"
-  | "monitoring"
-  | "refresh_recommended"
-  | "refreshed";
+import { OpportunityWorkflowService } from "@cookunity-seo-agent/core";
+import type {
+  OpportunityPath,
+  OpportunityType,
+  RowStatus,
+  WorkflowStepName,
+  WorkflowStepStatus,
+} from "@cookunity-seo-agent/shared";
 
-function toJsonInput(value: unknown) {
-  return value as never;
-}
-
-function readContentBrief(value: unknown): ContentBrief | undefined {
-  if (!value || typeof value !== "object") {
-    return undefined;
-  }
-  return value as ContentBrief;
-}
-
-function readDraft(value: unknown): Draft | undefined {
-  if (!value || typeof value !== "object") {
-    return undefined;
-  }
-  return value as Draft;
+function toJsonValue(value: unknown) {
+  return value as Record<string, unknown> | null;
 }
 
 async function getPrismaClient() {
   const dbModule = await import("@cookunity-seo-agent/db");
   const prisma = dbModule.prisma;
+  await prisma.$connect();
+  return prisma;
+}
 
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      await prisma.$connect();
-      return prisma;
-    } catch (error) {
-      lastError = error;
-      await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+const service = new OpportunityWorkflowService();
+const orderedSteps: WorkflowStepName[] = ["discovery", "prioritization", "brief", "draft", "qa", "publish"];
+
+export interface GridStepView {
+  id: string;
+  stepName: WorkflowStepName;
+  status: WorkflowStepStatus;
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+  revisionNote?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  version: number;
+  output?: Record<string, unknown> | null;
+  manualOutput?: Record<string, unknown> | null;
+}
+
+export interface GridOpportunityRow {
+  id: string;
+  keyword: string;
+  intent: string;
+  path: OpportunityPath;
+  type: OpportunityType;
+  rowStatus: RowStatus;
+  searchVolume?: number;
+  competitorPageUrl?: string;
+  pageIdea?: string;
+  steps: GridStepView[];
+  updatedAt: string;
+}
+
+export interface GridOpportunityDetail extends GridOpportunityRow {
+  auditLog: Array<{
+    id: string;
+    action: string;
+    actorType: string;
+    actorId?: string;
+    createdAt: string;
+  }>;
+  revisionNotes: Array<{
+    id: string;
+    note: string;
+    requestedBy: string;
+    createdAt: string;
+  }>;
+  publishResults: Array<{
+    id: string;
+    status: string;
+    message?: string;
+    createdAt: string;
+  }>;
+}
+
+function makeMockStep(stepName: WorkflowStepName, status: WorkflowStepStatus): GridStepView {
+  return {
+    id: `mock_${stepName}`,
+    stepName,
+    status,
+    version: 1,
+    ...(status === "completed" || status === "approved"
+      ? { completedAt: new Date().toISOString() }
+      : {}),
+    output:
+      stepName === "brief"
+        ? {
+            reviewLabel: "Blog → email capture → nurture → trial",
+            summary: "Create a capture-first brief with keyword framing, email bridge CTA, and gated asset angle.",
+          }
+        : stepName === "draft"
+          ? {
+              h1: "Mediterranean meal delivery ideas for busy weeks",
+              intro: "A richer draft appears here once the database and providers are connected.",
+              html: "<article><h1>Mediterranean meal delivery ideas for busy weeks</h1><p>Mock draft preview.</p></article>",
+            }
+          : null,
+  };
+}
+
+function mockRows(): GridOpportunityRow[] {
+  return [
+    {
+      id: "mock_blog_row",
+      keyword: "mediterranean meal delivery ideas",
+      intent: "capture",
+      path: "blog",
+      type: "keyword",
+      rowStatus: "needs_review",
+      searchVolume: 1900,
+      steps: [
+        makeMockStep("discovery", "completed"),
+        makeMockStep("prioritization", "completed"),
+        makeMockStep("brief", "completed"),
+        makeMockStep("draft", "completed"),
+        makeMockStep("qa", "needs_review"),
+        makeMockStep("publish", "not_started"),
+      ],
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: "mock_lp_row",
+      keyword: "best vegetarian meal delivery",
+      intent: "comparison",
+      path: "landing_page",
+      type: "lp_optimization",
+      rowStatus: "blocked",
+      competitorPageUrl: "https://www.purplecarrot.com/",
+      steps: [
+        makeMockStep("discovery", "completed"),
+        makeMockStep("prioritization", "completed"),
+        makeMockStep("brief", "needs_review"),
+        makeMockStep("draft", "not_started"),
+        makeMockStep("qa", "not_started"),
+        makeMockStep("publish", "not_started"),
+      ],
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+}
+
+function latestSteps(stepRuns: Array<{
+  id: string;
+  stepName: WorkflowStepName;
+  status: WorkflowStepStatus;
+  version: number;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  error: string | null;
+  revisionNote: string | null;
+  approvedBy: string | null;
+  approvedAt: Date | null;
+  outputJson: unknown;
+  manualOutputJson: unknown;
+}>): GridStepView[] {
+  return orderedSteps.map((stepName) => {
+    const current = stepRuns
+      .filter((step) => step.stepName === stepName)
+      .sort((left, right) => right.version - left.version)[0];
+
+    if (!current) {
+      return {
+        id: `missing_${stepName}`,
+        stepName,
+        status: "not_started",
+        version: 0,
+      };
     }
-  }
-
-  throw lastError;
-}
-
-function normalizeKeyword(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-function slugify(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}
-
-class PrismaAuditRepository implements AuditRepository {
-  async record(event: Parameters<AuditRepository["record"]>[0]): Promise<void> {
-    const prisma = await getPrismaClient();
-    await prisma.auditLog.create({
-      data: {
-        entityType: event.entityType,
-        entityId: event.entityId,
-        action: `${event.agent}:${event.toState}`,
-        actorType: event.approvedByHuman ? "reviewer" : "system",
-        payload: toJsonInput(event),
-      },
-    });
-  }
-}
-
-async function createJobRun(jobType: string, idempotencyKey: string, payload: Record<string, unknown>) {
-  const prisma = await getPrismaClient();
-  return prisma.jobRun.create({
-    data: {
-      jobType,
-      status: "running",
-      idempotencyKey,
-      payload: toJsonInput(payload),
-    },
-  });
-}
-
-async function completeJobRun(id: string, result: Record<string, unknown>) {
-  const prisma = await getPrismaClient();
-  await prisma.jobRun.update({
-    where: { id },
-    data: {
-      status: "completed",
-      result: toJsonInput(result),
-      finishedAt: new Date(),
-    },
-  });
-}
-
-async function failJobRun(id: string, error: string) {
-  const prisma = await getPrismaClient();
-  await prisma.jobRun.update({
-    where: { id },
-    data: {
-      status: "failed",
-      error,
-      finishedAt: new Date(),
-    },
-  });
-}
-
-async function getExistingInventory() {
-  const prisma = await getPrismaClient();
-  const publications = await prisma.publication.findMany({
-    where: { status: "published" },
-    include: { topicCandidate: true },
-    take: 50,
-    orderBy: { updatedAt: "desc" },
-  });
-
-  return publications.map((publication) => ({
-    id: publication.id,
-    title: publication.topicCandidate.title,
-    primaryKeyword: publication.topicCandidate.title,
-    secondaryKeywords: [],
-  }));
-}
-
-async function upsertManualTopic(primaryKeyword: string) {
-  const prisma = await getPrismaClient();
-  const normalizedKeyword = normalizeKeyword(primaryKeyword);
-  const keyword = await prisma.keyword.upsert({
-    where: { normalizedTerm: normalizedKeyword },
-    update: {
-      term: primaryKeyword.trim(),
-      source: "manual",
-    },
-    create: {
-      term: primaryKeyword.trim(),
-      normalizedTerm: normalizedKeyword,
-      source: "manual",
-    },
-  });
-
-  const topic = await prisma.topicCandidate.upsert({
-    where: { normalizedKeyword },
-    update: {
-      title: primaryKeyword.trim(),
-      source: "manual",
-      keywordId: keyword.id,
-      workflowState: "discovered",
-    },
-    create: {
-      title: primaryKeyword.trim(),
-      normalizedKeyword,
-      source: "manual",
-      keywordId: keyword.id,
-      workflowState: "discovered",
-      recommendation: "monitor",
-      totalScore: 0,
-      scoreBreakdownJson: {},
-      rationale: "Manual keyword added from workflow grid.",
-      topicType: "new_article",
-    },
-  });
-
-  return topic;
-}
-
-export async function createKeywordAndRunWorkflow(primaryKeyword: string) {
-  const topic = await upsertManualTopic(primaryKeyword);
-  return runWorkflowForTopic(topic.id);
-}
-
-export async function runWorkflowForTopic(topicCandidateId: string) {
-  const prisma = await getPrismaClient();
-  const topic = await prisma.topicCandidate.findUnique({
-    where: { id: topicCandidateId },
-    include: {
-      keyword: true,
-      briefs: { orderBy: { createdAt: "desc" }, take: 1 },
-      drafts: { orderBy: { createdAt: "desc" }, take: 1 },
-      publications: { orderBy: { updatedAt: "desc" }, take: 1 },
-    },
-  });
-
-  if (!topic) {
-    throw new Error(`Topic candidate not found: ${topicCandidateId}`);
-  }
-
-  const runId = `workflow_${topic.id}_${Date.now()}`;
-  const auditRepository = new PrismaAuditRepository();
-  const orchestrator = new WorkflowOrchestrator(auditRepository);
-  const jobRun = await createJobRun("workflow_grid_pipeline", runId, {
-    topicCandidateId: topic.id,
-    keyword: topic.title,
-  });
-
-  const keywordDiscoveryAgent = new KeywordDiscoveryAgent();
-  const topicPrioritizationAgent = new TopicPrioritizationAgent();
-  const contentBriefOutlineAgent = new ContentBriefOutlineAgent();
-  const articleDraftingAgent = new ArticleDraftingAgent();
-  const editorialQaAgent = new EditorialQaAgent();
-  const reviewDocumentService = new ReviewDocumentService();
-
-  try {
-    const existingInventory = await getExistingInventory();
-
-    const discoveryEnvelope = await withRetry(
-      (attempt) =>
-        keywordDiscoveryAgent.execute(
-          {
-            seedTerms: [topic.title],
-            existingInventory,
-          },
-          { runId, entityId: topic.id, attempt },
-        ),
-      3,
-    );
-
-    const matchedDiscovery =
-      discoveryEnvelope.output.candidates.find(
-        (candidate) => normalizeKeyword(candidate.keyword) === topic.normalizedKeyword,
-      ) ?? discoveryEnvelope.output.candidates[0];
-
-    if (topic.keywordId && matchedDiscovery) {
-      await prisma.keyword.update({
-        where: { id: topic.keywordId },
-        data: {
-          searchVolume: matchedDiscovery.searchVolume,
-          keywordDifficulty: matchedDiscovery.keywordDifficulty,
-          trendVelocity: matchedDiscovery.trendVelocity,
-          source: matchedDiscovery.source,
-        },
-      });
-    }
-
-    await prisma.topicCandidate.update({
-      where: { id: topic.id },
-      data: {
-        workflowState: "discovered",
-      },
-    });
-
-    await orchestrator.recordTransition({
-      runId,
-      entityId: topic.id,
-      entityType: "topic_candidate",
-      agent: discoveryEnvelope.agent,
-      toState: "discovered",
-      details: {
-        matchedKeyword: matchedDiscovery?.keyword,
-        candidateCount: discoveryEnvelope.output.candidates.length,
-      },
-    });
-
-    const prioritizationEnvelope = await withRetry(
-      (attempt) =>
-        topicPrioritizationAgent.execute(
-          {
-            candidates: discoveryEnvelope.output.candidates,
-            existingInventory,
-          },
-          { runId, entityId: topic.id, attempt },
-        ),
-      3,
-    );
-
-    const prioritized =
-      prioritizationEnvelope.output.rankedTopics.find(
-        (candidate) => normalizeKeyword(candidate.keyword) === topic.normalizedKeyword,
-      ) ?? orchestrator.selectPrimaryTopic(prioritizationEnvelope.output.rankedTopics);
-
-    await prisma.topicCandidate.update({
-      where: { id: topic.id },
-      data: {
-        title: prioritized.keyword,
-        workflowState: "queued",
-        recommendation: prioritized.recommendation,
-        totalScore: prioritized.totalScore,
-        scoreBreakdownJson: toJsonInput(prioritized.breakdown),
-        rationale: prioritized.explanation,
-        cannibalizationRisk: prioritized.cannibalizationRisk,
-        topicType: prioritized.topicType,
-      },
-    });
-
-    await orchestrator.recordTransition({
-      runId,
-      entityId: topic.id,
-      entityType: "topic_candidate",
-      agent: prioritizationEnvelope.agent,
-      fromState: "discovered",
-      toState: "scored",
-      details: {
-        totalScore: prioritized.totalScore,
-        recommendation: prioritized.recommendation,
-      },
-    });
-
-    await orchestrator.recordTransition({
-      runId,
-      entityId: topic.id,
-      entityType: "topic_candidate",
-      agent: "topic_prioritization",
-      toState: "queued",
-      details: { topicType: prioritized.topicType },
-    });
-
-    const briefEnvelope = await withRetry(
-      (attempt) =>
-        contentBriefOutlineAgent.execute(
-          { topic: prioritized },
-          { runId, entityId: topic.id, attempt },
-        ),
-      3,
-    );
-
-    const brief = await prisma.contentBrief.create({
-      data: {
-        topicCandidateId: topic.id,
-        promptVersionId: briefEnvelope.promptVersionId ?? null,
-        primaryKeyword: briefEnvelope.output.brief.primaryKeyword,
-        secondaryKeywordsJson: toJsonInput(briefEnvelope.output.brief.secondaryKeywords),
-        briefJson: toJsonInput(briefEnvelope.output.brief),
-      },
-    });
-
-    await prisma.outline.create({
-      data: {
-        topicCandidateId: topic.id,
-        promptVersionId: briefEnvelope.promptVersionId ?? null,
-        outlineJson: {
-          titleOptions: briefEnvelope.output.brief.titleOptions,
-          faqCandidates: briefEnvelope.output.brief.faqCandidates,
-          recommendedInternalLinks: briefEnvelope.output.brief.recommendedInternalLinks,
-        },
-      },
-    });
-
-    await prisma.topicCandidate.update({
-      where: { id: topic.id },
-      data: { workflowState: "outline_generated" },
-    });
-
-    await orchestrator.recordTransition({
-      runId,
-      entityId: topic.id,
-      entityType: "topic_candidate",
-      agent: briefEnvelope.agent,
-      fromState: "queued",
-      toState: "outline_generated",
-      details: { briefId: brief.id },
-    });
-
-    const draftEnvelope = await withRetry(
-      (attempt) =>
-        articleDraftingAgent.execute(
-          { brief: briefEnvelope.output.brief },
-          { runId, entityId: topic.id, attempt },
-        ),
-      3,
-    );
-
-    const reviewDocument = await reviewDocumentService.createReviewDocument({
-      brief: briefEnvelope.output.brief,
-      draft: draftEnvelope.output.draft,
-      reviewerEmail: getConfig().ADMIN_EMAIL,
-    });
-    const enrichedDraft = {
-      ...draftEnvelope.output.draft,
-      reviewDocUrl: reviewDocument.url,
-      reviewDocProvider: reviewDocument.provider,
-      reviewDocId: reviewDocument.id,
-    };
-
-    const draft = await prisma.draft.create({
-      data: {
-        topicCandidateId: topic.id,
-        briefId: brief.id,
-        promptVersionId: draftEnvelope.promptVersionId ?? null,
-        draftJson: toJsonInput(enrichedDraft),
-        html: draftEnvelope.output.draft.html,
-        markdown: JSON.stringify(draftEnvelope.output.draft.sections),
-      },
-    });
-
-    await prisma.topicCandidate.update({
-      where: { id: topic.id },
-      data: { workflowState: "draft_generated" },
-    });
-
-    await orchestrator.recordTransition({
-      runId,
-      entityId: topic.id,
-      entityType: "draft",
-      agent: draftEnvelope.agent,
-      fromState: "outline_generated",
-      toState: "draft_generated",
-      details: { draftId: draft.id },
-    });
-
-    const qaEnvelope = await withRetry(
-      (attempt) =>
-        editorialQaAgent.execute(
-          {
-            brief: briefEnvelope.output.brief,
-            draft: draftEnvelope.output.draft,
-          },
-          { runId, entityId: topic.id, attempt },
-        ),
-      2,
-    );
-
-    await prisma.topicCandidate.update({
-      where: { id: topic.id },
-      data: { workflowState: "in_review" },
-    });
-
-    await orchestrator.recordTransition({
-      runId,
-      entityId: topic.id,
-      entityType: "draft",
-      agent: qaEnvelope.agent,
-      fromState: "draft_generated",
-      toState: "in_review",
-      details: {
-        passed: qaEnvelope.output.passed,
-        flags: qaEnvelope.output.flags,
-      },
-    });
-
-    await completeJobRun(jobRun.id, {
-      topicCandidateId: topic.id,
-      briefId: brief.id,
-      draftId: draft.id,
-      qaPassed: qaEnvelope.output.passed,
-    });
 
     return {
-      topicCandidateId: topic.id,
-      briefId: brief.id,
-      draftId: draft.id,
-      qaPassed: qaEnvelope.output.passed,
+      id: current.id,
+      stepName,
+      status: current.status,
+      version: current.version,
+      ...(current.startedAt ? { startedAt: current.startedAt.toISOString() } : {}),
+      ...(current.completedAt ? { completedAt: current.completedAt.toISOString() } : {}),
+      ...(current.error ? { error: current.error } : {}),
+      ...(current.revisionNote ? { revisionNote: current.revisionNote } : {}),
+      ...(current.approvedBy ? { approvedBy: current.approvedBy } : {}),
+      ...(current.approvedAt ? { approvedAt: current.approvedAt.toISOString() } : {}),
+      output: toJsonValue(current.outputJson),
+      manualOutput: toJsonValue(current.manualOutputJson),
     };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown workflow error";
-    await failJobRun(jobRun.id, message);
-    throw error;
-  }
+  });
 }
 
-export async function listPersistedWorkflowGridRows(): Promise<WorkflowGridRow[]> {
+function mapOpportunity(opportunity: {
+  id: string;
+  keyword: string;
+  intent: string;
+  path: OpportunityPath;
+  type: OpportunityType;
+  rowStatus: RowStatus;
+  competitorPageUrl: string | null;
+  pageIdea: string | null;
+  updatedAt: Date;
+  topicCandidate: { keyword?: { searchVolume: number } | null } | null;
+  workflowRuns: Array<{
+    stepRuns: Array<{
+      id: string;
+      stepName: WorkflowStepName;
+      status: WorkflowStepStatus;
+      version: number;
+      startedAt: Date | null;
+      completedAt: Date | null;
+      error: string | null;
+      revisionNote: string | null;
+      approvedBy: string | null;
+      approvedAt: Date | null;
+      outputJson: unknown;
+      manualOutputJson: unknown;
+    }>;
+  }>;
+}): GridOpportunityRow {
+  const stepRuns = opportunity.workflowRuns[0]?.stepRuns ?? [];
+  return {
+    id: opportunity.id,
+    keyword: opportunity.keyword,
+    intent: opportunity.intent,
+    path: opportunity.path,
+    type: opportunity.type,
+    rowStatus: opportunity.rowStatus,
+    ...(opportunity.topicCandidate?.keyword?.searchVolume
+      ? { searchVolume: opportunity.topicCandidate.keyword.searchVolume }
+      : {}),
+    ...(opportunity.competitorPageUrl ? { competitorPageUrl: opportunity.competitorPageUrl } : {}),
+    ...(opportunity.pageIdea ? { pageIdea: opportunity.pageIdea } : {}),
+    steps: latestSteps(stepRuns),
+    updatedAt: opportunity.updatedAt.toISOString(),
+  };
+}
+
+export async function listGridControlPlane(): Promise<GridOpportunityRow[]> {
   const prisma = await getPrismaClient();
-  const topics = await prisma.topicCandidate.findMany({
+  const opportunities = await prisma.opportunity.findMany({
     include: {
-      keyword: true,
-      briefs: { orderBy: { createdAt: "desc" }, take: 1 },
-      drafts: { orderBy: { createdAt: "desc" }, take: 1, include: { approvals: { orderBy: { createdAt: "desc" }, take: 1 } } },
-      publications: {
-        orderBy: { updatedAt: "desc" },
+      topicCandidate: {
+        include: {
+          keyword: true,
+        },
+      },
+      workflowRuns: {
+        orderBy: { createdAt: "desc" },
         take: 1,
         include: {
-          metricSnapshots: { orderBy: { capturedAt: "desc" }, take: 1 },
-          optimizationTasks: { orderBy: { createdAt: "desc" }, take: 1 },
+          stepRuns: {
+            orderBy: [{ stepName: "asc" }, { version: "desc" }],
+          },
         },
       },
     },
     orderBy: { updatedAt: "desc" },
   });
 
-  return topics.map((topic) => {
-    const latestBrief = topic.briefs[0];
-    const latestDraft = topic.drafts[0];
-    const latestApproval = latestDraft?.approvals[0];
-    const latestPublication = topic.publications[0];
-    const briefRecord = readContentBrief(latestBrief?.briefJson);
-    const draftRecord = readDraft(latestDraft?.draftJson);
-
-    const cells: WorkflowGridCell[] = [
-      {
-        step: "keyword_discovery",
-        status: topic.workflowState === "discovered" || topic.totalScore > 0 || !!latestBrief ? "success" : "pending",
-        label: topic.keyword ? "Keyword stored" : "Awaiting keyword record",
-        detail: topic.keyword
-          ? `Source: ${topic.keyword.source}. Volume: ${topic.keyword.searchVolume || "TBD"}.`
-          : "Primary keyword has not been enriched yet.",
-      },
-      {
-        step: "topic_prioritization",
-        status: topic.totalScore > 0 ? "success" : "pending",
-        label: topic.totalScore > 0 ? `Score ${topic.totalScore}` : "Not scored",
-        detail: topic.rationale || "Topic scoring has not run yet.",
-      },
-      {
-        step: "content_brief_outline",
-        status: latestBrief ? "success" : "pending",
-        label: latestBrief ? "Brief saved" : "No brief yet",
-        detail: latestBrief
-          ? `Primary keyword: ${latestBrief.primaryKeyword}`
-          : "Outline step has not produced persisted output yet.",
-      },
-      {
-        step: "article_drafting",
-        status: latestDraft ? "success" : "pending",
-        label: latestDraft ? "Draft saved" : "No draft yet",
-        detail: latestDraft
-          ? `Updated ${latestDraft.updatedAt.toISOString()}`
-          : "Drafting step has not produced persisted output yet.",
-      },
-      {
-        step: "editorial_qa",
-        status:
-          topic.workflowState === "approved"
-            ? "success"
-            : latestApproval?.decision === "request_revision"
-              ? "review_needed"
-              : latestDraft
-                ? "review_needed"
-                : "pending",
-        label:
-          topic.workflowState === "approved"
-            ? "Approved"
-            : latestApproval?.decision === "request_revision"
-              ? "Revision requested"
-              : latestDraft
-                ? "In review"
-                : "Not ready",
-        detail:
-          latestApproval?.notes ??
-          (latestDraft
-            ? "Draft exists and is waiting for human review."
-            : "Review begins after a draft is generated."),
-      },
-      {
-        step: "publishing_strapi",
-        status:
-          latestPublication?.status === "published"
-            ? "published"
-            : latestPublication?.status === "draft"
-              ? "waiting"
-              : "waiting",
-        label:
-          latestPublication?.status === "published"
-            ? "Published to Strapi"
-            : latestPublication?.status === "draft"
-              ? "Strapi draft"
-              : "Blocked",
-        detail:
-          latestPublication?.strapiEntryId
-            ? `Entry ${latestPublication.strapiEntryId}`
-            : "Publish agent is blocked until approval is recorded.",
-      },
-      {
-        step: "performance_monitoring_refresh",
-        status:
-          latestPublication?.metricSnapshots[0] || latestPublication?.optimizationTasks[0]
-            ? "success"
-            : latestPublication?.status === "published"
-              ? "running"
-              : "pending",
-        label:
-          latestPublication?.optimizationTasks[0]
-            ? "Refresh tasks"
-            : latestPublication?.metricSnapshots[0]
-              ? "Monitoring live"
-              : latestPublication?.status === "published"
-                ? "Awaiting first snapshot"
-                : "Not started",
-        detail:
-          latestPublication?.optimizationTasks[0]?.reason ??
-          (latestPublication?.metricSnapshots[0]
-            ? `CTR ${latestPublication.metricSnapshots[0].ctr}`
-            : "Monitoring begins after publish."),
-      },
-    ];
-
-    return {
-      id: topic.id,
-      pillar: "Custom",
-      theme: "Custom",
-      primaryKeyword: topic.title,
-      searchVolume: topic.keyword?.searchVolume ? String(topic.keyword.searchVolume) : "",
-      contentType: "Guide",
-      cells,
-      ...(draftRecord
-        ? {
-            reviewPackage: buildReviewPackageFromRecords({
-              draft: draftRecord,
-              topicRationale: topic.rationale,
-              ...(briefRecord ? { brief: briefRecord } : {}),
-            }),
-          }
-        : {}),
-    };
-  });
+  return opportunities.map(mapOpportunity);
 }
 
-export async function safeListWorkflowGridRows(): Promise<WorkflowGridRow[] | null> {
+export async function safeListGridControlPlane(): Promise<GridOpportunityRow[] | null> {
   try {
-    return await listPersistedWorkflowGridRows();
+    return await listGridControlPlane();
   } catch {
     return null;
   }
 }
 
+export async function getGridOpportunityDetail(opportunityId: string): Promise<GridOpportunityDetail | null> {
+  try {
+    const prisma = await getPrismaClient();
+    const opportunity = await prisma.opportunity.findUnique({
+      where: { id: opportunityId },
+      include: {
+        topicCandidate: {
+          include: { keyword: true },
+        },
+        workflowRuns: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          include: {
+            stepRuns: {
+              orderBy: [{ stepName: "asc" }, { version: "desc" }],
+            },
+          },
+        },
+        revisionNotes: {
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        },
+        publishResults: {
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        },
+      },
+    });
+
+    if (!opportunity) {
+      return null;
+    }
+
+    const audit = await prisma.auditLog.findMany({
+      where: {
+        OR: [
+          { entityType: "opportunity", entityId: opportunityId },
+          { payload: { path: ["opportunityId"], equals: opportunityId } },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    });
+
+    return {
+      ...mapOpportunity(opportunity),
+      auditLog: audit.map((entry) => ({
+        id: entry.id,
+        action: entry.action,
+        actorType: entry.actorType,
+        ...(entry.actorId ? { actorId: entry.actorId } : {}),
+        createdAt: entry.createdAt.toISOString(),
+      })),
+      revisionNotes: opportunity.revisionNotes.map((note) => ({
+        id: note.id,
+        note: note.note,
+        requestedBy: note.requestedBy,
+        createdAt: note.createdAt.toISOString(),
+      })),
+      publishResults: opportunity.publishResults.map((result) => ({
+        id: result.id,
+        status: result.status,
+        ...(result.message ? { message: result.message } : {}),
+        createdAt: result.createdAt.toISOString(),
+      })),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function createOpportunityRecordAndRunWorkflow(input: {
+  keyword: string;
+  path: OpportunityPath;
+  type: OpportunityType;
+  pageIdea?: string;
+  competitorPageUrl?: string;
+}) {
+  const opportunity = await service.createOpportunity(input);
+  return service.runWorkflow(opportunity.id);
+}
+
+export async function createOpportunityAndRunWorkflow(input: {
+  keyword: string;
+  path: OpportunityPath;
+  type: OpportunityType;
+  pageIdea?: string;
+  competitorPageUrl?: string;
+}) {
+  return createOpportunityRecordAndRunWorkflow(input);
+}
+
+export async function runWorkflowForOpportunity(opportunityId: string) {
+  return service.runWorkflow(opportunityId);
+}
+
+export async function runWorkflowStepForOpportunity(opportunityId: string, stepName: WorkflowStepName) {
+  return service.executeStep(opportunityId, stepName, {
+    trigger: "manual_step_run",
+  });
+}
+
+export async function rerunWorkflowStep(stepRunId: string, requestedBy: string, note?: string) {
+  return service.rerunStep(stepRunId, requestedBy, note);
+}
+
+export async function approveWorkflowStep(stepRunId: string, approvedBy: string) {
+  return service.approveStep(stepRunId, approvedBy);
+}
+
+export async function requestWorkflowStepRevision(stepRunId: string, requestedBy: string, note: string) {
+  return service.requestRevision(stepRunId, requestedBy, note);
+}
+
+export async function saveWorkflowStepEdit(stepRunId: string, editedBy: string, manualOutput: unknown) {
+  return service.saveManualEdit(stepRunId, editedBy, manualOutput);
+}
+
+export async function publishOpportunityFromGrid(opportunityId: string, actor: string) {
+  return service.publishOpportunity(opportunityId, actor);
+}
+
+export async function getGridControlPlaneData() {
+  const rows = await safeListGridControlPlane();
+  if (!rows) {
+    return {
+      persistenceMode: "mock" as const,
+      databaseReady: false,
+      rows: mockRows(),
+    };
+  }
+
+  return {
+    persistenceMode: "database" as const,
+    databaseReady: true,
+    rows,
+  };
+}
+
 export async function submitReviewForDraft(
   draftId: string,
-  decision: ApprovalDecision,
+  decision: "approve" | "request_revision" | "reject",
   notes: string | null,
   reviewerEmail: string,
 ) {
   const prisma = await getPrismaClient();
-  const draft = await prisma.draft.findUnique({
-    where: { id: draftId },
-    include: { topicCandidate: true },
-  });
-
-  if (!draft) {
-    throw new Error(`Draft not found: ${draftId}`);
-  }
-
-  const approval = await prisma.approval.create({
-    data: {
-      topicCandidateId: draft.topicCandidateId,
-      draftId: draft.id,
-      reviewerEmail,
-      decision,
-      notes: notes ?? null,
-    },
-  });
-
-  const nextState: WorkflowState =
-    decision === "approve"
-      ? "approved"
-      : decision === "request_revision"
-        ? "revision_requested"
-        : "in_review";
-
-  await prisma.topicCandidate.update({
-    where: { id: draft.topicCandidateId },
-    data: { workflowState: nextState },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      entityType: "draft",
-      entityId: draft.id,
-      action: `review:${decision}`,
-      actorType: "reviewer",
-      actorId: reviewerEmail,
-      payload: {
-        decision,
-        notes,
-        topicCandidateId: draft.topicCandidateId,
+  const stepRun = await prisma.workflowStepRun.findFirst({
+    where: {
+      stepName: "qa",
+      opportunity: {
+        topicCandidate: {
+          drafts: {
+            some: {
+              id: draftId,
+            },
+          },
+        },
       },
     },
+    orderBy: { createdAt: "desc" },
   });
 
-  return approval;
+  if (!stepRun) {
+    throw new Error(`QA step not found for draft: ${draftId}`);
+  }
+
+  if (decision === "approve") {
+    return approveWorkflowStep(stepRun.id, reviewerEmail);
+  }
+
+  return requestWorkflowStepRevision(stepRun.id, reviewerEmail, notes ?? "Revision requested.");
 }
 
-export async function publishApprovedDraft(topicCandidateId: string) {
-  const prisma = await getPrismaClient();
-  const topic = await prisma.topicCandidate.findUnique({
-    where: { id: topicCandidateId },
-    include: {
-      drafts: { orderBy: { createdAt: "desc" }, take: 1 },
-      approvals: { orderBy: { createdAt: "desc" }, take: 1 },
-      publications: { orderBy: { updatedAt: "desc" }, take: 1 },
-    },
-  });
+export async function publishApprovedDraft(opportunityId: string) {
+  return publishOpportunityFromGrid(opportunityId, process.env.ADMIN_EMAIL ?? "reviewer@cookunity.local");
+}
 
-  if (!topic) {
-    throw new Error(`Topic candidate not found: ${topicCandidateId}`);
-  }
-
-  if (topic.workflowState !== "approved") {
-    throw new Error("Topic is not approved for publishing.");
-  }
-
-  const draft = topic.drafts[0];
-  if (!draft) {
-    throw new Error("No draft available to publish.");
-  }
-
-  const publication = topic.publications[0];
-  if (publication) {
-    await prisma.publication.update({
-      where: { id: publication.id },
-      data: {
-        status: "published",
-        slug: publication.slug || slugify(topic.title),
-        publishedAt: new Date(),
-        ...(publication.metadataJson !== null
-          ? { metadataJson: toJsonInput(publication.metadataJson) }
-          : {}),
-      },
-    });
-  } else {
-    await prisma.publication.create({
-      data: {
-        topicCandidateId: topic.id,
-        draftId: draft.id,
-        slug: slugify(topic.title),
-        status: "published",
-        metadataJson: {
-          title: topic.title,
-        },
-        publishedAt: new Date(),
-      },
+export async function createKeywordAndRunWorkflow(input: string | {
+  keyword: string;
+  path: OpportunityPath;
+  type: OpportunityType;
+  pageIdea?: string;
+  competitorPageUrl?: string;
+}) {
+  if (typeof input === "string") {
+    return createOpportunityRecordAndRunWorkflow({
+      keyword: input,
+      path: "blog",
+      type: "keyword",
     });
   }
+  return createOpportunityRecordAndRunWorkflow(input);
+}
 
-  await prisma.topicCandidate.update({
-    where: { id: topic.id },
-    data: { workflowState: "published" },
-  });
+export async function safeListWorkflowGridRows(): Promise<any[] | null> {
+  try {
+    const rows = await listGridControlPlane();
+    return rows.map((row) => ({
+      id: row.id,
+      pillar: row.path === "blog" ? "Blog" : "Landing page",
+      theme: row.intent,
+      primaryKeyword: row.keyword,
+      searchVolume: row.searchVolume ? String(row.searchVolume) : "",
+      contentType: row.type.replaceAll("_", " "),
+      cells: row.steps.map((step) => ({
+        step:
+          step.stepName === "discovery"
+            ? "keyword_discovery"
+            : step.stepName === "prioritization"
+              ? "topic_prioritization"
+              : step.stepName === "brief"
+                ? "content_brief_outline"
+                : step.stepName === "draft"
+                  ? "article_drafting"
+                  : step.stepName === "qa"
+                    ? "editorial_qa"
+                    : step.stepName === "publish"
+                      ? "publishing_strapi"
+                      : "performance_monitoring_refresh",
+        status:
+          step.status === "approved"
+            ? "success"
+            : step.status === "needs_review"
+              ? "review_needed"
+              : step.status === "not_started"
+                ? "pending"
+                : step.status === "failed"
+                  ? "review_needed"
+                  : step.status,
+        label: step.stepName,
+        detail: step.completedAt ? `Completed ${step.completedAt}` : "Awaiting output",
+      })),
+    }));
+  } catch {
+    return null;
+  }
 }

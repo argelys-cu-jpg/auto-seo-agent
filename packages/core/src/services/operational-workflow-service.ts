@@ -129,7 +129,7 @@ export class OperationalWorkflowService {
       return null;
     }
 
-    const brief = this.outlineGeneration.generate({
+    const brief = await this.outlineGeneration.generate({
       id: topic.id,
       keyword: topic.title,
       recommendation: topic.recommendation,

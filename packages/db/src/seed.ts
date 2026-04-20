@@ -1,6 +1,10 @@
 import { prisma } from "./client";
 import { mockBrief, mockDraft, mockOptimizationTask, mockTopicCandidates } from "@cookunity-seo-agent/shared";
 
+function toJsonInput(value: unknown) {
+  return value as never;
+}
+
 async function main(): Promise<void> {
   const firstTopic = mockTopicCandidates[0];
   if (!firstTopic) {
@@ -16,7 +20,7 @@ async function main(): Promise<void> {
         workflowState: topic.status,
         recommendation: topic.recommendation,
         totalScore: 78,
-        scoreBreakdownJson: topic,
+        scoreBreakdownJson: toJsonInput(topic),
         rationale: topic.explanation,
         businessValueNotes: "Seeded mock topic",
         cannibalizationRisk: topic.relatedExistingContentIds.length > 0 ? 25 : 8,
@@ -28,7 +32,7 @@ async function main(): Promise<void> {
         workflowState: topic.status,
         recommendation: topic.recommendation,
         totalScore: 78,
-        scoreBreakdownJson: topic,
+        scoreBreakdownJson: toJsonInput(topic),
         rationale: topic.explanation,
         businessValueNotes: "Seeded mock topic",
         cannibalizationRisk: topic.relatedExistingContentIds.length > 0 ? 25 : 8,
@@ -45,8 +49,8 @@ async function main(): Promise<void> {
       topicCandidateId: topic.id,
       promptVersionId: "outline_generation:v1",
       primaryKeyword: mockBrief.primaryKeyword,
-      secondaryKeywordsJson: mockBrief.secondaryKeywords,
-      briefJson: mockBrief,
+      secondaryKeywordsJson: toJsonInput(mockBrief.secondaryKeywords),
+      briefJson: toJsonInput(mockBrief),
     },
   });
 
@@ -55,7 +59,7 @@ async function main(): Promise<void> {
       topicCandidateId: topic.id,
       briefId: brief.id,
       promptVersionId: mockDraft.promptVersionId,
-      draftJson: mockDraft,
+      draftJson: toJsonInput(mockDraft),
       html: mockDraft.html,
       markdown: "Seeded mock markdown",
     },
@@ -69,15 +73,15 @@ async function main(): Promise<void> {
       strapiDocumentId: "doc_healthy-prepared-meal-delivery-guide",
       slug: mockDraft.slugRecommendation,
       status: "published",
-      metadataJson: {
+      metadataJson: toJsonInput({
         titleTag: mockDraft.titleTagOptions[0],
         metaDescription: mockDraft.metaDescriptionOptions[0],
-      },
-      fieldMappingJson: {
+      }),
+      fieldMappingJson: toJsonInput({
         title: "title",
         slug: "slug",
         body: "body",
-      },
+      }),
       publishedAt: new Date(),
     },
   });
@@ -89,7 +93,7 @@ async function main(): Promise<void> {
       type: mockOptimizationTask.type,
       priority: mockOptimizationTask.priority,
       reason: mockOptimizationTask.reason,
-      recommendationJson: mockOptimizationTask,
+      recommendationJson: toJsonInput(mockOptimizationTask),
     },
   });
 }

@@ -15,7 +15,9 @@
   },
   "dependencies": {
     "@cookunity-seo-agent/shared": "workspace:*",
+    "@prisma/adapter-pg": "^6.19.3",
     "@prisma/client": "^6.5.0",
+    "pg": "^8.13.1",
     "prisma": "^6.5.0"
   },
   "devDependencies": {

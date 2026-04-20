@@ -5,6 +5,7 @@ import type {
   GscProvider,
   KeywordDiscoveryRecord,
   PerformanceRecord,
+  WorkflowResearchProvider,
   ReviewDocumentPayload,
   ReviewDocumentProvider,
   ReviewDocumentRecord,
@@ -15,6 +16,7 @@ import type {
   TrendsProvider,
 } from "../providers/types";
 import { getGoogleServiceAccessToken } from "../providers/google-service-account";
+import { identifyMainInternalLink } from "../providers/internal-link-catalog";
 import { getStrapiContentModelConfig, mapToStrapiData } from "../providers/strapi-mapper";
 
 async function safeJson<T>(response: Response): Promise<T> {
@@ -22,6 +24,43 @@ async function safeJson<T>(response: Response): Promise<T> {
     throw new Error(`Provider request failed with status ${response.status}`);
   }
   return (await response.json()) as T;
+}
+
+async function fetchSemrushCsvRows(
+  type: string,
+  params: Record<string, string>,
+): Promise<string[][]> {
+  const config = getConfig();
+  if (!config.SEMRUSH_API_KEY) {
+    throw new Error("SEMRUSH_API_KEY is required for live Semrush requests.");
+  }
+
+  const url = new URL(config.SEMRUSH_BASE_URL);
+  url.searchParams.set("type", type);
+  url.searchParams.set("key", config.SEMRUSH_API_KEY);
+  url.searchParams.set("database", "us");
+
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Semrush request failed: ${response.status}`);
+  }
+
+  const text = await response.text();
+  const lines = text
+    .trim()
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length <= 1) {
+    return [];
+  }
+
+  return lines.slice(1).map((line) => line.split(";"));
 }
 
 export class LiveAhrefsProvider implements AhrefsProvider {
@@ -353,6 +392,108 @@ export class LiveReviewDocumentProvider implements ReviewDocumentProvider {
         throw new Error(`Google Drive move failed: ${response.status} ${await response.text()}`);
       }
     });
+  }
+}
+
+export class LiveWorkflowResearchProvider implements WorkflowResearchProvider {
+  async identifyMainInternalLink(keyword: string): Promise<{ keyword: string; link: string }> {
+    return identifyMainInternalLink(keyword);
+  }
+
+  async fetchKeywordOverview(keyword: string): Promise<{
+    keyword: string;
+    searchVolume: number;
+    cpc?: number;
+    competition?: number;
+    keywordDifficulty?: number;
+    resultsCount?: number;
+  }> {
+    const [firstRow = []] = await fetchSemrushCsvRows("phrase_this", {
+      phrase: keyword,
+      export_columns: "Nq,Co,Nr,Kd,Cp",
+    });
+    const [searchVolume, competition, resultsCount, keywordDifficulty, cpc] = firstRow;
+
+    return {
+      keyword,
+      searchVolume: Number(searchVolume ?? 0),
+      competition: Number(competition ?? 0),
+      resultsCount: Number(resultsCount ?? 0),
+      keywordDifficulty: Number(keywordDifficulty ?? 0),
+      cpc: Number(cpc ?? 0),
+    };
+  }
+
+  async searchOrganicResults(): Promise<Array<{ rank: number; title: string; snippet: string; url: string }>> {
+    throw new Error("Live organic SERP search is not implemented yet.");
+  }
+
+  async classifyForumOrSocial(result: { url: string }): Promise<boolean> {
+    return /reddit|instagram|amazon|facebook|tiktok/i.test(result.url);
+  }
+
+  async scrapeMarkdown(): Promise<{ markdown: string; title?: string; metaDescription?: string }> {
+    throw new Error("Live competitor scraping is not implemented yet.");
+  }
+
+  async extractHeadings(markdown: string): Promise<Array<{ level: number; text: string }>> {
+    return markdown
+      .split("\n")
+      .filter((line) => /^#{2,4}\s/.test(line))
+      .map((line) => ({
+        level: line.match(/^#+/)?.[0].length ?? 2,
+        text: line.replace(/^#{2,4}\s*/, ""),
+      }));
+  }
+
+  async fetchCompetitorKeywords(): Promise<Array<{ keyword: string; searchVolume: number }>> {
+    throw new Error("Live competitor keyword retrieval is not implemented yet.");
+  }
+
+  async fetchSecondaryKeywords(keyword: string): Promise<Array<{ keyword: string; searchVolume: number }>> {
+    const rows = await fetchSemrushCsvRows("phrase_related", {
+      phrase: keyword,
+      export_columns: "Ph,Nq",
+      display_limit: "75",
+      display_sort: "nq_desc",
+    });
+
+    const deduped = new Map<string, number>();
+    for (const [relatedKeyword = "", searchVolume = "0"] of rows) {
+      const normalized = relatedKeyword.trim().toLowerCase();
+      if (!normalized) continue;
+      const numericVolume = Number(searchVolume ?? 0);
+      const current = deduped.get(normalized) ?? 0;
+      deduped.set(normalized, Math.max(current, numericVolume));
+    }
+
+    return [...deduped.entries()]
+      .map(([normalizedKeyword, searchVolume]) => ({
+        keyword: normalizedKeyword,
+        searchVolume,
+      }))
+      .sort((left, right) => right.searchVolume - left.searchVolume);
+  }
+
+  async fetchInternalLinkCandidates(): Promise<Array<{ title: string; url: string }>> {
+    throw new Error("Live internal link candidate retrieval is not implemented yet.");
+  }
+
+  async determineMealFilters(keyword: string): Promise<string[]> {
+    const lowered = keyword.toLowerCase();
+    if (lowered.includes("keto")) return ["keto"];
+    if (lowered.includes("vegan")) return ["vegan"];
+    if (lowered.includes("vegetarian")) return ["vegetarian"];
+    if (lowered.includes("low sodium")) return ["low sodium"];
+    return [];
+  }
+
+  async fetchMeals(): Promise<Array<{ id: string; name: string; chef?: string; dietaryTags: string[] }>> {
+    throw new Error("Live meal knowledge base retrieval is not implemented yet.");
+  }
+
+  async searchImageCandidates(): Promise<Array<{ id: string; url: string; width: number; height: number }>> {
+    throw new Error("Live image search is not implemented yet.");
   }
 }
 

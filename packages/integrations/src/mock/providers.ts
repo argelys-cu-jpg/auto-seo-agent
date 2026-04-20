@@ -4,6 +4,7 @@ import type {
   GscProvider,
   KeywordDiscoveryRecord,
   PerformanceRecord,
+  WorkflowResearchProvider,
   ReviewDocumentPayload,
   ReviewDocumentProvider,
   ReviewDocumentRecord,
@@ -13,6 +14,7 @@ import type {
   StrapiProvider,
   TrendsProvider,
 } from "../providers/types";
+import { identifyMainInternalLink } from "../providers/internal-link-catalog";
 import { getStrapiContentModelConfig } from "../providers/strapi-mapper";
 
 const mockKeywords: KeywordDiscoveryRecord[] = [
@@ -129,6 +131,131 @@ export class MockReviewDocumentProvider implements ReviewDocumentProvider {
       url: `https://docs.mock.local/document/d/${documentId}`,
       provider: "mock",
     };
+  }
+}
+
+export class MockWorkflowResearchProvider implements WorkflowResearchProvider {
+  async identifyMainInternalLink(keyword: string) {
+    return identifyMainInternalLink(keyword);
+  }
+
+  async fetchKeywordOverview(keyword: string) {
+    return {
+      keyword,
+      searchVolume: 1900,
+      cpc: 2.45,
+      competition: 0.64,
+      keywordDifficulty: 23,
+      resultsCount: 1280000,
+    };
+  }
+
+  async searchOrganicResults(keyword: string) {
+    return [
+      {
+        rank: 1,
+        title: `${keyword} guide - Serious Eats`,
+        snippet: "An editorial guide covering the topic in depth.",
+        url: `https://example.com/${keyword.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-guide`,
+      },
+      {
+        rank: 2,
+        title: `${keyword} discussion - Reddit`,
+        snippet: "Forum discussion about the keyword.",
+        url: "https://www.reddit.com/r/food/",
+      },
+      {
+        rank: 3,
+        title: `Best ${keyword} - Competitor A`,
+        snippet: "Commercial competitor page.",
+        url: `https://competitor-a.example/${keyword.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+      },
+      {
+        rank: 4,
+        title: `${keyword} ideas - Competitor B`,
+        snippet: "Recipe and roundup style content.",
+        url: `https://competitor-b.example/${keyword.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-ideas`,
+      },
+    ];
+  }
+
+  async classifyForumOrSocial(result: { url: string }) {
+    return /reddit|instagram|amazon|facebook|tiktok/i.test(result.url);
+  }
+
+  async scrapeMarkdown(url: string) {
+    return {
+      markdown: `# Mock content for ${url}\n\n## What matters\n\nUseful section.\n\n## Comparison\n\nMore useful content.\n\n### Detail\n\nExtra detail.`,
+      title: `Mock page for ${url}`,
+      metaDescription: "Mock competitor description.",
+    };
+  }
+
+  async extractHeadings(markdown: string) {
+    return markdown
+      .split("\n")
+      .filter((line) => /^#{2,4}\s/.test(line))
+      .map((line) => ({
+        level: line.match(/^#+/)?.[0].length ?? 2,
+        text: line.replace(/^#{2,4}\s*/, ""),
+      }));
+  }
+
+  async fetchCompetitorKeywords(url: string) {
+    const seed = url.includes("ideas") ? "ideas" : "guide";
+    return [
+      { keyword: `${seed} meal delivery`, searchVolume: 1400 },
+      { keyword: `best ${seed} meals`, searchVolume: 880 },
+      { keyword: `${seed} dinner options`, searchVolume: 540 },
+    ];
+  }
+
+  async fetchSecondaryKeywords(keyword: string) {
+    return [
+      { keyword: `${keyword} delivery`, searchVolume: 2200 },
+      { keyword: `best ${keyword}`, searchVolume: 1800 },
+      { keyword: `${keyword} ideas`, searchVolume: 1200 },
+      { keyword: `${keyword} guide`, searchVolume: 940 },
+      { keyword: `${keyword} near me`, searchVolume: 620 },
+    ];
+  }
+
+  async fetchInternalLinkCandidates(keyword: string) {
+    const slug = keyword.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return [
+      { title: "What is prepared meal delivery?", url: "/blog/what-is-prepared-meal-delivery" },
+      { title: `CookUnity guide to ${keyword}`, url: `/blog/${slug}-guide` },
+      { title: "Meal delivery vs meal kits", url: "/blog/meal-delivery-vs-meal-kits" },
+    ];
+  }
+
+  async determineMealFilters(keyword: string) {
+    const lowered = keyword.toLowerCase();
+    if (lowered.includes("keto")) return ["keto"];
+    if (lowered.includes("vegan")) return ["vegan"];
+    if (lowered.includes("vegetarian")) return ["vegetarian"];
+    if (lowered.includes("low sodium")) return ["low sodium"];
+    return [];
+  }
+
+  async fetchMeals(filters: string[]) {
+    const base = [
+      { id: "meal_1", name: "Mushroom risotto", chef: "Chef Silvia", dietaryTags: ["vegetarian"] },
+      { id: "meal_2", name: "Chicken shawarma bowl", chef: "Chef Chris", dietaryTags: ["high protein"] },
+      { id: "meal_3", name: "Cauliflower tikka masala", chef: "Chef Akhtar", dietaryTags: ["vegetarian", "gluten free"] },
+    ];
+    return filters.length
+      ? base.filter((meal) => filters.every((filter) => meal.dietaryTags.includes(filter)))
+      : base;
+  }
+
+  async searchImageCandidates(term: string) {
+    const slug = term.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return [
+      { id: `${slug}_1`, url: `https://images.unsplash.com/photo-1-${slug}`, width: 1600, height: 900 },
+      { id: `${slug}_2`, url: `https://images.unsplash.com/photo-2-${slug}`, width: 1600, height: 900 },
+      { id: `${slug}_3`, url: `https://images.unsplash.com/photo-3-${slug}`, width: 1600, height: 900 },
+    ];
   }
 }
 

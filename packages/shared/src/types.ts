@@ -17,6 +17,51 @@ export const workflowStates = [
 
 export type WorkflowState = (typeof workflowStates)[number];
 
+export const opportunityPaths = ["blog", "landing_page"] as const;
+export type OpportunityPath = (typeof opportunityPaths)[number];
+
+export const opportunityTypes = [
+  "keyword",
+  "page_idea",
+  "competitor_page",
+  "lp_optimization",
+] as const;
+export type OpportunityType = (typeof opportunityTypes)[number];
+
+export const contentFormatTypes = ["listicle", "recipe_listicle", "guide"] as const;
+export type ContentFormatType = (typeof contentFormatTypes)[number];
+
+export const rowStatuses = [
+  "idle",
+  "running",
+  "blocked",
+  "needs_review",
+  "approved",
+  "published",
+  "failed",
+] as const;
+export type RowStatus = (typeof rowStatuses)[number];
+
+export const workflowStepNames = [
+  "discovery",
+  "prioritization",
+  "brief",
+  "draft",
+  "qa",
+  "publish",
+] as const;
+export type WorkflowStepName = (typeof workflowStepNames)[number];
+
+export const workflowStepStatuses = [
+  "not_started",
+  "running",
+  "completed",
+  "failed",
+  "needs_review",
+  "approved",
+] as const;
+export type WorkflowStepStatus = (typeof workflowStepStatuses)[number];
+
 export const recommendationTypes = [
   "write_now",
   "monitor",
@@ -106,6 +151,132 @@ export const contentBriefSchema = z.object({
 
 export type ContentBrief = z.infer<typeof contentBriefSchema>;
 
+export const serpResultSchema = z.object({
+  rank: z.number(),
+  title: z.string(),
+  snippet: z.string(),
+  url: z.string(),
+  isForumOrSocial: z.boolean(),
+});
+
+export type SerpResult = z.infer<typeof serpResultSchema>;
+
+export const competitorKeywordSchema = z.object({
+  keyword: z.string(),
+  searchVolume: z.number(),
+});
+
+export type CompetitorKeyword = z.infer<typeof competitorKeywordSchema>;
+
+export const competitorSnapshotSchema = z.object({
+  rank: z.number(),
+  url: z.string(),
+  title: z.string(),
+  metaDescription: z.string().optional(),
+  headings: z.array(
+    z.object({
+      level: z.number(),
+      text: z.string(),
+    }),
+  ),
+  semrushKeywords: z.array(competitorKeywordSchema),
+  markdown: z.string(),
+});
+
+export type CompetitorSnapshot = z.infer<typeof competitorSnapshotSchema>;
+
+export const keywordOptionSchema = z.object({
+  keyword: z.string(),
+  searchVolume: z.number(),
+});
+
+export type KeywordOption = z.infer<typeof keywordOptionSchema>;
+
+export const mainLinkSuggestionSchema = z.object({
+  keyword: z.string(),
+  link: z.string(),
+});
+
+export type MainLinkSuggestion = z.infer<typeof mainLinkSuggestionSchema>;
+
+export const keywordOverviewSchema = z.object({
+  keyword: z.string(),
+  searchVolume: z.number(),
+  cpc: z.number().optional(),
+  competition: z.number().optional(),
+  keywordDifficulty: z.number().optional(),
+  resultsCount: z.number().optional(),
+});
+
+export type KeywordOverview = z.infer<typeof keywordOverviewSchema>;
+
+export const mealRecommendationSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  chef: z.string().optional(),
+  dietaryTags: z.array(z.string()).default([]),
+  reason: z.string(),
+});
+
+export type MealRecommendation = z.infer<typeof mealRecommendationSchema>;
+
+export const popularFoodSchema = z.object({
+  name: z.string(),
+  category: z.string(),
+  reasoning: z.string(),
+  matchedKeyword: z.string().optional(),
+  searchVolume: z.number().optional(),
+});
+
+export type PopularFood = z.infer<typeof popularFoodSchema>;
+
+export const outlinePackageSchema = z.object({
+  primaryKeyword: z.string(),
+  contentFormat: z.enum(contentFormatTypes).default("guide"),
+  keywordOverview: keywordOverviewSchema.optional(),
+  mainInternalLink: mainLinkSuggestionSchema.optional(),
+  keywordList: z.array(keywordOptionSchema),
+  popularFoods: z.array(popularFoodSchema).default([]),
+  serpResults: z.array(serpResultSchema),
+  competitors: z.array(competitorSnapshotSchema),
+  competitorKeywordRollup: z.array(keywordOptionSchema),
+  titleOptions: z.array(z.string()),
+  selectedTitle: z.string().optional(),
+  slugOptions: z.array(z.string()).default([]),
+  selectedSlug: z.string().optional(),
+  secondaryKeywordOptions: z.array(keywordOptionSchema),
+  selectedSecondaryKeywords: z.array(keywordOptionSchema).default([]),
+  internalLinks: z.array(
+    z.object({
+      label: z.string(),
+      url: z.string(),
+      anchorText: z.string(),
+    }),
+  ),
+  mealRecommendations: z.array(mealRecommendationSchema),
+  analysis: z.object({
+    persona: z.string(),
+    searchIntent: z.string(),
+    competitorSummary: z.string(),
+    seoOpportunities: z.array(z.string()),
+    faqRecommendations: z.array(z.string()),
+    mealPlacementSuggestions: z.array(z.string()),
+    outline: z.array(
+      z.object({
+        heading: z.string(),
+        level: z.number(),
+        notes: z.string(),
+      }),
+    ),
+  }),
+  reviewState: z.object({
+    titleApproved: z.boolean().default(false),
+    secondaryKeywordsApproved: z.boolean().default(false),
+  }),
+});
+
+export type OutlinePackage = z.infer<typeof outlinePackageSchema>;
+
 export const draftSchema = z.object({
   id: z.string(),
   topicId: z.string(),
@@ -116,6 +287,7 @@ export const draftSchema = z.object({
   slugRecommendation: z.string(),
   h1: z.string(),
   intro: z.string(),
+  keyTakeaways: z.array(z.string()).default([]),
   sections: z.array(
     z.object({
       heading: z.string(),
@@ -135,6 +307,22 @@ export const draftSchema = z.object({
   targetKeywords: z.array(z.string()),
   competitorNotes: z.array(z.string()),
   revisionChecklist: z.array(z.string()),
+  imagePlan: z.object({
+    headerImageTerm: z.string().optional(),
+    sectionImages: z.array(
+      z.object({
+        header: z.string(),
+        searchTerm: z.string(),
+        imageUrl: z.string().optional(),
+      }),
+    ).default([]),
+  }).optional(),
+  publishPackage: z.object({
+    slug: z.string(),
+    description: z.string(),
+    blocks: z.array(z.record(z.unknown())).default([]),
+    mealCarouselInsertions: z.number().default(0),
+  }).optional(),
   html: z.string(),
   createdAt: z.string(),
 });

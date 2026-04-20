@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 const nav = [
@@ -16,58 +19,74 @@ const nav = [
 
 export function PageShell({
   title,
+  description,
+  actions,
   children,
 }: {
   title: string;
+  description?: string;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
+  const pathname = usePathname();
+
   return (
-    <div style={{ minHeight: "100vh", background: "#f4efe7", color: "#16241a" }}>
-      <div
-        style={{
-          maxWidth: 1320,
-          margin: "0 auto",
-          padding: "24px 18px 56px",
-        }}
-      >
-        <header
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 16,
-            marginBottom: 24,
-            flexWrap: "wrap",
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#2f5d48" }}>
-              CookUnity SEO Agent
+    <div className="airops-shell">
+      <aside className="airops-rail">
+        <div className="airops-rail-logo">×</div>
+        <button type="button" className="airops-rail-button" aria-label="Create">
+          +
+        </button>
+        <div className="airops-rail-spacer" />
+        <button type="button" className="airops-rail-button" aria-label="Grid">
+          ⊞
+        </button>
+        <button type="button" className="airops-rail-button" aria-label="Queues">
+          ◴
+        </button>
+        <button type="button" className="airops-rail-button" aria-label="Settings">
+          ⚙
+        </button>
+      </aside>
+      <div className="airops-main">
+        <header className="airops-topbar">
+          <div className="airops-titlebar">
+            <button type="button" className="airops-back" aria-label="Back">
+              ←
+            </button>
+            <div className="airops-green-dot" />
+            <div>
+              <div className="airops-title">CookUnity SEO Ops</div>
+              <div className="airops-subtitle">Operator workspace</div>
             </div>
-            <h1 style={{ margin: "6px 0 0", fontSize: 34, lineHeight: 1 }}>{title}</h1>
           </div>
-          <nav style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {nav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 999,
-                  background: "#fffaf2",
-                  border: "1px solid #d8c8aa",
-                  color: "#16241a",
-                  textDecoration: "none",
-                  fontWeight: 700,
-                  fontSize: 14,
-                }}
-              >
+          <div className="airops-topbar-meta">Single app • review gated • Strapi-connected</div>
+        </header>
+
+        <nav className="airops-subnav">
+          {nav.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link key={item.href} href={item.href} className={`airops-tab${isActive ? " is-active" : ""}`}>
                 {item.label}
               </Link>
-            ))}
-          </nav>
-        </header>
-        {children}
+            );
+          })}
+        </nav>
+
+        <div className="airops-canvas">
+          <div className="app-workspace">
+            <header className="app-workspace-header">
+              <div>
+                <div className="app-kicker">CookUnity SEO agent</div>
+                <h1 className="app-title">{title}</h1>
+                {description ? <p className="app-description">{description}</p> : null}
+              </div>
+              {actions ? <div className="app-actions">{actions}</div> : null}
+            </header>
+            {children}
+          </div>
+        </div>
       </div>
     </div>
   );

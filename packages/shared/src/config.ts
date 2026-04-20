@@ -24,6 +24,8 @@ const envSchema = z.object({
   GOOGLE_DOCS_REVIEW_ENABLED: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
   SERP_API_KEY: z.string().optional(),
   SERP_PROVIDER: z.string().default("mock"),
+  SEMRUSH_API_KEY: z.string().optional(),
+  SEMRUSH_BASE_URL: z.string().url().default("https://api.semrush.com"),
   STRAPI_BASE_URL: z.string().url().default("https://cms.example.com"),
   STRAPI_API_TOKEN: z.string().optional(),
   STRAPI_COLLECTION: z.string().default("blog-posts"),

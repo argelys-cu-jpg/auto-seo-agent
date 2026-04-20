@@ -89,9 +89,55 @@ export interface AnalyticsProvider {
   fetchConversions(urls: string[]): Promise<Array<{ url: string; conversions: number }>>;
 }
 
+export interface SerpSearchResult {
+  rank: number;
+  title: string;
+  snippet: string;
+  url: string;
+}
+
+export interface HeadingRecord {
+  level: number;
+  text: string;
+}
+
+export interface CompetitorKeywordRecord {
+  keyword: string;
+  searchVolume: number;
+}
+
+export interface MealSearchRecord {
+  id: string;
+  name: string;
+  chef?: string;
+  dietaryTags: string[];
+}
+
 export interface ReviewDocumentProvider {
   createDocument(payload: ReviewDocumentPayload): Promise<ReviewDocumentRecord>;
   updateDocument(documentId: string, payload: ReviewDocumentPayload): Promise<ReviewDocumentRecord>;
+}
+
+export interface WorkflowResearchProvider {
+  identifyMainInternalLink(keyword: string): Promise<{ keyword: string; link: string }>;
+  fetchKeywordOverview(keyword: string): Promise<{
+    keyword: string;
+    searchVolume: number;
+    cpc?: number;
+    competition?: number;
+    keywordDifficulty?: number;
+    resultsCount?: number;
+  }>;
+  searchOrganicResults(keyword: string): Promise<SerpSearchResult[]>;
+  classifyForumOrSocial(result: SerpSearchResult): Promise<boolean>;
+  scrapeMarkdown(url: string): Promise<{ markdown: string; title?: string; metaDescription?: string }>;
+  extractHeadings(markdown: string): Promise<HeadingRecord[]>;
+  fetchCompetitorKeywords(url: string): Promise<CompetitorKeywordRecord[]>;
+  fetchSecondaryKeywords(keyword: string): Promise<CompetitorKeywordRecord[]>;
+  fetchInternalLinkCandidates(keyword: string): Promise<Array<{ title: string; url: string }>>;
+  determineMealFilters(keyword: string): Promise<string[]>;
+  fetchMeals(filters: string[]): Promise<MealSearchRecord[]>;
+  searchImageCandidates(term: string): Promise<Array<{ id: string; url: string; width: number; height: number }>>;
 }
 
 export interface StrapiProvider {
