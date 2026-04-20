@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { PageShell } from "../../components/page-shell";
 import { getDashboardData } from "../../lib/data";
 
@@ -8,6 +10,7 @@ export default async function AgentControlPage() {
     <PageShell
       title="Agent control"
       description="All agents run inside the same product boundary. The orchestrator owns sequencing, retries, and approval gates."
+      actions={<Link href="/grid" className="app-button is-primary">Open workflow grid</Link>}
     >
       <section className="app-stat-grid">
         <div className="app-stat">

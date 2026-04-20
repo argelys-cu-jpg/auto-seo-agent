@@ -9,6 +9,7 @@ export default async function ReviewPage() {
     <PageShell
       title="Human review"
       description="Review the actual draft package, capture revision notes, and block publishing until approval is recorded."
+      actions={<a href={("reviewDocUrl" in data.draft && typeof data.draft.reviewDocUrl === "string" ? data.draft.reviewDocUrl : "/grid")} target={"reviewDocUrl" in data.draft && typeof data.draft.reviewDocUrl === "string" ? "_blank" : undefined} rel={"reviewDocUrl" in data.draft && typeof data.draft.reviewDocUrl === "string" ? "noreferrer" : undefined} className="app-button is-primary">{("reviewDocUrl" in data.draft && typeof data.draft.reviewDocUrl === "string") ? "Open review doc" : "Open workflow grid"}</a>}
     >
       <section className="app-review-layout">
         <div className="app-card">

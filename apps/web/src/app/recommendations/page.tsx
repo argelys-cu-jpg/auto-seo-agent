@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { PageShell } from "../../components/page-shell";
 import { getDashboardData } from "../../lib/data";
 
@@ -15,6 +17,7 @@ export default async function RecommendationsPage() {
     <PageShell
       title="Refresh tasks"
       description="Optimization work created from live monitoring, decay detection, and cluster gaps."
+      actions={<Link href="/monitoring" className="app-button is-primary">Back to monitoring</Link>}
     >
       <section className="app-grid-sidebar">
         <div className="app-card">
@@ -40,6 +43,7 @@ export default async function RecommendationsPage() {
           </div>
           <div className="app-card-body app-stack">
             <div className="app-muted">Refresh work is generated after publication, not during drafting. The queue exists to improve live pages, not to create new content from scratch.</div>
+            <Link href="/grid" className="app-inline-link">Open workflow grid</Link>
           </div>
         </div>
       </section>

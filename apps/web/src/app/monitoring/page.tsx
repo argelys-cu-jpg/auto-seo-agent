@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { PageShell } from "../../components/page-shell";
 import { getDashboardData } from "../../lib/data";
 
@@ -9,6 +11,7 @@ export default async function MonitoringPage() {
     <PageShell
       title="Post-publish monitoring"
       description="Track page-level search performance, spot decline early, and turn performance signals into refresh work."
+      actions={<Link href="/recommendations" className="app-button is-primary">Open refresh tasks</Link>}
     >
       <section className="app-card">
         <div className="app-card-head">
@@ -35,7 +38,10 @@ export default async function MonitoringPage() {
                         <td>{topic.title}</td>
                         <td>{snapshot?.impressions ?? 0}</td>
                         <td>{snapshot?.ctr ?? 0}</td>
-                        <td>{snapshot?.averagePosition ?? 0}</td>
+                        <td>
+                          <div>{snapshot?.averagePosition ?? 0}</div>
+                          <Link href="/recommendations" className="app-inline-link">Open related task</Link>
+                        </td>
                       </tr>
                     );
                   })}

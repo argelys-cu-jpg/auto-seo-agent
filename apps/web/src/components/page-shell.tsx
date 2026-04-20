@@ -34,26 +34,29 @@ export function PageShell({
     <div className="airops-shell">
       <aside className="airops-rail">
         <div className="airops-rail-logo">×</div>
-        <button type="button" className="airops-rail-button" aria-label="Create">
+        <Link href="/grid" className="airops-rail-button" aria-label="Open grid">
           +
-        </button>
+        </Link>
         <div className="airops-rail-spacer" />
-        <button type="button" className="airops-rail-button" aria-label="Grid">
+        <Link href="/grid" className="airops-rail-button" aria-label="Grid">
           ⊞
-        </button>
-        <button type="button" className="airops-rail-button" aria-label="Queues">
+        </Link>
+        <Link href="/inbox" className="airops-rail-button" aria-label="Queues">
           ◴
-        </button>
-        <button type="button" className="airops-rail-button" aria-label="Settings">
+        </Link>
+        <Link href="/review" className="airops-rail-button" aria-label="Review">
+          ✓
+        </Link>
+        <Link href="/monitoring" className="airops-rail-button" aria-label="Monitoring">
           ⚙
-        </button>
+        </Link>
       </aside>
       <div className="airops-main">
         <header className="airops-topbar">
           <div className="airops-titlebar">
-            <button type="button" className="airops-back" aria-label="Back">
+            <Link href="/" className="airops-back" aria-label="Back">
               ←
-            </button>
+            </Link>
             <div className="airops-green-dot" />
             <div>
               <div className="airops-title">CookUnity SEO Ops</div>

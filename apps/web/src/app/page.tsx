@@ -68,6 +68,9 @@ export default async function HomePage() {
                       Score {topic.totalScore} • {topic.recommendation} • Cannibalization {topic.cannibalizationRisk}
                     </div>
                     <div className="app-muted">{topic.rationale}</div>
+                    <div>
+                      <Link href="/grid" className="app-inline-link">Open in workflow grid</Link>
+                    </div>
                   </div>
                 ))}
                 {data.persistedTopics.length === 0 ? (
@@ -126,6 +129,7 @@ export default async function HomePage() {
               <Link href="/published" className="app-inline-link">Published inventory</Link>
               <Link href="/monitoring" className="app-inline-link">Monitoring</Link>
               <Link href="/recommendations" className="app-inline-link">Refresh tasks</Link>
+              <Link href="/agents" className="app-inline-link">Agent control</Link>
             </div>
           </div>
 

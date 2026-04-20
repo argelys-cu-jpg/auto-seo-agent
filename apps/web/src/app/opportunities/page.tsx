@@ -38,7 +38,10 @@ export default async function OpportunitiesPage() {
                     </td>
                     <td>{topic.totalScore}</td>
                     <td><span className="app-badge">{topic.recommendation}</span></td>
-                    <td>{topic.topicType}</td>
+                    <td>
+                      <div>{topic.topicType}</div>
+                      <Link href="/grid" className="app-inline-link">Run in workflow grid</Link>
+                    </td>
                   </tr>
                 ))}
                 {data.prioritized.length === 0 ? (

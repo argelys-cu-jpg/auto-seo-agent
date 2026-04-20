@@ -33,6 +33,9 @@ export default async function InboxPage() {
                     <span className="app-badge">{topic.recommendation}</span>
                   </div>
                   <div className="app-list-meta">Score {topic.totalScore}</div>
+                  <div>
+                    <Link href="/grid" className="app-inline-link">Open workflow row</Link>
+                  </div>
                 </div>
               )) : <div className="app-muted">No scored opportunities yet.</div>}
             </div>
@@ -54,13 +57,16 @@ export default async function InboxPage() {
                       <span>{topic.title}</span>
                       <span className="app-badge is-warning">{topic.workflowState}</span>
                     </div>
-                    {reviewDocUrl ? (
-                      <a href={reviewDocUrl} target="_blank" rel="noreferrer" className="app-inline-link">
-                        Open review doc
-                      </a>
-                    ) : (
-                      <div className="app-muted">Review doc not created yet.</div>
-                    )}
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      <Link href="/review" className="app-inline-link">Open review queue</Link>
+                      {reviewDocUrl ? (
+                        <a href={reviewDocUrl} target="_blank" rel="noreferrer" className="app-inline-link">
+                          Open review doc
+                        </a>
+                      ) : (
+                        <span className="app-muted">Review doc not created yet.</span>
+                      )}
+                    </div>
                   </div>
                 );
               }) : <div className="app-muted">No drafts currently in review.</div>}
@@ -80,6 +86,9 @@ export default async function InboxPage() {
                   <div className="app-list-title">
                     <span>{topic.title}</span>
                     <span className="app-badge is-success">approved</span>
+                  </div>
+                  <div>
+                    <Link href="/published" className="app-inline-link">View publish inventory</Link>
                   </div>
                 </div>
               )) : <div className="app-muted">No approved drafts waiting to publish.</div>}
@@ -101,6 +110,9 @@ export default async function InboxPage() {
                     <span className="app-badge is-warning">refresh</span>
                   </div>
                   <div className="app-muted">{topic.rationale}</div>
+                  <div>
+                    <Link href="/recommendations" className="app-inline-link">Open refresh tasks</Link>
+                  </div>
                 </div>
               )) : <div className="app-muted">No refresh recommendations yet.</div>}
             </div>
