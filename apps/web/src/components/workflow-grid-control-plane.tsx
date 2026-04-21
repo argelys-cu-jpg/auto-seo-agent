@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { KeywordOption, OutlinePackage } from "@cookunity-seo-agent/shared";
+import type { KeywordOption, OpportunityPath, OpportunityType, OutlinePackage } from "@cookunity-seo-agent/shared";
 import { Badge } from "./cards";
 import type { GridOpportunityDetail, GridOpportunityRow, GridStepView } from "../lib/workflow-grid-store";
 
@@ -177,9 +177,12 @@ export function WorkflowGridControlPlane(props: {
   initialRows: GridOpportunityRow[];
   persistenceMode: "database" | "mock";
   databaseReady: boolean;
+  workspaceKey: string;
+  workspaceTitle: string;
+  workspaceDescription: string;
 }) {
   const router = useRouter();
-  const [rows, setRows] = useState(props.initialRows);
+  const [rows, setRows] = useState<GridOpportunityRow[]>(props.initialRows);
   const [selectedId, setSelectedId] = useState<string | null>(props.initialRows[0]?.id ?? null);
   const [detail, setDetail] = useState<GridOpportunityDetail | null>(null);
   const [form, setForm] = useState({
@@ -199,6 +202,84 @@ export function WorkflowGridControlPlane(props: {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [drawerOpen, setDrawerOpen] = useState(Boolean(props.initialRows[0]?.id));
+
+  function mockStorageKey() {
+    return `cookunity-grid:${props.workspaceKey}`;
+  }
+
+  function buildMockOpportunity(input: {
+    keyword: string;
+    path: OpportunityPath;
+    type: OpportunityType;
+    pageIdea?: string;
+    competitorPageUrl?: string;
+  }): GridOpportunityRow {
+    const now = new Date().toISOString();
+    const pathLabel = input.path === "blog" ? "capture" : "comparison";
+    const reviewLabel = input.path === "blog" ? "Blog → email capture → nurture → trial" : "LP → direct trial";
+    return {
+      id: `mock_${props.workspaceKey}_${Date.now()}`,
+      keyword: input.keyword,
+      intent: pathLabel,
+      path: input.path,
+      type: input.type,
+      rowStatus: "needs_review",
+      ...(input.pageIdea ? { pageIdea: input.pageIdea } : {}),
+      ...(input.competitorPageUrl ? { competitorPageUrl: input.competitorPageUrl } : {}),
+      updatedAt: now,
+      steps: [
+        {
+          id: `mock_discovery_${Date.now()}`,
+          stepName: "discovery",
+          status: "completed",
+          version: 1,
+          completedAt: now,
+          output: { message: `${input.keyword} discovered in ${props.workspaceTitle.toLowerCase()}.` },
+        },
+        {
+          id: `mock_prioritization_${Date.now()}`,
+          stepName: "prioritization",
+          status: "completed",
+          version: 1,
+          completedAt: now,
+          output: { explanation: `Prioritized for the ${props.workspaceTitle.toLowerCase()} queue.` },
+        },
+        {
+          id: `mock_brief_${Date.now()}`,
+          stepName: "brief",
+          status: "needs_review",
+          version: 1,
+          completedAt: now,
+          output: { reviewLabel, summary: `Brief generated for ${input.keyword}.` },
+        },
+        {
+          id: `mock_draft_${Date.now()}`,
+          stepName: "draft",
+          status: "not_started",
+          version: 0,
+        },
+        {
+          id: `mock_qa_${Date.now()}`,
+          stepName: "qa",
+          status: "not_started",
+          version: 0,
+        },
+        {
+          id: `mock_publish_${Date.now()}`,
+          stepName: "publish",
+          status: "not_started",
+          version: 0,
+        },
+      ],
+    };
+  }
+
+  function saveMockRows(nextRows: GridOpportunityRow[]) {
+    setRows(nextRows);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(mockStorageKey(), JSON.stringify(nextRows));
+    }
+  }
 
   const selectedRow = useMemo(
     () => rows.find((row) => row.id === selectedId) ?? null,
@@ -220,8 +301,29 @@ export function WorkflowGridControlPlane(props: {
   }, [selectedId, props.persistenceMode]);
 
   useEffect(() => {
-    setRows(props.initialRows);
-  }, [props.initialRows]);
+    if (props.persistenceMode === "database") {
+      setRows(props.initialRows);
+      return;
+    }
+
+    if (typeof window === "undefined") {
+      setRows(props.initialRows);
+      return;
+    }
+
+    const saved = window.localStorage.getItem(mockStorageKey());
+    if (!saved) {
+      setRows(props.initialRows);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(saved) as GridOpportunityRow[];
+      setRows(parsed);
+    } catch {
+      setRows(props.initialRows);
+    }
+  }, [props.initialRows, props.persistenceMode, props.workspaceKey]);
 
   useEffect(() => {
     if (selectedId) {
@@ -253,6 +355,23 @@ export function WorkflowGridControlPlane(props: {
   async function saveRowEdit(rowId: string) {
     const draft = rowEdits[rowId];
     if (!draft) return;
+    if (props.persistenceMode !== "database") {
+      const nextRows = rows.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              keyword: draft.keyword,
+              path: draft.path,
+              type: draft.type,
+              intent: draft.path === "blog" ? "capture" : "comparison",
+              updatedAt: new Date().toISOString(),
+            }
+          : row,
+      );
+      saveMockRows(nextRows);
+      setEditingRowId(null);
+      return;
+    }
     await requestJson(`/api/opportunities/${rowId}`, {
       method: "PATCH",
       body: JSON.stringify(draft),
@@ -278,8 +397,8 @@ export function WorkflowGridControlPlane(props: {
       <div className="air-sheet">
         <div className="air-sheet-meta">
           <div className="air-sheet-meta-left">
-            <div className="air-sheet-name">CookUnity SEO workflows</div>
-            <div className="air-sheet-context">Rows are opportunities. Columns are controlled workflow steps.</div>
+            <div className="air-sheet-name">{props.workspaceTitle}</div>
+            <div className="air-sheet-context">{props.workspaceDescription}</div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Badge variant="grid">{props.persistenceMode === "database" ? "Database-backed" : "Mock fallback"}</Badge>
@@ -353,10 +472,24 @@ export function WorkflowGridControlPlane(props: {
               disabled={pending || !form.keyword.trim()}
               onClick={() =>
                 runAction(async () => {
-                  await requestJson("/api/opportunities", {
-                    method: "POST",
-                    body: JSON.stringify(form),
-                  });
+                  if (props.persistenceMode === "database") {
+                    await requestJson("/api/opportunities", {
+                      method: "POST",
+                      body: JSON.stringify(form),
+                    });
+                  } else {
+                    const created = buildMockOpportunity({
+                      keyword: form.keyword,
+                      path: form.path as OpportunityPath,
+                      type: form.type as OpportunityType,
+                      ...(form.pageIdea ? { pageIdea: form.pageIdea } : {}),
+                      ...(form.competitorPageUrl ? { competitorPageUrl: form.competitorPageUrl } : {}),
+                    });
+                    const nextRows = [created, ...rows];
+                    saveMockRows(nextRows);
+                    setSelectedId(created.id);
+                    setDrawerOpen(true);
+                  }
                   setForm({
                     keyword: "",
                     path: "blog",
@@ -364,7 +497,9 @@ export function WorkflowGridControlPlane(props: {
                     pageIdea: "",
                     competitorPageUrl: "",
                   });
-                  router.refresh();
+                  if (props.persistenceMode === "database") {
+                    router.refresh();
+                  }
                 })
               }
             >
@@ -513,7 +648,7 @@ export function WorkflowGridControlPlane(props: {
                               <button
                                 className="air-chip-button"
                                 type="button"
-                                disabled={pending || props.persistenceMode !== "database"}
+                                disabled={pending}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   setSelectedId(row.id);
@@ -525,10 +660,15 @@ export function WorkflowGridControlPlane(props: {
                               <button
                                 className="air-chip-button"
                                 type="button"
-                                disabled={pending || props.persistenceMode !== "database"}
+                                disabled={pending}
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   runAction(async () => {
+                                    if (props.persistenceMode !== "database") {
+                                      setSelectedId(row.id);
+                                      setDrawerOpen(true);
+                                      return;
+                                    }
                                     if (!step || step.version === 0 || step.status === "not_started") {
                                       await requestJson(`/api/opportunities/${row.id}/steps/${stepName}/run`, { method: "POST" });
                                     } else {
@@ -551,10 +691,15 @@ export function WorkflowGridControlPlane(props: {
                         <button
                           className="air-mini-button"
                           type="button"
-                          disabled={pending || props.persistenceMode !== "database"}
+                          disabled={pending}
                           onClick={(event) => {
                             event.stopPropagation();
                             runAction(async () => {
+                              if (props.persistenceMode !== "database") {
+                                setSelectedId(row.id);
+                                setDrawerOpen(true);
+                                return;
+                              }
                               await requestJson(`/api/opportunities/${row.id}/run`, { method: "POST" });
                               await refreshRow(row.id);
                               router.refresh();
@@ -566,10 +711,11 @@ export function WorkflowGridControlPlane(props: {
                         <button
                           className="air-mini-button"
                           type="button"
-                          disabled={pending || props.persistenceMode !== "database"}
+                          disabled={pending}
                           onClick={(event) => {
                             event.stopPropagation();
                             setSelectedId(row.id);
+                            setDrawerOpen(true);
                           }}
                         >
                           Open
@@ -577,10 +723,17 @@ export function WorkflowGridControlPlane(props: {
                         <button
                           className="air-mini-button"
                           type="button"
-                          disabled={pending || props.persistenceMode !== "database" || row.rowStatus !== "approved"}
+                          disabled={pending || (props.persistenceMode === "database" ? row.rowStatus !== "approved" : false)}
                           onClick={(event) => {
                             event.stopPropagation();
                             runAction(async () => {
+                              if (props.persistenceMode !== "database") {
+                                const nextRows = rows.map((item) =>
+                                  item.id === row.id ? { ...item, rowStatus: "published" as const } : item,
+                                );
+                                saveMockRows(nextRows);
+                                return;
+                              }
                               await requestJson(`/api/opportunities/${row.id}/publish`, { method: "POST" });
                               await refreshRow(row.id);
                               router.refresh();
