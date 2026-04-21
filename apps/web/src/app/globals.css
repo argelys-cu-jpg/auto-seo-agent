@@ -473,6 +473,7 @@ textarea {
   grid-template-columns: minmax(0, 1fr);
   min-height: calc(100vh - 180px);
   position: relative;
+  align-content: start;
 }
 
 .airops-grid-layout .air-input,
@@ -519,6 +520,8 @@ textarea {
   display: grid;
   gap: 12px;
   min-width: 0;
+  align-content: start;
+  grid-auto-rows: max-content;
 }
 
 .air-sheet-meta {
