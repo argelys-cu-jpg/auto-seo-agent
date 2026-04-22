@@ -366,7 +366,15 @@ export function WorkflowGridControlPlane(props: {
     const nextDetail = payload.result ?? null;
     if (!nextDetail) return;
     setDetail(nextDetail);
-    setRows((current) => current.map((row) => (row.id === opportunityId ? nextDetail : row)));
+    setRows((current) => {
+      const existingIndex = current.findIndex((row) => row.id === opportunityId);
+      if (existingIndex === -1) {
+        return [nextDetail, ...current.filter((row) => !row.id.startsWith("pending_"))];
+      }
+      const nextRows = [...current];
+      nextRows[existingIndex] = nextDetail;
+      return nextRows;
+    });
   }
 
   function beginRowEdit(row: GridOpportunityRow) {
@@ -421,6 +429,22 @@ export function WorkflowGridControlPlane(props: {
   }
 
   const currentSteps = detail?.steps ?? selectedRow?.steps ?? [];
+
+  useEffect(() => {
+    if (props.persistenceMode !== "database") return;
+    if (!selectedId) return;
+    if (!drawerOpen) return;
+    const hasRunningStep = currentSteps.some((step) => step.status === "running");
+    if (!hasRunningStep) return;
+
+    const intervalId = window.setInterval(() => {
+      void refreshRow(selectedId).catch(() => {
+        // Let existing request handlers surface actionable errors.
+      });
+    }, 2000);
+
+    return () => window.clearInterval(intervalId);
+  }, [currentSteps, drawerOpen, props.persistenceMode, selectedId]);
 
   return (
     <div className="airops-grid-layout">
