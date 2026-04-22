@@ -83,6 +83,19 @@ async function requestJson(url: string, options?: RequestInit) {
   return payload;
 }
 
+function applyDetailToRows(
+  current: GridOpportunityRow[],
+  nextDetail: GridOpportunityDetail,
+): GridOpportunityRow[] {
+  const existingIndex = current.findIndex((row) => row.id === nextDetail.id);
+  if (existingIndex === -1) {
+    return [nextDetail, ...current.filter((row) => !row.id.startsWith("pending_"))];
+  }
+  const nextRows = [...current];
+  nextRows[existingIndex] = nextDetail;
+  return nextRows;
+}
+
 function getStepPayload(step: GridStepView) {
   return (step.manualOutput ?? step.output ?? null) as Record<string, unknown> | null;
 }
@@ -366,15 +379,65 @@ export function WorkflowGridControlPlane(props: {
     const nextDetail = payload.result ?? null;
     if (!nextDetail) return;
     setDetail(nextDetail);
-    setRows((current) => {
-      const existingIndex = current.findIndex((row) => row.id === opportunityId);
-      if (existingIndex === -1) {
-        return [nextDetail, ...current.filter((row) => !row.id.startsWith("pending_"))];
+    setRows((current) => applyDetailToRows(current, nextDetail));
+  }
+
+  async function runWorkflowInline(opportunityId: string) {
+    if (props.persistenceMode !== "database") return;
+
+    let payload = await requestJson(`/api/opportunities/${opportunityId}`);
+    const initialDetail = payload.result;
+    if (!initialDetail) {
+      throw new Error("Opportunity detail could not be loaded.");
+    }
+    let nextDetail: GridOpportunityDetail = initialDetail;
+
+    setDetail(nextDetail);
+    setRows((current) => applyDetailToRows(current, nextDetail));
+    setSelectedId(opportunityId);
+    setDrawerOpen(true);
+
+    for (const stepName of orderedSteps) {
+      if (stepName === "publish") {
+        break;
       }
-      const nextRows = [...current];
-      nextRows[existingIndex] = nextDetail;
-      return nextRows;
-    });
+
+      const currentStep = nextDetail.steps.find((step) => step.stepName === stepName);
+      if (currentStep?.status === "approved" || currentStep?.status === "completed") {
+        continue;
+      }
+      if (currentStep?.status === "needs_review") {
+        break;
+      }
+
+      const runPayload = await requestJson(`/api/opportunities/${opportunityId}/steps/${stepName}/run`, {
+        method: "POST",
+      });
+      const stepDetail = runPayload.result;
+      if (stepDetail) {
+        nextDetail = stepDetail;
+      } else {
+        await refreshRow(opportunityId);
+        payload = await requestJson(`/api/opportunities/${opportunityId}`);
+        const refreshedDetail = payload.result;
+        if (!refreshedDetail) {
+          throw new Error(`Step ${stepName} did not return updated workflow state.`);
+        }
+        nextDetail = refreshedDetail;
+      }
+
+      setDetail(nextDetail);
+      setRows((current) => applyDetailToRows(current, nextDetail));
+
+      const latestStep = nextDetail.steps.find((step) => step.stepName === stepName);
+      if (latestStep?.status === "failed") {
+        throw new Error(latestStep.error ?? `${stepName} failed.`);
+      }
+
+      if (nextDetail.rowStatus === "failed" || nextDetail.rowStatus === "blocked" || nextDetail.rowStatus === "needs_review") {
+        break;
+      }
+    }
   }
 
   function beginRowEdit(row: GridOpportunityRow) {
@@ -561,9 +624,7 @@ export function WorkflowGridControlPlane(props: {
                       });
                       const createdId = response.result?.id;
                       if (createdId) {
-                        await requestJson(`/api/opportunities/${createdId}/run`, { method: "POST" });
-                        setSelectedId(createdId);
-                        await refreshRow(createdId);
+                        await runWorkflowInline(createdId);
                         setNotice("Opportunity created and workflow started.");
                       } else {
                         router.refresh();
@@ -792,8 +853,7 @@ export function WorkflowGridControlPlane(props: {
                                 setDrawerOpen(true);
                                 return;
                               }
-                              await requestJson(`/api/opportunities/${row.id}/run`, { method: "POST" });
-                              await refreshRow(row.id);
+                              await runWorkflowInline(row.id);
                               router.refresh();
                             });
                           }}
