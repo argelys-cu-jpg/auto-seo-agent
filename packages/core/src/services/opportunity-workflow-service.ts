@@ -58,6 +58,21 @@ function serializeError(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown workflow error";
 }
 
+function getStepTimeoutMs(stepName: WorkflowStepName): number {
+  switch (stepName) {
+    case "discovery":
+    case "prioritization":
+      return 15000;
+    case "brief":
+    case "draft":
+    case "qa":
+    case "publish":
+      return 30000;
+    default:
+      return 15000;
+  }
+}
+
 const orderedSteps: WorkflowStepName[] = ["discovery", "prioritization", "brief", "draft", "qa", "publish"];
 
 export class OpportunityWorkflowService {
@@ -210,7 +225,7 @@ export class OpportunityWorkflowService {
     });
 
     try {
-      const output = await this.runStepImplementation(opportunityId, stepName, stepRun.id);
+      const output = await this.runStepWithTimeout(opportunityId, stepName, stepRun.id);
       const status = this.getStepSuccessStatus(stepName, output);
       await prisma.workflowStepRun.update({
         where: { id: stepRun.id },
@@ -527,6 +542,26 @@ export class OpportunityWorkflowService {
       default:
         throw new Error(`Unsupported step: ${stepName satisfies never}`);
     }
+  }
+
+  private runStepWithTimeout(opportunityId: string, stepName: WorkflowStepName, stepRunId: string) {
+    const timeoutMs = getStepTimeoutMs(stepName);
+
+    return new Promise<unknown>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`${stepName} timed out after ${Math.round(timeoutMs / 1000)}s.`));
+      }, timeoutMs);
+
+      this.runStepImplementation(opportunityId, stepName, stepRunId)
+        .then((result) => {
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .catch((error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+    });
   }
 
   private async runDiscovery(opportunityId: string) {
