@@ -6,10 +6,26 @@ export class KeywordIntelligenceService {
 
   async discover(seedTerms: string[]): Promise<ReturnType<typeof this.aggregate>> {
     const [ahrefs, decay, trends, serp] = await Promise.all([
-      this.providers.ahrefs.discoverKeywords(seedTerms),
-      this.providers.gsc.discoverContentDecay(),
-      this.providers.trends.discoverRisingTopics(seedTerms),
-      this.providers.serp.discoverQuestions(seedTerms),
+      this.withFallback(
+        "ahrefs.discoverKeywords",
+        this.providers.ahrefs.discoverKeywords(seedTerms),
+        [],
+      ),
+      this.withFallback(
+        "gsc.discoverContentDecay",
+        this.providers.gsc.discoverContentDecay(),
+        [],
+      ),
+      this.withFallback(
+        "trends.discoverRisingTopics",
+        this.providers.trends.discoverRisingTopics(seedTerms),
+        [],
+      ),
+      this.withFallback(
+        "serp.discoverQuestions",
+        this.providers.serp.discoverQuestions(seedTerms),
+        [],
+      ),
     ]);
 
     const result = this.aggregate([...ahrefs, ...decay, ...trends, ...serp]);
@@ -30,5 +46,41 @@ export class KeywordIntelligenceService {
       }
     }
     return [...byKeyword.values()];
+  }
+
+  private async withFallback<T>(label: string, promise: Promise<T>, fallback: T): Promise<T> {
+    try {
+      return await this.withTimeout(label, promise, fallback);
+    } catch (error) {
+      log("warn", "Keyword discovery provider failed", {
+        service: "keyword-intelligence",
+        provider: label,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return fallback;
+    }
+  }
+
+  private withTimeout<T>(label: string, promise: Promise<T>, fallback: T, timeoutMs = 8000): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        log("warn", "Keyword discovery provider timed out", {
+          service: "keyword-intelligence",
+          provider: label,
+          timeoutMs,
+        });
+        resolve(fallback);
+      }, timeoutMs);
+
+      promise
+        .then((value) => {
+          clearTimeout(timer);
+          resolve(value);
+        })
+        .catch((error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+    });
   }
 }
