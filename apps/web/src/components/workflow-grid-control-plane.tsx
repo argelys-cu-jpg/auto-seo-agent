@@ -76,9 +76,21 @@ async function requestJson(url: string, options?: RequestInit) {
       ...(options?.headers ?? {}),
     },
   });
-  const payload = (await response.json()) as { success: boolean; message?: string; warning?: string; result?: GridOpportunityDetail & { id: string } };
-  if (!response.ok || !payload.success) {
-    throw new Error(payload.message ?? "Request failed.");
+  const raw = await response.text();
+  let payload:
+    | { success: boolean; message?: string; warning?: string; result?: GridOpportunityDetail & { id: string } }
+    | null = null;
+
+  if (raw) {
+    try {
+      payload = JSON.parse(raw) as { success: boolean; message?: string; warning?: string; result?: GridOpportunityDetail & { id: string } };
+    } catch {
+      throw new Error(raw.slice(0, 240));
+    }
+  }
+
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.message ?? raw.slice(0, 240) ?? "Request failed.");
   }
   return payload;
 }
