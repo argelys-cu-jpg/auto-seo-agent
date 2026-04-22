@@ -76,7 +76,7 @@ async function requestJson(url: string, options?: RequestInit) {
       ...(options?.headers ?? {}),
     },
   });
-  const payload = (await response.json()) as { success: boolean; message?: string; result?: GridOpportunityDetail };
+  const payload = (await response.json()) as { success: boolean; message?: string; warning?: string; result?: GridOpportunityDetail & { id: string } };
   if (!response.ok || !payload.success) {
     throw new Error(payload.message ?? "Request failed.");
   }
@@ -200,6 +200,7 @@ export function WorkflowGridControlPlane(props: {
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [rowEdits, setRowEdits] = useState<Record<string, { keyword: string; path: "blog" | "landing_page"; type: "keyword" | "page_idea" | "competitor_page" | "lp_optimization" }>>({});
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [drawerOpen, setDrawerOpen] = useState(Boolean(props.initialRows[0]?.id));
 
@@ -271,6 +272,34 @@ export function WorkflowGridControlPlane(props: {
           version: 0,
         },
       ],
+    };
+  }
+
+  function buildPendingRow(input: {
+    keyword: string;
+    path: OpportunityPath;
+    type: OpportunityType;
+    pageIdea?: string;
+    competitorPageUrl?: string;
+  }): GridOpportunityRow {
+    const now = new Date().toISOString();
+    return {
+      id: `pending_${Date.now()}`,
+      keyword: input.keyword,
+      intent: input.path === "blog" ? "capture" : "comparison",
+      path: input.path,
+      type: input.type,
+      rowStatus: "running",
+      ...(input.pageIdea ? { pageIdea: input.pageIdea } : {}),
+      ...(input.competitorPageUrl ? { competitorPageUrl: input.competitorPageUrl } : {}),
+      updatedAt: now,
+      steps: orderedSteps.map((stepName, index) => ({
+        id: `pending_${stepName}_${Date.now()}_${index}`,
+        stepName,
+        status: index === 0 ? "running" : "not_started",
+        version: 0,
+        ...(index === 0 ? { startedAt: now } : {}),
+      })),
     };
   }
 
@@ -383,6 +412,7 @@ export function WorkflowGridControlPlane(props: {
 
   function runAction(action: () => Promise<void>) {
     setError(null);
+    setNotice(null);
     startTransition(() => {
       void action().catch((nextError) => {
         setError(nextError instanceof Error ? nextError.message : "Action failed.");
@@ -409,6 +439,21 @@ export function WorkflowGridControlPlane(props: {
         {error ? (
           <div className="air-banner-error">
             {error}
+          </div>
+        ) : null}
+        {notice ? (
+          <div
+            style={{
+              padding: "10px 12px",
+              border: "1px solid #d9e6d8",
+              background: "#f4fbf3",
+              color: "#245135",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {notice}
           </div>
         ) : null}
 
@@ -472,23 +517,44 @@ export function WorkflowGridControlPlane(props: {
               disabled={pending || !form.keyword.trim()}
               onClick={() =>
                 runAction(async () => {
+                  const payload = {
+                    keyword: form.keyword.trim(),
+                    path: form.path as OpportunityPath,
+                    type: form.type as OpportunityType,
+                    ...(form.pageIdea ? { pageIdea: form.pageIdea } : {}),
+                    ...(form.competitorPageUrl ? { competitorPageUrl: form.competitorPageUrl } : {}),
+                  };
                   if (props.persistenceMode === "database") {
-                    await requestJson("/api/opportunities", {
-                      method: "POST",
-                      body: JSON.stringify(form),
-                    });
+                    const optimisticRow = buildPendingRow(payload);
+                    setRows((current) => [optimisticRow, ...current]);
+                    setSelectedId(optimisticRow.id);
+                    setDrawerOpen(true);
+
+                    try {
+                      const response = await requestJson("/api/opportunities", {
+                        method: "POST",
+                        body: JSON.stringify(payload),
+                      });
+                      const createdId = response.result?.id;
+                      if (createdId) {
+                        setSelectedId(createdId);
+                        await refreshRow(createdId);
+                      } else {
+                        router.refresh();
+                      }
+                      setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
+                      setNotice(response.warning ?? "Opportunity created.");
+                    } catch (nextError) {
+                      setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
+                      throw nextError;
+                    }
                   } else {
-                    const created = buildMockOpportunity({
-                      keyword: form.keyword,
-                      path: form.path as OpportunityPath,
-                      type: form.type as OpportunityType,
-                      ...(form.pageIdea ? { pageIdea: form.pageIdea } : {}),
-                      ...(form.competitorPageUrl ? { competitorPageUrl: form.competitorPageUrl } : {}),
-                    });
+                    const created = buildMockOpportunity(payload);
                     const nextRows = [created, ...rows];
                     saveMockRows(nextRows);
                     setSelectedId(created.id);
                     setDrawerOpen(true);
+                    setNotice("Opportunity created in mock mode.");
                   }
                   setForm({
                     keyword: "",
