@@ -384,60 +384,18 @@ export function WorkflowGridControlPlane(props: {
 
   async function runWorkflowInline(opportunityId: string) {
     if (props.persistenceMode !== "database") return;
-
-    let payload = await requestJson(`/api/opportunities/${opportunityId}`);
-    const initialDetail = payload.result;
-    if (!initialDetail) {
-      throw new Error("Opportunity detail could not be loaded.");
+    const payload = await requestJson(`/api/opportunities/${opportunityId}/run`, {
+      method: "POST",
+    });
+    const nextDetail = payload.result ?? null;
+    if (!nextDetail) {
+      await refreshRow(opportunityId);
+      return;
     }
-    let nextDetail: GridOpportunityDetail = initialDetail;
-
     setDetail(nextDetail);
     setRows((current) => applyDetailToRows(current, nextDetail));
     setSelectedId(opportunityId);
     setDrawerOpen(true);
-
-    for (const stepName of orderedSteps) {
-      if (stepName === "publish") {
-        break;
-      }
-
-      const currentStep = nextDetail.steps.find((step) => step.stepName === stepName);
-      if (currentStep?.status === "approved" || currentStep?.status === "completed") {
-        continue;
-      }
-      if (currentStep?.status === "needs_review") {
-        break;
-      }
-
-      const runPayload = await requestJson(`/api/opportunities/${opportunityId}/steps/${stepName}/run`, {
-        method: "POST",
-      });
-      const stepDetail = runPayload.result;
-      if (stepDetail) {
-        nextDetail = stepDetail;
-      } else {
-        await refreshRow(opportunityId);
-        payload = await requestJson(`/api/opportunities/${opportunityId}`);
-        const refreshedDetail = payload.result;
-        if (!refreshedDetail) {
-          throw new Error(`Step ${stepName} did not return updated workflow state.`);
-        }
-        nextDetail = refreshedDetail;
-      }
-
-      setDetail(nextDetail);
-      setRows((current) => applyDetailToRows(current, nextDetail));
-
-      const latestStep = nextDetail.steps.find((step) => step.stepName === stepName);
-      if (latestStep?.status === "failed") {
-        throw new Error(latestStep.error ?? `${stepName} failed.`);
-      }
-
-      if (nextDetail.rowStatus === "failed" || nextDetail.rowStatus === "blocked" || nextDetail.rowStatus === "needs_review") {
-        break;
-      }
-    }
   }
 
   function beginRowEdit(row: GridOpportunityRow) {

@@ -394,7 +394,7 @@ export async function createOpportunityRecordAndRunWorkflow(input: {
   competitorPageUrl?: string;
 }) {
   const opportunity = await service.createOpportunity(input);
-  await service.runWorkflow(opportunity.id);
+  await service.runWorkflow(opportunity.id, { forceFallback: true });
   const detail = await getGridOpportunityDetail(opportunity.id);
   if (!detail) {
     throw new Error("Created workflow could not be loaded.");
@@ -423,7 +423,7 @@ export async function createOpportunityAndRunWorkflow(input: {
 }
 
 export async function runWorkflowForOpportunity(opportunityId: string) {
-  await service.runWorkflow(opportunityId);
+  await service.runWorkflow(opportunityId, { forceFallback: true });
   const detail = await getGridOpportunityDetail(opportunityId);
   if (!detail) {
     throw new Error("Workflow detail could not be loaded.");
@@ -434,6 +434,7 @@ export async function runWorkflowForOpportunity(opportunityId: string) {
 export async function runWorkflowStepForOpportunity(opportunityId: string, stepName: WorkflowStepName) {
   await service.executeStep(opportunityId, stepName, {
     trigger: "manual_step_run",
+    forceFallback: true,
   });
   const detail = await getGridOpportunityDetail(opportunityId);
   if (!detail) {

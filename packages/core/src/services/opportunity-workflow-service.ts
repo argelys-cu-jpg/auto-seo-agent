@@ -155,7 +155,7 @@ export class OpportunityWorkflowService {
     });
   }
 
-  async runWorkflow(opportunityId: string) {
+  async runWorkflow(opportunityId: string, options?: { forceFallback?: boolean }) {
     const workflowRun = await this.ensureWorkflowRun(opportunityId, "manual_run");
     for (const step of orderedSteps) {
       if (step === "publish") {
@@ -163,6 +163,7 @@ export class OpportunityWorkflowService {
       }
       await this.executeStep(opportunityId, step, {
         workflowRunId: workflowRun.id,
+        ...(options?.forceFallback !== undefined ? { forceFallback: options.forceFallback } : {}),
       });
       const refreshed = await prisma.opportunity.findUnique({ where: { id: opportunityId } });
       if (!refreshed || refreshed.rowStatus === "failed" || refreshed.rowStatus === "blocked" || refreshed.rowStatus === "needs_review") {
@@ -179,6 +180,7 @@ export class OpportunityWorkflowService {
       workflowRunId?: string;
       revisionNote?: string | null;
       trigger?: string;
+      forceFallback?: boolean;
     },
   ) {
     const opportunity = await prisma.opportunity.findUnique({
@@ -231,7 +233,9 @@ export class OpportunityWorkflowService {
     });
 
     try {
-      const output = await this.runStepWithTimeout(opportunityId, stepName, stepRun.id);
+      const output = options?.forceFallback
+        ? await this.getRequiredFallbackStep(opportunityId, stepName, stepRun.id)
+        : await this.runStepWithTimeout(opportunityId, stepName, stepRun.id);
       const status = this.getStepSuccessStatus(stepName, output);
       await prisma.workflowStepRun.update({
         where: { id: stepRun.id },
@@ -628,6 +632,25 @@ export class OpportunityWorkflowService {
       default:
         return null;
     }
+  }
+
+  private async getRequiredFallbackStep(
+    opportunityId: string,
+    stepName: WorkflowStepName,
+    stepRunId: string,
+  ): Promise<unknown> {
+    const fallback = await this.runFallbackStep(
+      opportunityId,
+      stepName,
+      stepRunId,
+      new Error("Fallback mode requested by web workflow."),
+    );
+
+    if (!fallback) {
+      throw new Error(`No fallback workflow implementation exists for ${stepName}.`);
+    }
+
+    return fallback;
   }
 
   private async runDiscovery(opportunityId: string) {
