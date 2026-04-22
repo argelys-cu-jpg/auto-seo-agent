@@ -344,6 +344,16 @@ export async function createOpportunityRecordAndRunWorkflow(input: {
   return service.runWorkflow(opportunity.id);
 }
 
+export async function createOpportunityRecord(input: {
+  keyword: string;
+  path: OpportunityPath;
+  type: OpportunityType;
+  pageIdea?: string;
+  competitorPageUrl?: string;
+}) {
+  return service.createOpportunity(input);
+}
+
 export async function createOpportunityAndRunWorkflow(input: {
   keyword: string;
   path: OpportunityPath;
