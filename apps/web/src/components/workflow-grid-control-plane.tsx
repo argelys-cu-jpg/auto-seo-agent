@@ -537,13 +537,15 @@ export function WorkflowGridControlPlane(props: {
                       });
                       const createdId = response.result?.id;
                       if (createdId) {
+                        await requestJson(`/api/opportunities/${createdId}/run`, { method: "POST" });
                         setSelectedId(createdId);
                         await refreshRow(createdId);
+                        setNotice("Opportunity created and workflow started.");
                       } else {
                         router.refresh();
+                        setNotice("Opportunity created.");
                       }
                       setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
-                      setNotice(response.warning ?? "Opportunity created.");
                     } catch (nextError) {
                       setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
                       throw nextError;

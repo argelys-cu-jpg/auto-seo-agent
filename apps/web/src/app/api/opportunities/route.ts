@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createOpportunityRecord, runWorkflowForOpportunity } from "../../../lib/workflow-grid-store";
+import { createOpportunityRecord } from "../../../lib/workflow-grid-store";
 
 export async function POST(request: Request) {
   try {
@@ -23,16 +23,7 @@ export async function POST(request: Request) {
       ...(body.competitorPageUrl?.trim() ? { competitorPageUrl: body.competitorPageUrl.trim() } : {}),
     });
 
-    try {
-      await runWorkflowForOpportunity(opportunity.id);
-      return NextResponse.json({ success: true, result: opportunity });
-    } catch (error) {
-      return NextResponse.json({
-        success: true,
-        result: opportunity,
-        warning: error instanceof Error ? error.message : "Workflow run failed after creation.",
-      });
-    }
+    return NextResponse.json({ success: true, result: opportunity });
   } catch (error) {
     return NextResponse.json(
       { success: false, message: error instanceof Error ? error.message : "Failed to create opportunity." },
