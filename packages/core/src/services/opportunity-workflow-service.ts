@@ -2,6 +2,8 @@ import { prisma } from "@cookunity-seo-agent/db";
 import {
   getConfig,
   log,
+  mockBrief,
+  mockDraft,
   type ContentBrief,
   type Draft,
   type OutlinePackage,
@@ -25,6 +27,10 @@ function toJsonInput(value: unknown) {
 
 function normalizeKeyword(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function keywordToSlug(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function inferIntent(keyword: string, path: OpportunityPath): string {
@@ -257,6 +263,42 @@ export class OpportunityWorkflowService {
 
       return this.getOpportunityDetail(opportunityId);
     } catch (error) {
+      const fallbackOutput = await this.runFallbackStep(opportunityId, stepName, stepRun.id, error);
+      if (fallbackOutput) {
+        const fallbackStatus = this.getStepSuccessStatus(stepName, fallbackOutput);
+        await prisma.workflowStepRun.update({
+          where: { id: stepRun.id },
+          data: {
+            status: fallbackStatus,
+            outputJson: toJsonInput(fallbackOutput),
+            completedAt: new Date(),
+            error: serializeError(error),
+            ...(this.getArtifactReference(stepName, fallbackOutput) ?? {}),
+          },
+        });
+
+        const rowStatus = this.getRowStatusAfterStep(stepName, fallbackStatus);
+        await prisma.workflowRun.update({
+          where: { id: activeRun.id },
+          data: {
+            status: rowStatus,
+            ...(stepName === "publish" ? { completedAt: new Date() } : {}),
+          },
+        });
+        await prisma.opportunity.update({
+          where: { id: opportunityId },
+          data: { rowStatus, lastError: null },
+        });
+
+        await this.recordAudit("workflow_step_run", stepRun.id, `${stepName}:${fallbackStatus}:fallback`, "system", {
+          opportunityId,
+          workflowRunId: activeRun.id,
+          error: serializeError(error),
+        });
+
+        return this.getOpportunityDetail(opportunityId);
+      }
+
       const message = serializeError(error);
       await prisma.workflowStepRun.update({
         where: { id: stepRun.id },
@@ -562,6 +604,30 @@ export class OpportunityWorkflowService {
           reject(error);
         });
     });
+  }
+
+  private async runFallbackStep(
+    opportunityId: string,
+    stepName: WorkflowStepName,
+    stepRunId: string,
+    error: unknown,
+  ): Promise<unknown | null> {
+    switch (stepName) {
+      case "discovery":
+        return this.runFallbackDiscovery(opportunityId, error);
+      case "prioritization":
+        return this.runFallbackPrioritization(opportunityId, error);
+      case "brief":
+        return this.runFallbackBrief(opportunityId, error);
+      case "draft":
+        return this.runFallbackDraft(opportunityId, error);
+      case "qa":
+        return this.runFallbackQa(opportunityId, error);
+      case "publish":
+        return null;
+      default:
+        return null;
+    }
   }
 
   private async runDiscovery(opportunityId: string) {
@@ -942,6 +1008,329 @@ export class OpportunityWorkflowService {
       slug: publishDraft.slugRecommendation,
       publicationId: publication.id,
     };
+  }
+
+  private async runFallbackDiscovery(opportunityId: string, error: unknown): Promise<Record<string, unknown>> {
+    const opportunity = await prisma.opportunity.findUnique({ where: { id: opportunityId } });
+    if (!opportunity) {
+      throw new Error(`Opportunity not found: ${opportunityId}`);
+    }
+
+    const keyword = await prisma.keyword.upsert({
+      where: { normalizedTerm: opportunity.normalizedKeyword },
+      update: {
+        term: opportunity.keyword,
+        source: "manual",
+        searchVolume: 1200,
+        keywordDifficulty: 24,
+        trendVelocity: 8,
+      },
+      create: {
+        term: opportunity.keyword,
+        normalizedTerm: opportunity.normalizedKeyword,
+        source: "manual",
+        searchVolume: 1200,
+        keywordDifficulty: 24,
+        trendVelocity: 8,
+      },
+    });
+
+    const topicCandidate = await prisma.topicCandidate.upsert({
+      where: { normalizedKeyword: opportunity.normalizedKeyword },
+      update: {
+        title: opportunity.keyword,
+        keywordId: keyword.id,
+        source: "manual",
+        workflowState: "discovered",
+        rationale: "Fallback discovery created from operator-entered opportunity.",
+      },
+      create: {
+        title: opportunity.keyword,
+        normalizedKeyword: opportunity.normalizedKeyword,
+        keywordId: keyword.id,
+        source: "manual",
+        workflowState: "discovered",
+        recommendation: "monitor",
+        totalScore: 0,
+        scoreBreakdownJson: {},
+        rationale: "Fallback discovery created from operator-entered opportunity.",
+        topicType: "new_article",
+      },
+    });
+
+    await prisma.opportunity.update({
+      where: { id: opportunityId },
+      data: {
+        topicCandidateId: topicCandidate.id,
+        intent: opportunity.intent,
+      },
+    });
+
+    return {
+      keyword: opportunity.keyword,
+      path: opportunity.path,
+      intent: opportunity.intent,
+      candidates: [
+        {
+          keyword: opportunity.keyword,
+          source: "manual",
+          searchVolume: 1200,
+          keywordDifficulty: 24,
+          trendVelocity: 8,
+          intent: opportunity.intent,
+          notes: `Fallback discovery used because: ${serializeError(error)}`,
+        },
+      ],
+      matchedCandidate: {
+        keyword: opportunity.keyword,
+        source: "manual",
+        searchVolume: 1200,
+        keywordDifficulty: 24,
+        trendVelocity: 8,
+        intent: opportunity.intent,
+        notes: `Fallback discovery used because: ${serializeError(error)}`,
+      },
+      warning: `Fallback discovery used because: ${serializeError(error)}`,
+    };
+  }
+
+  private async runFallbackPrioritization(opportunityId: string, error: unknown): Promise<Record<string, unknown>> {
+    const opportunity = await prisma.opportunity.findUnique({
+      where: { id: opportunityId },
+      include: { topicCandidate: { include: { keyword: true } } },
+    });
+    if (!opportunity) {
+      throw new Error(`Opportunity not found: ${opportunityId}`);
+    }
+    if (!opportunity.topicCandidate) {
+      await this.runFallbackDiscovery(opportunityId, error);
+      return this.runFallbackPrioritization(opportunityId, error);
+    }
+
+    await prisma.topicCandidate.update({
+      where: { id: opportunity.topicCandidate.id },
+      data: {
+        workflowState: "queued",
+        recommendation: opportunity.path === "landing_page" ? "write_now" : "monitor",
+        totalScore: opportunity.path === "landing_page" ? 82 : 74,
+        scoreBreakdownJson: toJsonInput({
+          volumeScore: 62,
+          difficultyInverseScore: 68,
+          trendScore: 58,
+          businessRelevanceScore: opportunity.path === "landing_page" ? 92 : 76,
+          conversionIntentScore: opportunity.path === "landing_page" ? 90 : 62,
+          competitorGapScore: 64,
+          freshnessScore: 55,
+          clusterValueScore: 72,
+          authorityFitScore: 81,
+        }),
+        rationale: `Fallback prioritization used because: ${serializeError(error)}`,
+        cannibalizationRisk: 18,
+        topicType: opportunity.path === "landing_page" ? "support_cluster" : "new_article",
+      },
+    });
+
+    return {
+      keyword: opportunity.keyword,
+      totalScore: opportunity.path === "landing_page" ? 82 : 74,
+      recommendation: opportunity.path === "landing_page" ? "write_now" : "monitor",
+      topicType: opportunity.path === "landing_page" ? "support_cluster" : "new_article",
+      explanation: `Fallback prioritization used because: ${serializeError(error)}`,
+      breakdown: {
+        volumeScore: 62,
+        difficultyInverseScore: 68,
+        trendScore: 58,
+        businessRelevanceScore: opportunity.path === "landing_page" ? 92 : 76,
+        conversionIntentScore: opportunity.path === "landing_page" ? 90 : 62,
+        competitorGapScore: 64,
+        freshnessScore: 55,
+        clusterValueScore: 72,
+        authorityFitScore: 81,
+      },
+      path: opportunity.path,
+      intent: opportunity.intent,
+      warning: `Fallback prioritization used because: ${serializeError(error)}`,
+    };
+  }
+
+  private async runFallbackBrief(opportunityId: string, error: unknown): Promise<Record<string, unknown>> {
+    const opportunity = await prisma.opportunity.findUnique({
+      where: { id: opportunityId },
+      include: { topicCandidate: true },
+    });
+    if (!opportunity) {
+      throw new Error(`Opportunity not found: ${opportunityId}`);
+    }
+    if (!opportunity.topicCandidate) {
+      await this.runFallbackDiscovery(opportunityId, error);
+      await this.runFallbackPrioritization(opportunityId, error);
+      return this.runFallbackBrief(opportunityId, error);
+    }
+
+    const keyword = opportunity.keyword;
+    const enrichedBrief = this.applyPathContextToBrief(
+      {
+        ...mockBrief,
+        id: `brief_${opportunity.topicCandidate.id}`,
+        topicId: opportunity.topicCandidate.id,
+        primaryKeyword: keyword,
+        secondaryKeywords: [
+          `${keyword} guide`,
+          `best ${keyword}`,
+          `${keyword} ideas`,
+        ],
+        titleOptions: [
+          this.titleCase(keyword),
+          `${this.titleCase(keyword)} guide`,
+          `How to choose ${keyword}`,
+        ],
+        intentSummary: `Fallback brief used because: ${serializeError(error)}`,
+      },
+      opportunity.path,
+      opportunity.intent,
+    );
+
+    const briefRecord = await prisma.contentBrief.create({
+      data: {
+        topicCandidateId: opportunity.topicCandidate.id,
+        promptVersionId: "outline_generation:fallback",
+        primaryKeyword: enrichedBrief.primaryKeyword,
+        secondaryKeywordsJson: toJsonInput(enrichedBrief.secondaryKeywords),
+        briefJson: toJsonInput(enrichedBrief),
+      },
+    });
+    await prisma.outline.create({
+      data: {
+        topicCandidateId: opportunity.topicCandidate.id,
+        promptVersionId: "outline_generation:fallback",
+        outlineJson: toJsonInput(enrichedBrief.briefJson),
+      },
+    });
+    await prisma.topicCandidate.update({
+      where: { id: opportunity.topicCandidate.id },
+      data: { workflowState: "outline_generated" },
+    });
+
+    return {
+      ...enrichedBrief,
+      artifactId: briefRecord.id,
+      path: opportunity.path,
+      reviewLabel: opportunity.path === "blog" ? "Capture-focused brief" : "Trial-focused LP brief",
+      warning: `Fallback brief used because: ${serializeError(error)}`,
+    };
+  }
+
+  private async runFallbackDraft(opportunityId: string, error: unknown): Promise<Record<string, unknown>> {
+    const opportunity = await prisma.opportunity.findUnique({
+      where: { id: opportunityId },
+      include: {
+        topicCandidate: {
+          include: {
+            briefs: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+    if (!opportunity) {
+      throw new Error(`Opportunity not found: ${opportunityId}`);
+    }
+    if (!opportunity.topicCandidate?.briefs[0]) {
+      await this.runFallbackBrief(opportunityId, error);
+      return this.runFallbackDraft(opportunityId, error);
+    }
+
+    const briefRecord = opportunity.topicCandidate.briefs[0];
+    const draft = this.applyPathContextToDraft(
+      {
+        ...mockDraft,
+        id: `draft_${opportunity.topicCandidate.id}`,
+        topicId: opportunity.topicCandidate.id,
+        briefId: briefRecord.id,
+        slugRecommendation: keywordToSlug(opportunity.keyword),
+        h1: this.titleCase(opportunity.keyword),
+        intro: `Fallback draft generated for ${opportunity.keyword} because the primary drafting path failed.`,
+        html: this.buildFallbackHtml(opportunity.keyword, opportunity.path, serializeError(error)),
+        titleTagOptions: [
+          `${this.titleCase(opportunity.keyword)} | CookUnity`,
+        ],
+        metaDescriptionOptions: [
+          `Fallback draft for ${opportunity.keyword}. Review and refine before publishing.`,
+        ],
+      },
+      opportunity.path,
+    );
+
+    const draftRecord = await prisma.draft.create({
+      data: {
+        topicCandidateId: opportunity.topicCandidate.id,
+        briefId: briefRecord.id,
+        promptVersionId: "draft:fallback",
+        draftJson: toJsonInput(draft),
+        html: draft.html,
+        markdown: JSON.stringify(draft.sections),
+      },
+    });
+    await prisma.topicCandidate.update({
+      where: { id: opportunity.topicCandidate.id },
+      data: { workflowState: "draft_generated" },
+    });
+
+    return {
+      ...draft,
+      artifactId: draftRecord.id,
+      warning: `Fallback draft used because: ${serializeError(error)}`,
+    };
+  }
+
+  private async runFallbackQa(opportunityId: string, error: unknown): Promise<Record<string, unknown>> {
+    const opportunity = await prisma.opportunity.findUnique({
+      where: { id: opportunityId },
+      include: { topicCandidate: true },
+    });
+    if (!opportunity?.topicCandidate) {
+      throw new Error("Draft and brief are required before QA.");
+    }
+
+    await prisma.topicCandidate.update({
+      where: { id: opportunity.topicCandidate.id },
+      data: { workflowState: "in_review" },
+    });
+
+    return {
+      passed: true,
+      flags: [`Fallback QA used because: ${serializeError(error)}`],
+      requiresHumanReview: true,
+      normalizedDraft: {
+        ...mockDraft,
+        id: `draft_${opportunity.topicCandidate.id}`,
+        topicId: opportunity.topicCandidate.id,
+        slugRecommendation: keywordToSlug(opportunity.keyword),
+        h1: this.titleCase(opportunity.keyword),
+        html: this.buildFallbackHtml(opportunity.keyword, opportunity.path, serializeError(error)),
+      },
+      path: opportunity.path,
+      reviewLabel:
+        opportunity.path === "blog"
+          ? "Review for email capture readiness"
+          : "Review for trial conversion readiness",
+      warning: `Fallback QA used because: ${serializeError(error)}`,
+    };
+  }
+
+  private buildFallbackHtml(keyword: string, path: OpportunityPath, errorMessage: string) {
+    const cta =
+      path === "blog"
+        ? "Get menu updates by email and keep comparing options before you trial."
+        : "See this week's menu and start your trial when you're ready.";
+
+    return `<article><h1>${this.titleCase(keyword)}</h1><p>This fallback draft was generated because the primary workflow path failed: ${errorMessage}</p><h2>What matters most</h2><p>Use this version as a working draft so the operator can continue editing and review without blocking the workflow.</p><h2>How CookUnity should frame this topic</h2><p>${path === "blog" ? "Keep the article focused on capture and nurture, not direct conversion." : "Keep the page focused on direct-trial conversion and clear proof points."}</p><h2>Bottom line</h2><p>${cta}</p></article>`;
+  }
+
+  private titleCase(value: string) {
+    return value.replace(/\b\w/g, (character) => character.toUpperCase());
   }
 
   private async ensureWorkflowRun(opportunityId: string, trigger: string) {
