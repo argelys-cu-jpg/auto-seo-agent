@@ -183,6 +183,14 @@ function latestSteps(stepRuns: Array<{
   });
 }
 
+function readSearchVolume(topicCandidate: unknown): number | undefined {
+  if (!topicCandidate || typeof topicCandidate !== "object") return undefined;
+  const keyword = (topicCandidate as { keyword?: unknown }).keyword;
+  if (!keyword || typeof keyword !== "object") return undefined;
+  const searchVolume = (keyword as { searchVolume?: unknown }).searchVolume;
+  return typeof searchVolume === "number" ? searchVolume : undefined;
+}
+
 function mapOpportunity(opportunity: {
   id: string;
   keyword: string;
@@ -193,7 +201,7 @@ function mapOpportunity(opportunity: {
   competitorPageUrl: string | null;
   pageIdea: string | null;
   updatedAt: Date;
-  topicCandidate: { keyword?: { searchVolume: number } | null } | null;
+  topicCandidate: unknown;
   workflowRuns: Array<{
     stepRuns: Array<{
       id: string;
@@ -212,6 +220,7 @@ function mapOpportunity(opportunity: {
   }>;
 }): GridOpportunityRow {
   const stepRuns = opportunity.workflowRuns[0]?.stepRuns ?? [];
+  const searchVolume = readSearchVolume(opportunity.topicCandidate);
   return {
     id: opportunity.id,
     keyword: opportunity.keyword,
@@ -219,13 +228,69 @@ function mapOpportunity(opportunity: {
     path: opportunity.path,
     type: opportunity.type,
     rowStatus: opportunity.rowStatus,
-    ...(opportunity.topicCandidate?.keyword?.searchVolume
-      ? { searchVolume: opportunity.topicCandidate.keyword.searchVolume }
-      : {}),
+    ...(searchVolume !== undefined ? { searchVolume } : {}),
     ...(opportunity.competitorPageUrl ? { competitorPageUrl: opportunity.competitorPageUrl } : {}),
     ...(opportunity.pageIdea ? { pageIdea: opportunity.pageIdea } : {}),
     steps: latestSteps(stepRuns),
     updatedAt: opportunity.updatedAt.toISOString(),
+  };
+}
+
+function mapOpportunityDetail(opportunity: {
+  id: string;
+  keyword: string;
+  intent: string;
+  path: OpportunityPath;
+  type: OpportunityType;
+  rowStatus: RowStatus;
+  competitorPageUrl: string | null;
+  pageIdea: string | null;
+  updatedAt: Date;
+  topicCandidate: unknown;
+  workflowRuns: Array<{
+    stepRuns: Array<{
+      id: string;
+      stepName: WorkflowStepName;
+      status: WorkflowStepStatus;
+      version: number;
+      startedAt: Date | null;
+      completedAt: Date | null;
+      error: string | null;
+      revisionNote: string | null;
+      approvedBy: string | null;
+      approvedAt: Date | null;
+      outputJson: unknown;
+      manualOutputJson: unknown;
+    }>;
+  }>;
+  revisionNotes: Array<{
+    id: string;
+    note: string;
+    requestedBy: string;
+    createdAt: Date;
+  }>;
+  publishResults: Array<{
+    id: string;
+    status: string;
+    message: string | null;
+    createdAt: Date;
+  }>;
+}): GridOpportunityDetail {
+  return {
+    ...mapOpportunity(opportunity),
+    auditLog: [],
+    revisionNotes: opportunity.revisionNotes.map((note) => ({
+      id: note.id,
+      note: note.note,
+      requestedBy: note.requestedBy,
+      createdAt: note.createdAt.toISOString(),
+    })),
+    publishResults: opportunity.publishResults.map((result) => ({
+      id: result.id,
+      status: result.status,
+      ...(result.message ? { message: result.message } : {}),
+      createdAt: result.createdAt.toISOString(),
+    })),
   };
 }
 
@@ -307,25 +372,13 @@ export async function getGridOpportunityDetail(opportunityId: string): Promise<G
     });
 
     return {
-      ...mapOpportunity(opportunity),
+      ...mapOpportunityDetail(opportunity),
       auditLog: audit.map((entry) => ({
         id: entry.id,
         action: entry.action,
         actorType: entry.actorType,
         ...(entry.actorId ? { actorId: entry.actorId } : {}),
         createdAt: entry.createdAt.toISOString(),
-      })),
-      revisionNotes: opportunity.revisionNotes.map((note) => ({
-        id: note.id,
-        note: note.note,
-        requestedBy: note.requestedBy,
-        createdAt: note.createdAt.toISOString(),
-      })),
-      publishResults: opportunity.publishResults.map((result) => ({
-        id: result.id,
-        status: result.status,
-        ...(result.message ? { message: result.message } : {}),
-        createdAt: result.createdAt.toISOString(),
       })),
     };
   } catch {
@@ -341,7 +394,12 @@ export async function createOpportunityRecordAndRunWorkflow(input: {
   competitorPageUrl?: string;
 }) {
   const opportunity = await service.createOpportunity(input);
-  return service.runWorkflow(opportunity.id);
+  await service.runWorkflow(opportunity.id);
+  const detail = await getGridOpportunityDetail(opportunity.id);
+  if (!detail) {
+    throw new Error("Created workflow could not be loaded.");
+  }
+  return detail;
 }
 
 export async function createOpportunityRecord(input: {
@@ -365,33 +423,63 @@ export async function createOpportunityAndRunWorkflow(input: {
 }
 
 export async function runWorkflowForOpportunity(opportunityId: string) {
-  return service.runWorkflow(opportunityId);
+  await service.runWorkflow(opportunityId);
+  const detail = await getGridOpportunityDetail(opportunityId);
+  if (!detail) {
+    throw new Error("Workflow detail could not be loaded.");
+  }
+  return detail;
 }
 
 export async function runWorkflowStepForOpportunity(opportunityId: string, stepName: WorkflowStepName) {
-  return service.executeStep(opportunityId, stepName, {
+  await service.executeStep(opportunityId, stepName, {
     trigger: "manual_step_run",
   });
+  const detail = await getGridOpportunityDetail(opportunityId);
+  if (!detail) {
+    throw new Error("Workflow detail could not be loaded after step execution.");
+  }
+  return detail;
 }
 
 export async function rerunWorkflowStep(stepRunId: string, requestedBy: string, note?: string) {
-  return service.rerunStep(stepRunId, requestedBy, note);
+  const result = await service.rerunStep(stepRunId, requestedBy, note);
+  if (!result) {
+    throw new Error("Workflow detail could not be loaded after rerun.");
+  }
+  return mapOpportunityDetail(result);
 }
 
 export async function approveWorkflowStep(stepRunId: string, approvedBy: string) {
-  return service.approveStep(stepRunId, approvedBy);
+  const result = await service.approveStep(stepRunId, approvedBy);
+  if (!result) {
+    throw new Error("Workflow detail could not be loaded after approval.");
+  }
+  return mapOpportunityDetail(result);
 }
 
 export async function requestWorkflowStepRevision(stepRunId: string, requestedBy: string, note: string) {
-  return service.requestRevision(stepRunId, requestedBy, note);
+  const result = await service.requestRevision(stepRunId, requestedBy, note);
+  if (!result) {
+    throw new Error("Workflow detail could not be loaded after revision request.");
+  }
+  return mapOpportunityDetail(result);
 }
 
 export async function saveWorkflowStepEdit(stepRunId: string, editedBy: string, manualOutput: unknown) {
-  return service.saveManualEdit(stepRunId, editedBy, manualOutput);
+  const result = await service.saveManualEdit(stepRunId, editedBy, manualOutput);
+  if (!result) {
+    throw new Error("Workflow detail could not be loaded after saving manual edit.");
+  }
+  return mapOpportunityDetail(result);
 }
 
 export async function publishOpportunityFromGrid(opportunityId: string, actor: string) {
-  return service.publishOpportunity(opportunityId, actor);
+  const result = await service.publishOpportunity(opportunityId, actor);
+  if (!result) {
+    throw new Error("Workflow detail could not be loaded after publishing.");
+  }
+  return mapOpportunityDetail(result);
 }
 
 export async function getGridControlPlaneData() {
