@@ -256,7 +256,7 @@ async function getPersistedOperationalData() {
 
   try {
     const prisma = await getPrismaClient();
-    const [topics, recentAuditLogs, latestOptimization, latestPublished] = await Promise.all([
+    const [topics, recentAuditLogs, latestOptimization, latestPublished, recentStepRuns] = await Promise.all([
       prisma.topicCandidate.findMany({
         include: {
           keyword: true,
@@ -287,9 +287,13 @@ async function getPersistedOperationalData() {
         take: 20,
         include: { topicCandidate: true },
       }),
+      prisma.workflowStepRun.findMany({
+        orderBy: [{ createdAt: "desc" }],
+        take: 100,
+      }),
     ]);
 
-    return { topics, recentAuditLogs, latestOptimization, latestPublished };
+    return { topics, recentAuditLogs, latestOptimization, latestPublished, recentStepRuns };
   } catch {
     return null;
   }
@@ -309,6 +313,29 @@ export async function getDashboardData(): Promise<DashboardData> {
       const [agent] = event.action.split(":");
       if (agent && !auditByAgent.has(agent)) {
         auditByAgent.set(agent, event);
+      }
+    }
+    const stepToAgent: Record<string, DashboardData["agentControlRows"][number]["name"]> = {
+      discovery: "keyword_discovery",
+      prioritization: "topic_prioritization",
+      brief: "content_brief_outline",
+      draft: "article_drafting",
+      qa: "editorial_qa",
+      publish: "publishing_strapi",
+    };
+    const stepStatusToAgentStatus: Record<string, string> = {
+      not_started: "idle",
+      running: "running",
+      completed: "completed",
+      failed: "failed",
+      needs_review: "needs_review",
+      approved: "approved",
+    };
+    const latestStepByAgent = new Map<string, (typeof persisted.recentStepRuns)[number]>();
+    for (const stepRun of persisted.recentStepRuns) {
+      const agentName = stepToAgent[stepRun.stepName];
+      if (agentName && !latestStepByAgent.has(agentName)) {
+        latestStepByAgent.set(agentName, stepRun);
       }
     }
 
@@ -441,11 +468,20 @@ export async function getDashboardData(): Promise<DashboardData> {
         { name: "OpenAI Drafting", status: config.OPENAI_API_KEY ? "configured" : "missing api key" },
       ],
       agentControlRows: defaultAgentControlRows().map((row) => {
+        const latestStep = latestStepByAgent.get(row.name);
         const latest = auditByAgent.get(row.name);
         return {
           ...row,
-          latestStatus: latest ? latest.action.split(":")[1] ?? "completed" : row.latestStatus,
-          latestRunAt: latest ? latest.createdAt.toISOString() : row.latestRunAt,
+          latestStatus: latestStep
+            ? (stepStatusToAgentStatus[latestStep.status] ?? latestStep.status)
+            : latest
+              ? latest.action.split(":")[1] ?? "completed"
+              : row.latestStatus,
+          latestRunAt: latestStep
+            ? (latestStep.completedAt ?? latestStep.startedAt ?? latestStep.createdAt).toISOString()
+            : latest
+              ? latest.createdAt.toISOString()
+              : row.latestRunAt,
         };
       }),
       orchestratorTimeline: persisted.recentAuditLogs
