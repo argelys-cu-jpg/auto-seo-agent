@@ -1,4 +1,5 @@
 import { cookunityBrandVoiceFallback } from "./brand-voice-fallback";
+import { topPerformingSeoArticlePattern } from "./editorial-exemplar";
 
 export interface PromptTemplate {
   id: string;
@@ -31,14 +32,16 @@ export const promptTemplates: Record<string, PromptTemplate> = {
     version: "v1",
     system: "You create production-ready SEO content briefs and outlines for CookUnity.",
     userTemplate:
-      "Generate multiple title options, an H1/H2/H3 outline, intent summary, FAQ set, internal links, CTA ideas, competitor angle, fact-check checklist, and JSON-LD FAQ draft.\n\n{{input}}\n\nBrand voice:\n{{brandVoice}}",
+      "Generate multiple title options, an H1/H2/H3 outline, intent summary, FAQ set, internal links, CTA ideas, competitor angle, fact-check checklist, and JSON-LD FAQ draft.\n\n{{input}}\n\nBrand voice:\n{{brandVoice}}\n\nEditorial quality bar:\n" +
+      topPerformingSeoArticlePattern,
   },
   articleDraft: {
     id: "article_draft",
     version: "v1",
     system: "You draft high-quality SEO articles for CookUnity. No unsupported claims. No keyword stuffing.",
     userTemplate:
-      "Draft the article package using the brief below. Include title tags, meta descriptions, slug, H1, intro, 6-8 substantial H2 sections with optional H3 subsections where useful, FAQ, CTA guidance, schema suggestions, editor notes, competitor notes, and revision checklist. The structure should feel publishable for a real SEO blog article, not like a short placeholder draft.\n\n{{input}}\n\nBrand voice:\n{{brandVoice}}",
+      "Draft the article package using the brief below. Include title tags, meta descriptions, slug, H1, intro, 6-8 substantial H2 sections with optional H3 subsections where useful, FAQ, CTA guidance, schema suggestions, editor notes, competitor notes, and revision checklist. The structure should feel publishable for a real SEO blog article, not like a short placeholder draft.\n\n{{input}}\n\nBrand voice:\n{{brandVoice}}\n\nEditorial quality bar:\n" +
+      topPerformingSeoArticlePattern,
   },
   refreshDraft: {
     id: "refresh_draft",
