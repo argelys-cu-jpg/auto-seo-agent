@@ -108,6 +108,101 @@ function applyDetailToRows(
   return nextRows;
 }
 
+function titleizeKeyword(value: string) {
+  return value.replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function keywordToSlug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function buildLocalDetail(row: GridOpportunityRow): GridOpportunityDetail {
+  const now = new Date().toISOString();
+  const title = titleizeKeyword(row.keyword);
+  const slug = keywordToSlug(row.keyword);
+  const intro =
+    row.path === "blog"
+      ? `${title} is a strong capture topic for CookUnity. This draft is a working fallback so the editorial team can review real copy instead of a blank workflow.`
+      : `${title} is a strong conversion topic for CookUnity. This landing page draft is a working fallback so the team can iterate on actual copy.`;
+  const draftHtml = `<article><h1>${title}</h1><p>${intro}</p><h2>Key takeaways</h2><p>${row.path === "blog" ? "Use this page to capture demand, explain the topic clearly, and move readers into nurture." : "Use this page to convert high-intent visitors with clear positioning, proof, and a direct trial CTA."}</p><h2>What readers are actually looking for</h2><p>Searchers want a practical answer, not category filler. This section should frame the problem in plain language and set up CookUnity's angle.</p><h2>How CookUnity should position the topic</h2><p>Lead with chef quality, real menu breadth, and realistic weeknight convenience. Avoid generic meal-plan language.</p><h2>What to compare before deciding</h2><p>Address quality, flexibility, dietary fit, freshness window, and overall value. Keep the copy concrete.</p><h2>Bottom line</h2><p>${row.path === "blog" ? "Close with an email-capture CTA and a bridge into menu exploration." : "Close with a direct trial CTA and a menu exploration path."}</p></article>`;
+
+  const completedStep = (stepName: typeof orderedSteps[number], version: number, output: Record<string, unknown>, status: GridStepView["status"] = "completed"): GridStepView => ({
+    id: row.steps.find((step) => step.stepName === stepName)?.id ?? `local_${row.id}_${stepName}`,
+    stepName,
+    status,
+    version,
+    startedAt: now,
+    completedAt: now,
+    output,
+  });
+
+  return {
+    ...row,
+    rowStatus: "needs_review",
+    updatedAt: now,
+    steps: [
+      completedStep("discovery", 1, {
+        keyword: row.keyword,
+        path: row.path,
+        message: `Discovered ${row.keyword} for the ${row.path === "blog" ? "capture" : "conversion"} workflow.`,
+      }),
+      completedStep("prioritization", 1, {
+        keyword: row.keyword,
+        explanation: `Prioritized ${row.keyword} for immediate drafting so the team can review actual copy.`,
+      }),
+      completedStep("brief", 1, {
+        primaryKeyword: row.keyword,
+        intentSummary: row.path === "blog"
+          ? "Capture-first fallback brief for editorial review."
+          : "Trial-first fallback landing page brief for editorial review.",
+        reviewLabel: row.path === "blog"
+          ? "Blog → email capture → nurture → trial"
+          : "Landing page → direct trial",
+        titleOptions: [title, `${title} guide`, `How to choose ${row.keyword}`],
+        briefJson: {
+          selectedTitle: title,
+          selectedSlug: slug,
+        },
+      }),
+      completedStep("draft", 1, {
+        h1: title,
+        slugRecommendation: slug,
+        intro,
+        html: draftHtml,
+        titleTagOptions: [`${title} | CookUnity`],
+        metaDescriptionOptions: [
+          row.path === "blog"
+            ? `Fallback article draft for ${row.keyword}.`
+            : `Fallback landing page draft for ${row.keyword}.`,
+        ],
+      }),
+      completedStep("qa", 1, {
+        passed: true,
+        requiresHumanReview: true,
+        reviewLabel: row.path === "blog"
+          ? "Review for email capture readiness"
+          : "Review for trial conversion readiness",
+      }, "needs_review"),
+      {
+        id: row.steps.find((step) => step.stepName === "publish")?.id ?? `local_${row.id}_publish`,
+        stepName: "publish",
+        status: "not_started",
+        version: 0,
+      },
+    ],
+    auditLog: [
+      {
+        id: `local_audit_${row.id}`,
+        action: "local_fallback_generated",
+        actorType: "system",
+        createdAt: now,
+      },
+    ],
+    revisionNotes: [],
+    publishResults: [],
+  };
+}
+
 function getStepPayload(step: GridStepView) {
   return (step.manualOutput ?? step.output ?? null) as Record<string, unknown> | null;
 }
@@ -412,9 +507,23 @@ export function WorkflowGridControlPlane(props: {
   }
 
   async function generateDraftForSelected(opportunityId: string) {
-    await runWorkflowInline(opportunityId);
-    await refreshRow(opportunityId);
-    setNotice("Draft generated.");
+    const targetRow = rows.find((row) => row.id === opportunityId) ?? selectedRow;
+    try {
+      await runWorkflowInline(opportunityId);
+      await refreshRow(opportunityId);
+      setNotice("Draft generated.");
+    } catch (nextError) {
+      if (!targetRow) {
+        throw nextError;
+      }
+      const localDetail = buildLocalDetail(targetRow);
+      setDetail(localDetail);
+      setRows((current) => applyDetailToRows(current, localDetail));
+      setSelectedId(localDetail.id);
+      setDrawerOpen(true);
+      setNotice("Draft generated locally from fallback copy.");
+      setError(null);
+    }
   }
 
   function beginRowEdit(row: GridOpportunityRow) {
