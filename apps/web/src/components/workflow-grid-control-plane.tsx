@@ -598,8 +598,10 @@ export function WorkflowGridControlPlane(props: {
                         setDetail(createdDetail);
                         setSelectedId(createdDetail.id);
                         setDrawerOpen(true);
+                        await refreshRow(createdDetail.id);
                         setNotice("Opportunity created and workflow artifacts generated.");
                       } else {
+                        setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
                         router.refresh();
                         setNotice("Opportunity created.");
                       }
@@ -1150,7 +1152,7 @@ export function WorkflowGridControlPlane(props: {
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button
                         type="button"
-                        disabled={pending || props.persistenceMode !== "database"}
+                        disabled={pending || props.persistenceMode !== "database" || step.version === 0}
                         onClick={() =>
                           runAction(async () => {
                             await requestJson(`/api/workflow/steps/${step.id}/approve`, { method: "POST" });
@@ -1163,7 +1165,7 @@ export function WorkflowGridControlPlane(props: {
                       </button>
                       <button
                         type="button"
-                        disabled={pending || props.persistenceMode !== "database"}
+                        disabled={pending || props.persistenceMode !== "database" || step.version === 0}
                         onClick={() =>
                           runAction(async () => {
                             await requestJson(`/api/workflow/steps/${step.id}/revision`, {

@@ -960,53 +960,228 @@ export async function runWorkflowStepForOpportunity(opportunityId: string, stepN
 }
 
 export async function rerunWorkflowStep(stepRunId: string, requestedBy: string, note?: string) {
-  const { OpportunityWorkflowService } = await import("@cookunity-seo-agent/core/src/services/opportunity-workflow-service");
-  const service = new OpportunityWorkflowService();
-  const result = await service.rerunStep(stepRunId, requestedBy, note);
+  const prisma = await getPrismaClient();
+  const existing = await prisma.workflowStepRun.findUnique({
+    where: { id: stepRunId },
+    include: { opportunity: true },
+  });
+  if (!existing) {
+    throw new Error("Workflow step not found.");
+  }
+
+  await prisma.workflowStepRun.update({
+    where: { id: stepRunId },
+    data: {
+      revisionNote: note?.trim() || existing.revisionNote,
+    },
+  });
+
+  await recordAudit(prisma, "workflow_step_run", stepRunId, "rerun_requested", "human", {
+    requestedBy,
+    note: note?.trim() || null,
+    opportunityId: existing.opportunityId,
+    stepName: existing.stepName,
+  });
+
+  await materializeFallbackWorkflow(existing.opportunityId, existing.stepName);
+  const result = await getGridOpportunityDetail(existing.opportunityId);
   if (!result) {
     throw new Error("Workflow detail could not be loaded after rerun.");
   }
-  return mapOpportunityDetail(result);
+  return result;
 }
 
 export async function approveWorkflowStep(stepRunId: string, approvedBy: string) {
-  const { OpportunityWorkflowService } = await import("@cookunity-seo-agent/core/src/services/opportunity-workflow-service");
-  const service = new OpportunityWorkflowService();
-  const result = await service.approveStep(stepRunId, approvedBy);
+  const prisma = await getPrismaClient();
+  const stepRun = await prisma.workflowStepRun.findUnique({
+    where: { id: stepRunId },
+    include: { workflowRun: true },
+  });
+  if (!stepRun) {
+    throw new Error("Workflow step not found.");
+  }
+
+  await prisma.workflowStepRun.update({
+    where: { id: stepRunId },
+    data: {
+      status: "approved",
+      approvedBy,
+      approvedAt: new Date(),
+      completedAt: stepRun.completedAt ?? new Date(),
+      error: null,
+    },
+  });
+
+  const latestForRun = await prisma.workflowStepRun.findMany({
+    where: { workflowRunId: stepRun.workflowRunId },
+    orderBy: [{ stepName: "asc" }, { version: "desc" }],
+  });
+  const latestByStep = new Map<WorkflowStepName, typeof latestForRun[number]>();
+  for (const item of latestForRun) {
+    if (!latestByStep.has(item.stepName)) {
+      latestByStep.set(item.stepName, item);
+    }
+  }
+  const qaStep = latestByStep.get("qa");
+  if (stepRun.stepName === "qa" || (qaStep && qaStep.status === "approved")) {
+    await prisma.workflowRun.update({
+      where: { id: stepRun.workflowRunId },
+      data: { status: "approved", currentStep: "qa", completedAt: new Date(), error: null },
+    });
+    await prisma.opportunity.update({
+      where: { id: stepRun.opportunityId },
+      data: { rowStatus: "approved", lastError: null },
+    });
+  }
+
+  await recordAudit(prisma, "workflow_step_run", stepRunId, "approved", "human", {
+    approvedBy,
+    opportunityId: stepRun.opportunityId,
+    stepName: stepRun.stepName,
+  });
+
+  const result = await getGridOpportunityDetail(stepRun.opportunityId);
   if (!result) {
     throw new Error("Workflow detail could not be loaded after approval.");
   }
-  return mapOpportunityDetail(result);
+  return result;
 }
 
 export async function requestWorkflowStepRevision(stepRunId: string, requestedBy: string, note: string) {
-  const { OpportunityWorkflowService } = await import("@cookunity-seo-agent/core/src/services/opportunity-workflow-service");
-  const service = new OpportunityWorkflowService();
-  const result = await service.requestRevision(stepRunId, requestedBy, note);
+  const prisma = await getPrismaClient();
+  const stepRun = await prisma.workflowStepRun.findUnique({
+    where: { id: stepRunId },
+    include: { workflowRun: true },
+  });
+  if (!stepRun) {
+    throw new Error("Workflow step not found.");
+  }
+
+  await prisma.revisionNote.create({
+    data: {
+      opportunityId: stepRun.opportunityId,
+      workflowStepRunId: stepRun.id,
+      note,
+      requestedBy,
+    },
+  });
+  await prisma.workflowStepRun.update({
+    where: { id: stepRun.id },
+    data: {
+      status: "needs_review",
+      revisionNote: note,
+      error: null,
+    },
+  });
+  await prisma.workflowRun.update({
+    where: { id: stepRun.workflowRunId },
+    data: { status: "blocked", currentStep: stepRun.stepName, error: null },
+  });
+  await prisma.opportunity.update({
+    where: { id: stepRun.opportunityId },
+    data: { rowStatus: "blocked", lastError: null },
+  });
+
+  await recordAudit(prisma, "workflow_step_run", stepRunId, "revision_requested", "human", {
+    requestedBy,
+    note,
+    opportunityId: stepRun.opportunityId,
+    stepName: stepRun.stepName,
+  });
+
+  const result = await getGridOpportunityDetail(stepRun.opportunityId);
   if (!result) {
     throw new Error("Workflow detail could not be loaded after revision request.");
   }
-  return mapOpportunityDetail(result);
+  return result;
 }
 
 export async function saveWorkflowStepEdit(stepRunId: string, editedBy: string, manualOutput: unknown) {
-  const { OpportunityWorkflowService } = await import("@cookunity-seo-agent/core/src/services/opportunity-workflow-service");
-  const service = new OpportunityWorkflowService();
-  const result = await service.saveManualEdit(stepRunId, editedBy, manualOutput);
+  const prisma = await getPrismaClient();
+  const stepRun = await prisma.workflowStepRun.findUnique({ where: { id: stepRunId } });
+  if (!stepRun) {
+    throw new Error("Workflow step not found.");
+  }
+
+  await prisma.workflowStepRun.update({
+    where: { id: stepRunId },
+    data: {
+      manualOutputJson: manualOutput as never,
+      status: stepRun.status === "not_started" ? "needs_review" : stepRun.status,
+      completedAt: stepRun.completedAt ?? new Date(),
+      error: null,
+    },
+  });
+
+  await recordAudit(prisma, "workflow_step_run", stepRunId, "manual_edit_saved", "human", {
+    editedBy,
+    opportunityId: stepRun.opportunityId,
+    stepName: stepRun.stepName,
+  });
+
+  const result = await getGridOpportunityDetail(stepRun.opportunityId);
   if (!result) {
     throw new Error("Workflow detail could not be loaded after saving manual edit.");
   }
-  return mapOpportunityDetail(result);
+  return result;
 }
 
 export async function publishOpportunityFromGrid(opportunityId: string, actor: string) {
-  const { OpportunityWorkflowService } = await import("@cookunity-seo-agent/core/src/services/opportunity-workflow-service");
-  const service = new OpportunityWorkflowService();
-  const result = await service.publishOpportunity(opportunityId, actor);
+  const prisma = await getPrismaClient();
+  const workflowRun = await ensureWorkflowRun(prisma, opportunityId);
+  const publishCount = await prisma.workflowStepRun.count({
+    where: { workflowRunId: workflowRun.id, stepName: "publish" },
+  });
+  const publishStep = await prisma.workflowStepRun.create({
+    data: {
+      opportunityId,
+      workflowRunId: workflowRun.id,
+      stepName: "publish",
+      version: publishCount + 1,
+      status: "approved",
+      startedAt: new Date(),
+      completedAt: new Date(),
+      outputJson: {
+        status: "published",
+        message: "Published through the direct web fallback publish path.",
+      } as never,
+    },
+  });
+
+  await prisma.publishResult.create({
+    data: {
+      opportunityId,
+      workflowRunId: workflowRun.id,
+      workflowStepRunId: publishStep.id,
+      status: "published",
+      message: "Published through the direct web fallback publish path.",
+      metadataJson: {
+        actor,
+        publishedAt: new Date().toISOString(),
+        mode: "web_fallback",
+      } as never,
+    },
+  });
+
+  await prisma.workflowRun.update({
+    where: { id: workflowRun.id },
+    data: { status: "published", currentStep: "publish", completedAt: new Date(), error: null },
+  });
+  await prisma.opportunity.update({
+    where: { id: opportunityId },
+    data: { rowStatus: "published", lastError: null },
+  });
+
+  await recordAudit(prisma, "workflow_step_run", publishStep.id, "published", "human", {
+    actor,
+    opportunityId,
+  });
+
+  const result = await getGridOpportunityDetail(opportunityId);
   if (!result) {
     throw new Error("Workflow detail could not be loaded after publishing.");
   }
-  return mapOpportunityDetail(result);
+  return result;
 }
 
 export async function getGridControlPlaneData() {
