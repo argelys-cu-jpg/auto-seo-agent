@@ -53,11 +53,28 @@ Signals of a strong meal listicle:
 - practical follow-through sections that help the reader act on the advice
 - recommendation lists that explain why each option matters, not just what it is`;
 
+export const recipeListicleEditorialPattern = `Recipe listicle pattern:
+
+- Group recipes by meal occasion or use case when that improves scanability, such as breakfast, lunch, dinner, or snacks.
+- Fulfill the recipe promise explicitly with a complete numbered list of recipes.
+- For each recipe, include enough practical detail to feel usable: ingredients, directions, and a short setup line when useful.
+- Keep the recipes concise, but specific enough that the reader understands what they would actually make or eat.
+- After the main recipe body, add support sections that help the reader use the recipes in real life, such as pantry essentials, prep strategy, or safety considerations.
+- Use a strong CookUnity bridge section near the bottom when relevant, showing how chef-prepared meals solve the same use case without sounding forced.
+
+Signals of a strong recipe listicle:
+
+- meal-based grouping that makes the article easy to browse
+- recipes that feel concrete rather than teaser-level
+- ingredient and direction formatting that supports quick scanning
+- a useful chef or prep tip where it genuinely adds value
+- a bridge from recipe inspiration into CookUnity that feels contextual, not bolted on`;
+
 export const contentTypeEditorialPatterns = `Use the matching pattern for the content format:
 
 - Guide: follow the Guide pattern.
 - Listicle: if it is food, meal, or snack oriented, follow the Meal Listicle pattern.
-- Recipe Listicle: follow the Meal Listicle pattern, but ensure each item is recipe-oriented and specific.
+- Recipe Listicle: follow the Recipe Listicle pattern.
 - What-Is style queries should currently inherit the Guide pattern.`;
 
 export const topPerformingSeoArticlePattern = [
@@ -65,4 +82,5 @@ export const topPerformingSeoArticlePattern = [
   contentTypeEditorialPatterns,
   guideEditorialPattern,
   mealListicleEditorialPattern,
+  recipeListicleEditorialPattern,
 ].join("\n\n");
