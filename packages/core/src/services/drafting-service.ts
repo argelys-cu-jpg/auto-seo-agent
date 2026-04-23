@@ -206,6 +206,11 @@ export class DraftingService {
   }
 
   private buildFallbackSections(brief: ContentBrief): Draft["sections"] {
+    const normalizedKeyword = brief.primaryKeyword.toLowerCase();
+    if (normalizedKeyword.includes("athlete") && normalizedKeyword.includes("meal plan")) {
+      return this.buildAthleteMealPlanSections(brief);
+    }
+
     const secondaryA = brief.secondaryKeywords[0] ?? `${brief.primaryKeyword} guide`;
     const secondaryB = brief.secondaryKeywords[1] ?? `best ${brief.primaryKeyword}`;
     const secondaryC = brief.secondaryKeywords[2] ?? `${brief.primaryKeyword} ideas`;
@@ -280,6 +285,94 @@ export class DraftingService {
           "Close with a decision-oriented summary that helps the reader move forward. The conclusion should reinforce what matters most in the category and make the CookUnity CTA feel like a natural next move, not a sudden sales pivot.",
           `A strong ending should leave the reader with clarity: what to prioritize, what to ignore, and how to evaluate fit with more confidence than they had at the start. That is what makes the page feel complete instead of merely optimized.`,
           `For CookUnity, the close should bridge useful guidance into a concrete next step. In a blog flow that usually means a softer capture or menu-exploration CTA; in a landing-page flow it should move more directly into trial.`,
+        ].join("\n\n"),
+      },
+    ];
+  }
+
+  private buildAthleteMealPlanSections(brief: ContentBrief): Draft["sections"] {
+    const secondaryA = brief.secondaryKeywords[0] ?? `${brief.primaryKeyword} guide`;
+    const secondaryB = brief.secondaryKeywords[1] ?? `${brief.primaryKeyword} ideas`;
+    const secondaryC = brief.secondaryKeywords[2] ?? `best ${brief.primaryKeyword}`;
+
+    return [
+      {
+        heading: "How athletes should think about a meal plan",
+        level: 2,
+        body: [
+          `A practical meal plan for athletes has to do more than check nutrition boxes. It needs to support training load, protect recovery, and still fit inside a real week of work, commuting, school, travel, and shifting workout times.`,
+          `That is why the strongest version of ${brief.primaryKeyword} should be built around repeatable structure rather than perfection. Athletes need enough protein, enough total energy, and enough carbohydrate support to keep the week from unraveling once sessions get harder or schedules get tighter.`,
+          `This framing also helps the article support adjacent demand like ${secondaryA} and ${secondaryB}. People rarely search these ideas in isolation. They are trying to figure out how to make performance nutrition usable in real life.`,
+        ].join("\n\n"),
+      },
+      {
+        heading: "Pre-workout and post-workout fueling basics",
+        level: 2,
+        body: [
+          `Pre-workout meals should usually emphasize digestible carbohydrate and leave enough room for comfort. The closer someone is eating to training, the simpler the food usually needs to be. If there is more time, the meal can include more fiber, more protein, and a little more fat without creating the same digestion tradeoff.`,
+          `Post-workout meals should focus on recovery. That usually means bringing protein back in quickly and pairing it with carbohydrate so the athlete can recover, replenish, and stabilize appetite for the rest of the day. The exact structure varies, but the principle stays steady: the session should not be treated like a nutritional afterthought.`,
+          `A rich article should make these distinctions concrete. Instead of generic “eat carbs before and protein after” advice, it should show how different timing windows change the best meal choice and how ${secondaryC} fits into the broader performance picture.`,
+        ].join("\n\n"),
+      },
+      {
+        heading: "What a 7-day meal plan for athletes can look like",
+        level: 2,
+        body: [
+          `The sample structure below is not a universal prescription. It is a realistic example of how an athlete might organize a week with a mix of training days, lighter days, and recovery windows. The point is to show what consistency can look like when meals are built around real schedule demands.`,
+          `Across the week, the pattern should stay recognizable: a stable breakfast, a lunch that supports the next block of the day, a smarter pre-workout or post-workout snack when needed, and a dinner that does enough recovery work without creating more friction than the athlete can sustain.`,
+        ].join("\n\n"),
+      },
+      {
+        heading: "Day 1: Mid-morning training day",
+        level: 2,
+        body: [
+          `Breakfast can be simple and carbohydrate-forward, like toast or an English muffin with nut butter, fruit, and milk. The goal is enough energy to start the day without making the first session feel heavy.`,
+          `After the workout, lunch should do more recovery work. A strong option might include a protein anchor like chicken, tofu, chickpeas, or Greek yogurt, plus a grain or wrap and fruit on the side. Dinner can then stay balanced rather than oversized: a chef-made bowl, grilled protein with starch and vegetables, or another complete meal that keeps the athlete from playing catch-up late at night.`,
+          `This day is useful because it shows how ${brief.primaryKeyword} should flex around training timing. The article should highlight how the first post-workout meal carries more nutritional weight than an average lunch on a non-training day.`,
+        ].join("\n\n"),
+      },
+      {
+        heading: "Day 2: Afternoon training day",
+        level: 2,
+        body: [
+          `On a later training day, breakfast and lunch need to build the runway. A more substantial breakfast with eggs, oats, potatoes, yogurt, or fruit can work well, while lunch should provide enough carbohydrate and protein that the athlete does not head into the session underfueled.`,
+          `A pre-workout snack in the late afternoon might be lighter and easier to digest: toast, crackers, fruit, or a small yogurt-based option depending on the timing window. Dinner becomes the main recovery meal, with enough protein and carbohydrate to support the session without turning the evening into a second round of prep.`,
+          `This is a useful place to reinforce supporting demand around ${secondaryA}. A good athlete meal plan is not just a list of foods. It is a timing strategy that keeps the whole day coherent.`,
+        ].join("\n\n"),
+      },
+      {
+        heading: "Day 3: Active recovery or lower-intensity day",
+        level: 2,
+        body: [
+          `Lower-intensity days do not need the same carbohydrate emphasis as hard training days, but they still need structure. Breakfast, lunch, and dinner should stay protein-aware and satisfying enough that the athlete does not drift into unplanned under-eating or constant snacking.`,
+          `This is often a good day for simpler meals: eggs and toast, leftovers with grains and vegetables, yogurt with fruit, salmon with potatoes, or another balanced dinner that feels restorative instead of overly engineered. The plan should remain supportive without pretending every day requires the same fueling pattern.`,
+          `For search intent, this is one of the sections that makes the article more complete. Readers want to know how the plan adjusts, not just how it performs on the hardest day of the week.`,
+        ].join("\n\n"),
+      },
+      {
+        heading: "Days 4 through 7: Repeat the pattern without repeating the exact meals",
+        level: 2,
+        body: [
+          `The final four days should show how the structure continues: a harder early session may call for quicker pre-workout carbohydrate, a late game may require dinner to happen earlier, and a full rest day may shift the focus toward simpler balanced meals rather than aggressive fueling.`,
+          `The key is not to prescribe seven rigid days of identical eating. The key is to show repeatable logic. Athletes need enough variety to stay engaged, but enough consistency that performance nutrition does not turn into a constant decision-making exercise.`,
+          `That is also where prepared meals can be especially useful. If the athlete already has a strong dinner option ready on the nights when training runs long or work spills over, the weekly plan becomes much easier to maintain. That is the CookUnity bridge the article should earn rather than force.`,
+        ].join("\n\n"),
+      },
+      {
+        heading: "Where CookUnity fits into an athlete meal plan",
+        level: 2,
+        body: [
+          `CookUnity should not be positioned as a shortcut around performance nutrition. It should be positioned as a way to keep the plan intact when time, energy, or schedule pressure would otherwise push the athlete toward lower-quality convenience food or skipped meals.`,
+          `That means emphasizing chef-made quality, meal variety, and the practical value of having recovery-supportive dinners already handled. The strongest copy should connect that convenience to adherence and week-to-week consistency, not just to generic wellness language.`,
+          `This section should also help the article support long-tail demand like ${secondaryB}. Readers are often comparing not just foods, but systems: what actually makes it easier to keep eating well across a full training week.`,
+        ].join("\n\n"),
+      },
+      {
+        heading: "Bottom line",
+        level: 2,
+        body: [
+          `A strong meal plan for athletes should show how to fuel training days, recovery days, and the messy in-between. It should give the reader a structure they can adapt, not a brittle script they will abandon the moment the week changes.`,
+          `When the article is working, the reader finishes with a better sense of timing, balance, and what a sustainable athlete meal plan actually looks like. That makes the CookUnity bridge feel practical: one more way to protect the plan on the days when consistency is hardest to keep.`,
         ].join("\n\n"),
       },
     ];
