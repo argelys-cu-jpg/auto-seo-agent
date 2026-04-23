@@ -1,4 +1,4 @@
-import { OpportunityWorkflowService } from "@cookunity-seo-agent/core";
+import { OpportunityWorkflowService } from "@cookunity-seo-agent/core/src/services/opportunity-workflow-service";
 import type {
   OpportunityPath,
   OpportunityType,

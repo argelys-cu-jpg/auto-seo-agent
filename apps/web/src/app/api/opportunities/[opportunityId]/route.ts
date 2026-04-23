@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { OpportunityWorkflowService } from "@cookunity-seo-agent/core";
+import { OpportunityWorkflowService } from "@cookunity-seo-agent/core/src/services/opportunity-workflow-service";
 import { getGridOpportunityDetail } from "../../../../lib/workflow-grid-store";
 
 const service = new OpportunityWorkflowService();
