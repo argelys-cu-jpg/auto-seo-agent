@@ -203,6 +203,10 @@ function buildLocalDetail(row: GridOpportunityRow): GridOpportunityDetail {
   };
 }
 
+function isLocalStep(step: GridStepView) {
+  return step.id.startsWith("local_") || step.id.startsWith("pending_") || step.id.startsWith("mock_");
+}
+
 function getStepPayload(step: GridStepView) {
   return (step.manualOutput ?? step.output ?? null) as Record<string, unknown> | null;
 }
@@ -578,6 +582,24 @@ export function WorkflowGridControlPlane(props: {
   }
 
   const currentSteps = detail?.steps ?? selectedRow?.steps ?? [];
+  const isLocalWorkflow =
+    props.persistenceMode !== "database" ||
+    !props.databaseReady ||
+    Boolean(selectedRow?.id.startsWith("pending_")) ||
+    currentSteps.some((step) => isLocalStep(step));
+
+  function setLocalDetail(nextDetail: GridOpportunityDetail) {
+    setDetail(nextDetail);
+    setRows((current) => applyDetailToRows(current, nextDetail));
+    setSelectedId(nextDetail.id);
+    setDrawerOpen(true);
+  }
+
+  function updateLocalDetail(mutator: (current: GridOpportunityDetail) => GridOpportunityDetail) {
+    const baseDetail = detail ?? (selectedRow ? buildLocalDetail(selectedRow) : null);
+    if (!baseDetail) return;
+    setLocalDetail(mutator(baseDetail));
+  }
 
   useEffect(() => {
     if (props.persistenceMode !== "database") return;
@@ -736,8 +758,10 @@ export function WorkflowGridControlPlane(props: {
                         setNotice("Opportunity created.");
                       }
                     } catch (nextError) {
-                      setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
-                      throw nextError;
+                      const localDetail = buildLocalDetail(optimisticRow);
+                      setLocalDetail(localDetail);
+                      setNotice("Opportunity created with local fallback draft.");
+                      setError(null);
                     }
                   } else {
                     const created = buildMockOpportunity(payload);
@@ -952,17 +976,14 @@ export function WorkflowGridControlPlane(props: {
                           onClick={(event) => {
                             event.stopPropagation();
                             runAction(async () => {
-                              if (props.persistenceMode !== "database") {
-                                setSelectedId(row.id);
-                                setDrawerOpen(true);
-                                return;
+                              await generateDraftForSelected(row.id);
+                              if (props.persistenceMode === "database") {
+                                router.refresh();
                               }
-                              await runWorkflowInline(row.id);
-                              router.refresh();
                             });
                           }}
                         >
-                          Run workflow
+                          Generate draft
                         </button>
                         <button
                           className="air-mini-button"
@@ -1318,9 +1339,32 @@ export function WorkflowGridControlPlane(props: {
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button
                         type="button"
-                        disabled={pending || props.persistenceMode !== "database" || step.version === 0}
+                        disabled={pending || step.version === 0}
                         onClick={() =>
                           runAction(async () => {
+                            if (isLocalWorkflow || isLocalStep(step)) {
+                              updateLocalDetail((current) => {
+                                const nextSteps = current.steps.map((item) =>
+                                  item.id === step.id
+                                    ? {
+                                        ...item,
+                                        status: "approved" as const,
+                                        approvedBy: "reviewer@cookunity.local",
+                                        approvedAt: new Date().toISOString(),
+                                        completedAt: item.completedAt ?? new Date().toISOString(),
+                                      }
+                                    : item,
+                                );
+                                const qaApproved = nextSteps.find((item) => item.stepName === "qa")?.status === "approved";
+                                return {
+                                  ...current,
+                                  steps: nextSteps,
+                                  rowStatus: qaApproved ? "approved" : current.rowStatus,
+                                };
+                              });
+                              setNotice(step.stepName === "qa" ? "Review approved." : `${step.stepName} approved.`);
+                              return;
+                            }
                             await requestJson(`/api/workflow/steps/${step.id}/approve`, { method: "POST" });
                             await refreshRow(selectedRow.id);
                             router.refresh();
@@ -1331,9 +1375,35 @@ export function WorkflowGridControlPlane(props: {
                       </button>
                       <button
                         type="button"
-                        disabled={pending || props.persistenceMode !== "database" || step.version === 0}
+                        disabled={pending || step.version === 0}
                         onClick={() =>
                           runAction(async () => {
+                            if (isLocalWorkflow || isLocalStep(step)) {
+                              updateLocalDetail((current) => ({
+                                ...current,
+                                rowStatus: "blocked",
+                                steps: current.steps.map((item) =>
+                                  item.id === step.id
+                                    ? {
+                                        ...item,
+                                        status: "needs_review" as const,
+                                        ...(stepNotes[step.id] ? { revisionNote: stepNotes[step.id] } : {}),
+                                      }
+                                    : item,
+                                ),
+                                revisionNotes: [
+                                  {
+                                    id: `local_revision_${Date.now()}`,
+                                    note: stepNotes[step.id] || "Revision requested.",
+                                    requestedBy: "reviewer@cookunity.local",
+                                    createdAt: new Date().toISOString(),
+                                  },
+                                  ...current.revisionNotes,
+                                ],
+                              }));
+                              setNotice("Revision request saved.");
+                              return;
+                            }
                             await requestJson(`/api/workflow/steps/${step.id}/revision`, {
                               method: "POST",
                               body: JSON.stringify({ note: stepNotes[step.id] }),
@@ -1347,9 +1417,13 @@ export function WorkflowGridControlPlane(props: {
                       </button>
                       <button
                         type="button"
-                        disabled={pending || props.persistenceMode !== "database"}
+                        disabled={pending}
                         onClick={() =>
                           runAction(async () => {
+                            if (isLocalWorkflow || isLocalStep(step)) {
+                              await generateDraftForSelected(selectedRow.id);
+                              return;
+                            }
                             if (step.version === 0) {
                               await requestJson(`/api/opportunities/${selectedRow.id}/steps/${step.stepName}/run`, {
                                 method: "POST",
@@ -1384,10 +1458,27 @@ export function WorkflowGridControlPlane(props: {
                       />
                       <button
                         type="button"
-                        disabled={pending || props.persistenceMode !== "database"}
+                        disabled={pending}
                         onClick={() =>
                           runAction(async () => {
                             const manualOutput = JSON.parse(stepEdits[step.id] ?? "{}") as unknown;
+                            if (isLocalWorkflow || isLocalStep(step)) {
+                              updateLocalDetail((current) => ({
+                                ...current,
+                                steps: current.steps.map((item) =>
+                                  item.id === step.id
+                                    ? {
+                                        ...item,
+                                        manualOutput: manualOutput as Record<string, unknown>,
+                                        completedAt: new Date().toISOString(),
+                                        status: item.stepName === "qa" ? item.status : "needs_review",
+                                      }
+                                    : item,
+                                ),
+                              }));
+                              setNotice("Manual edit saved locally.");
+                              return;
+                            }
                             await requestJson(`/api/workflow/steps/${step.id}/edit`, {
                               method: "POST",
                               body: JSON.stringify({ manualOutput }),
