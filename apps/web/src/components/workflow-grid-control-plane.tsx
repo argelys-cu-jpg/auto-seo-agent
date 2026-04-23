@@ -226,6 +226,7 @@ export function WorkflowGridControlPlane(props: {
   const [rowEdits, setRowEdits] = useState<Record<string, { keyword: string; path: "blog" | "landing_page"; type: "keyword" | "page_idea" | "competitor_page" | "lp_optimization" }>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [autoGeneratingForId, setAutoGeneratingForId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [drawerOpen, setDrawerOpen] = useState(Boolean(props.initialRows[0]?.id));
 
@@ -410,6 +411,12 @@ export function WorkflowGridControlPlane(props: {
     setDrawerOpen(true);
   }
 
+  async function generateDraftForSelected(opportunityId: string) {
+    await runWorkflowInline(opportunityId);
+    await refreshRow(opportunityId);
+    setNotice("Draft generated.");
+  }
+
   function beginRowEdit(row: GridOpportunityRow) {
     setEditingRowId(row.id);
     setRowEdits((current) => ({
@@ -478,6 +485,20 @@ export function WorkflowGridControlPlane(props: {
 
     return () => window.clearInterval(intervalId);
   }, [currentSteps, drawerOpen, props.persistenceMode, selectedId]);
+
+  useEffect(() => {
+    if (props.persistenceMode !== "database") return;
+    if (!drawerOpen) return;
+    if (!selectedRow) return;
+    if (autoGeneratingForId === selectedRow.id) return;
+    const hasAnyRealStep = currentSteps.some((step) => step.version > 0);
+    if (hasAnyRealStep) return;
+
+    setAutoGeneratingForId(selectedRow.id);
+    runAction(async () => {
+      await generateDraftForSelected(selectedRow.id);
+    });
+  }, [autoGeneratingForId, currentSteps, drawerOpen, props.persistenceMode, selectedRow]);
 
   return (
     <div className="airops-grid-layout">
@@ -901,7 +922,43 @@ export function WorkflowGridControlPlane(props: {
                   <Badge variant="grid">{selectedRow.rowStatus}</Badge>
                   {selectedRow.searchVolume ? <Badge variant="grid">{`${selectedRow.searchVolume.toLocaleString()} volume`}</Badge> : null}
                 </div>
+                <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    disabled={pending || props.persistenceMode !== "database"}
+                    onClick={() =>
+                      runAction(async () => {
+                        await generateDraftForSelected(selectedRow.id);
+                        router.refresh();
+                      })
+                    }
+                  >
+                    Generate draft now
+                  </button>
+                </div>
               </div>
+
+              {(() => {
+                const draftStep = currentSteps.find((step) => step.stepName === "draft");
+                const draftHtml = draftStep ? getDraftHtml(draftStep) : null;
+                if (!draftHtml) return null;
+                return (
+                  <div className="air-drawer-section">
+                    <div className="air-drawer-section-title">Draft preview</div>
+                    <div
+                      style={{
+                        border: "1px solid #e2d7c7",
+                        borderRadius: 10,
+                        padding: 12,
+                        background: "#fff",
+                        maxHeight: 320,
+                        overflowY: "auto",
+                      }}
+                      dangerouslySetInnerHTML={{ __html: draftHtml }}
+                    />
+                  </div>
+                );
+              })()}
 
               {currentSteps.map((step) => (
                 <div key={step.id} className="air-section-card">
