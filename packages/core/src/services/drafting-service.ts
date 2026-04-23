@@ -32,12 +32,11 @@ export class DraftingService {
     const faq = brief.faqCandidates.map((question) => ({
       question,
       answer:
-        "Use the review step to finalize this answer with fact-checked product details, careful caveats, and current CookUnity positioning.",
+        "The strongest answer should stay practical, grounded, and specific to how people actually eat during the week. Use review to tighten facts, product details, and current CookUnity positioning before publish.",
     }));
     const html = this.composeHtml({
       title,
-      intro:
-        "If you're evaluating prepared meal options, the right choice usually comes down to quality, convenience, variety, and whether the service feels realistic for your week.",
+      intro: this.buildFallbackIntro(brief),
       keyTakeaways,
       brief,
       sections,
@@ -55,8 +54,7 @@ export class DraftingService {
       ],
       slugRecommendation: slug,
       h1: title,
-      intro:
-        "If you're evaluating prepared meal options, the right choice usually comes down to quality, convenience, variety, and whether the service feels realistic for your week.",
+      intro: this.buildFallbackIntro(brief),
       keyTakeaways,
       sections,
       faq,
@@ -212,43 +210,43 @@ export class DraftingService {
       {
         heading: "Key takeaways",
         level: 2,
-        body: `Readers comparing ${brief.primaryKeyword} usually want clarity on quality, convenience, variety, and whether the service fits real-life routines. This article should help them compare options without overclaiming and understand where CookUnity stands out.`,
+        body: `Readers searching for ${brief.primaryKeyword} usually want a clear answer they can use this week. The article should help them compare quality, convenience, and flavor in plain language, then show where CookUnity feels more like dinner from a talented chef than generic subscription food.`,
       },
       {
         heading: `What to know before choosing ${brief.primaryKeyword}`,
         level: 2,
         body:
-          "Start with the fundamentals: ingredient quality, freshness, menu variety, dietary fit, and whether ordering actually reduces friction on busy days. The best article should frame these as buying criteria, not generic lifestyle claims.",
+          "Start with the practical questions: does the food taste good enough to crave again, does it hold up on a hectic Wednesday, and does the menu leave room for appetite, variety, and dietary preferences. The strongest draft should treat those as real decision criteria, not lifestyle wallpaper.",
       },
       {
         heading: `How ${brief.primaryKeyword} options differ in practice`,
         level: 2,
         body:
-          "Many services look similar at the category level but differ in chef quality, portion style, flavor range, flexibility, and packaging experience. Give readers a concrete way to compare what they would actually receive week to week.",
+          "Many services blur together at the category level, but the lived experience is different: chef quality, flavor range, portion feel, flexibility, and whether the meals still feel appealing after the first week. Give readers a concrete way to picture what shows up at the door and what ends up on the plate.",
       },
       {
         heading: "What to compare before you order",
         level: 2,
         body:
-          "Encourage readers to compare menu rotation, dietary filters, delivery cadence, storage window, and the balance between convenience and meal quality. This section should translate search intent into a practical shortlist of decision criteria.",
+          "Encourage readers to compare menu rotation, dietary filters, delivery cadence, storage window, and the tradeoff between convenience and pleasure. The article should make room for taste and texture, not just logistics, because nobody sticks with a meal routine that feels dull.",
       },
       {
         heading: "How CookUnity fits the decision set",
         level: 2,
         body:
-          "Position CookUnity as a chef-crafted prepared meal option with menu variety and stronger food discovery than generic subscription language suggests. Keep the comparison grounded in product experience and avoid unsupported superiority claims.",
+          "Position CookUnity as a chef-led prepared meal option with more personality, more culinary point of view, and a stronger sense of menu discovery than generic subscription language suggests. Keep the comparison grounded in product experience and avoid sweeping claims you cannot support.",
       },
       {
         heading: "Common tradeoffs and mistakes to avoid",
         level: 2,
         body:
-          "Readers should understand the tradeoffs between convenience, price sensitivity, variety, and nutritional preferences. Call out common mistakes like focusing on a single marketing claim while ignoring taste, freshness, or weeknight usability.",
+          "Readers should understand the tradeoffs between convenience, price sensitivity, variety, and nutritional preferences. Call out common mistakes like obsessing over a single claim while ignoring flavor, freshness, or whether the plan still works on the most chaotic day of the week.",
       },
       {
         heading: "Bottom line",
         level: 2,
         body:
-          "Close with a decision-oriented summary that helps the reader move forward. The conclusion should reinforce what matters most in the category and make the CookUnity CTA feel relevant rather than forced.",
+          "Close with a decision-oriented summary that helps the reader move forward. The conclusion should reinforce what matters most in the category and make the CookUnity CTA feel like a natural next move, not a sudden sales pivot.",
       },
     ];
   }
@@ -286,12 +284,20 @@ export class DraftingService {
 
   private buildKeyTakeaways(brief: ContentBrief, outlinePackage: OutlinePackage | null): string[] {
     const seoOpportunity = outlinePackage?.analysis.seoOpportunities[0];
+    const internalLink = brief.recommendedInternalLinks[0]?.anchorText;
+    const cta = brief.ctaRecommendations[0];
     return [
-      `Use ${brief.primaryKeyword} as the primary decision frame throughout the article.`,
-      ...(seoOpportunity ? [seoOpportunity] : []),
-      ...(brief.recommendedInternalLinks[0] ? [`Link early to ${brief.recommendedInternalLinks[0].anchorText}.`] : []),
-      ...(brief.ctaRecommendations[0] ? [`Close with a CTA aligned to "${brief.ctaRecommendations[0]}".`] : []),
+      `Lead with the reader’s real decision around ${brief.primaryKeyword}, not category filler.`,
+      seoOpportunity
+        ? `${seoOpportunity.charAt(0).toUpperCase()}${seoOpportunity.slice(1)}.`
+        : "Keep the article practical, chef-aware, and rooted in real weeknight use.",
+      ...(internalLink ? [`Bring in ${internalLink} early enough to support the story, not as an afterthought.`] : []),
+      ...(cta ? [`Close with a CTA that feels earned and aligns naturally to “${cta}.”`] : []),
     ].slice(0, 4);
+  }
+
+  private buildFallbackIntro(brief: ContentBrief): string {
+    return `If you're evaluating ${brief.primaryKeyword}, the real question is not just what looks good on a landing page. It's what will still taste satisfying, feel convenient on a busy night, and hold up as part of your actual routine.`;
   }
 
   private buildImagePlan(title: string, sections: Draft["sections"]) {

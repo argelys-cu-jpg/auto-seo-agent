@@ -256,23 +256,23 @@ function buildLocalOutlinePackage(row: GridOpportunityRow): OutlinePackage {
 function buildLocalKeyTakeaways(row: GridOpportunityRow) {
   if (row.path === "landing_page") {
     return [
-      "Lead with the decision criteria shoppers actually compare: quality, flexibility, and ease.",
-      "Explain why prepared meals fit real schedules better than ingredient-heavy alternatives.",
-      "Use a direct CTA only after the page has reduced uncertainty and shown product fit.",
+      "Lead with what shoppers actually compare: flavor, flexibility, and whether dinner feels easier by Wednesday, not just on day 1.",
+      "Explain why chef-made prepared meals fit real schedules better than ingredient-heavy alternatives that still demand time and cleanup.",
+      "Use a direct CTA only after the page has earned trust and made the fit feel obvious.",
     ];
   }
 
   if (row.keyword.toLowerCase().includes("athlete")) {
     return [
-      "A workable athlete meal plan must support training load, recovery, and consistency together.",
-      "Protein matters, but total energy intake and strategic carbohydrates matter just as much.",
-      "Prepared meals can help athletes stay consistent on the days when cooking effort is the first thing to break.",
+      "A workable athlete meal plan should support training load, recovery, and consistency at the same time.",
+      "Protein matters, but so do total energy intake and well-timed carbohydrates when training volume climbs.",
+      "Prepared meals can keep the plan intact on the days when cooking is the first thing to collapse.",
     ];
   }
 
   return [
-    "Readers want a practical answer they can use this week, not a generic overview.",
-    "The article should connect convenience, quality, and repeatability in plain language.",
+    "Readers want a practical answer they can use this week, not a generic overview dressed up as advice.",
+    "The article should connect convenience, quality, and repeatability in language that feels editorial and grounded.",
     "A strong close should bridge naturally from useful guidance into menu exploration or capture.",
   ];
 }
@@ -285,8 +285,8 @@ function buildLocalDraftHtml(row: GridOpportunityRow, title: string) {
   if (row.path === "landing_page") {
     return `<article>
 <h1>${title}</h1>
-<p>People looking for ${row.keyword} are usually close to a decision. They are trying to figure out whether a meal delivery service will actually make life easier, whether the food will feel worth the price, and whether the experience will hold up after the first week. A good landing page should answer those questions directly.</p>
-<p>CookUnity should lead with prepared meals from real chefs, strong weekly variety, and the practical advantage of having dinner handled without another round of planning, shopping, or cleanup. That makes the offer feel relevant right away.</p>
+<p>People looking for ${row.keyword} are usually close to a decision. They are trying to figure out whether a meal delivery service will actually make life easier, whether the food will taste good enough to look forward to, and whether the whole thing will still feel worth it once the novelty wears off.</p>
+<p>CookUnity should lead with meals from real chefs, strong weekly variety, and the relief of having dinner handled without another round of planning, shopping, chopping, or cleanup. That combination is what makes the offer feel genuinely useful, not just convenient in theory.</p>
 ${keyTakeawaysHtml}
 <h2>Why this category matters in real life</h2>
 <p>Shoppers in this category are rarely comparing abstract features. They are comparing the lived experience of getting through a packed week with less friction and better food. The strongest copy should reflect that reality from the first screen.</p>
@@ -309,7 +309,7 @@ ${keyTakeawaysHtml}
     return `<article>
 <h1>${title}</h1>
 <p>A good meal plan for athletes does not need to be perfect to be effective. It needs to be repeatable. Most athletes already know they should eat enough protein, recover well, and stay consistent through busy weeks. The harder part is building a structure that actually survives travel, work, early training sessions, and the days when cooking falls apart.</p>
-<p>The strongest plan starts by matching food intake to training reality. That means enough calories to support workload, enough protein to help recovery, enough carbohydrates to keep energy available, and enough convenience to make the plan realistic for more than a few days at a time.</p>
+<p>The strongest plan starts by matching food intake to training reality. That means enough calories to support workload, enough protein to help recovery, enough carbohydrates to keep energy available, and enough convenience to make the whole thing realistic for more than a few determined days.</p>
 ${keyTakeawaysHtml}
 <h2>Start with the energy demands of the week</h2>
 <p>Before choosing individual meals, it helps to look at the week as a whole. Hard training days, double sessions, and long workdays create very different energy needs than lighter recovery days. Athletes who undereat on the busiest days often feel it first in performance, recovery, and appetite swings later in the week.</p>
@@ -338,8 +338,8 @@ ${keyTakeawaysHtml}
 
   return `<article>
 <h1>${title}</h1>
-<p>Most people looking for ${row.keyword} are not searching for theory. They want a workable answer that fits into a busy schedule and helps them make a better decision today. That usually means understanding what matters most, what mistakes to avoid, and how to choose an option they can actually stick with.</p>
-<p>For CookUnity, the opportunity is to deliver that clarity in plain language and then make the next step obvious. The article should feel useful first and strategic second, which is exactly why the draft needs to read like a finished article instead of a planning document.</p>
+<p>Most people looking for ${row.keyword} are not searching for theory. They want a workable answer that fits into a busy schedule and helps them make a better decision today. Usually that means understanding what matters most, what mistakes to avoid, and how to choose something they can actually stick with once real life barges in.</p>
+<p>For CookUnity, the opportunity is to deliver that clarity in plain language and then make the next step obvious. The article should feel useful first and persuasive second, with enough texture that it sounds like it was written by someone who actually cares what dinner tastes like.</p>
 ${keyTakeawaysHtml}
 <h2>Define the goal before building the week</h2>
 <p>Any useful plan starts with the real constraint. Sometimes the issue is lack of time. Sometimes it is inconsistent eating during workdays. Sometimes it is the gap between wanting better meals and having the energy to keep planning them. Naming the constraint clearly helps the rest of the plan feel relevant instead of generic.</p>
