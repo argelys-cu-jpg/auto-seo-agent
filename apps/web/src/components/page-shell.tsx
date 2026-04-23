@@ -5,16 +5,12 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 const nav = [
-  { href: "/", label: "Overview" },
-  { href: "/inbox", label: "Operational Inbox" },
-  { href: "/grid", label: "Workflow Grid" },
-  { href: "/agents", label: "Agent Control" },
-  { href: "/cropper", label: "Image Cropper" },
-  { href: "/opportunities", label: "Opportunities" },
-  { href: "/review", label: "Review Queue" },
+  { href: "/", label: "Work" },
+  { href: "/grid", label: "Bulk editor" },
+  { href: "/review", label: "Review" },
   { href: "/published", label: "Published" },
-  { href: "/monitoring", label: "Monitoring" },
-  { href: "/recommendations", label: "Refresh Tasks" },
+  { href: "/monitoring", label: "Performance" },
+  { href: "/agents", label: "System activity" },
 ];
 
 export function PageShell({
@@ -59,11 +55,11 @@ export function PageShell({
             </Link>
             <div className="airops-green-dot" />
             <div>
-              <div className="airops-title">CookUnity SEO Ops</div>
-              <div className="airops-subtitle">Operator workspace</div>
+              <div className="airops-title">CookUnity growth workbench</div>
+              <div className="airops-subtitle">AI-assisted operator workspace</div>
             </div>
           </div>
-          <div className="airops-topbar-meta">Single app • review gated • Strapi-connected</div>
+          <div className="airops-topbar-meta">{title}</div>
         </header>
 
         <nav className="airops-subnav">

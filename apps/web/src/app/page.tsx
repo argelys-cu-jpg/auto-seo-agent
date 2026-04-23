@@ -3,150 +3,204 @@ import Link from "next/link";
 import { PageShell } from "../components/page-shell";
 import { getDashboardData } from "../lib/data";
 
+type WorkBucket = {
+  id: string;
+  title: string;
+  pathLabel: string;
+  stage: string;
+  whyItMatters: string;
+  href: string;
+  actionLabel: string;
+};
+
+function toPathLabel(topicType: string) {
+  return topicType === "refresh_existing" ? "Refresh" : "Blog";
+}
+
+function mapTopicsToBuckets(topics: Awaited<ReturnType<typeof getDashboardData>>["persistedTopics"]) {
+  const needsReview: WorkBucket[] = [];
+  const readyToWrite: WorkBucket[] = [];
+  const readyToPublish: WorkBucket[] = [];
+  const needsRetry: WorkBucket[] = [];
+
+  for (const topic of topics) {
+    const hasDraft = topic.drafts.length > 0;
+    const hasPublished = topic.publications.some((publication) => publication.status === "published");
+
+    if (topic.workflowState === "revision_requested") {
+      needsReview.push({
+        id: topic.id,
+        title: topic.title,
+        pathLabel: toPathLabel(topic.topicType),
+        stage: "Needs review",
+        whyItMatters: topic.rationale,
+        href: `/review?topicId=${encodeURIComponent(topic.id)}`,
+        actionLabel: hasDraft ? "Review draft" : "Open in bulk editor",
+      });
+      continue;
+    }
+
+    if (topic.workflowState === "in_review" || topic.workflowState === "approved") {
+      needsReview.push({
+        id: topic.id,
+        title: topic.title,
+        pathLabel: toPathLabel(topic.topicType),
+        stage: hasDraft ? "Draft ready" : "Brief ready",
+        whyItMatters: hasDraft
+          ? "The draft exists and needs a human decision."
+          : "The brief is approved enough to move into draft review.",
+        href: hasDraft ? `/review?topicId=${encodeURIComponent(topic.id)}` : "/grid",
+        actionLabel: hasDraft ? "Review draft" : "Open in bulk editor",
+      });
+      continue;
+    }
+
+    if (topic.workflowState === "outline_generated" || topic.workflowState === "queued" || topic.workflowState === "discovered") {
+      readyToWrite.push({
+        id: topic.id,
+        title: topic.title,
+        pathLabel: toPathLabel(topic.topicType),
+        stage: hasDraft ? "Draft ready" : "Ready to write",
+        whyItMatters: topic.rationale,
+        href: "/grid",
+        actionLabel: hasDraft ? "Open draft" : "Write draft",
+      });
+      continue;
+    }
+
+    if (topic.workflowState === "published" || hasPublished) {
+      readyToPublish.push({
+        id: topic.id,
+        title: topic.title,
+        pathLabel: toPathLabel(topic.topicType),
+        stage: "Published",
+        whyItMatters: "This page is live and belongs in the published inventory or performance review.",
+        href: "/published",
+        actionLabel: "View page",
+      });
+      continue;
+    }
+
+    if (topic.workflowState === "refresh_recommended") {
+      needsRetry.push({
+        id: topic.id,
+        title: topic.title,
+        pathLabel: "Refresh",
+        stage: "Needs refresh",
+        whyItMatters: topic.rationale,
+        href: "/monitoring",
+        actionLabel: "Open performance",
+      });
+      continue;
+    }
+  }
+
+  return { needsReview, readyToWrite, readyToPublish, needsRetry };
+}
+
+function WorkSection({
+  title,
+  description,
+  items,
+}: {
+  title: string;
+  description: string;
+  items: WorkBucket[];
+}) {
+  return (
+    <section className="app-card">
+      <div className="app-card-head">
+        <div className="app-card-title">{title}</div>
+        <div className="app-card-meta">{description}</div>
+      </div>
+      <div className="app-card-body">
+        {items.length ? (
+          <div className="app-list">
+            {items.map((item) => (
+              <div key={item.id} className="app-list-item">
+                <div className="app-list-title">
+                  <span>{item.title}</span>
+                  <span className="app-badge">{item.stage}</span>
+                </div>
+                <div className="app-list-meta">{item.pathLabel}</div>
+                <div className="app-muted">{item.whyItMatters}</div>
+                <div>
+                  <Link href={item.href} className="app-inline-link">
+                    {item.actionLabel}
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="app-muted">Nothing needs attention in this section right now.</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default async function HomePage() {
   const data = await getDashboardData();
-  const pendingReviewCount = data.persistedTopics.filter(
-    (topic) => topic.workflowState === "in_review" || topic.workflowState === "revision_requested",
-  ).length;
-  const approvedCount = data.persistedTopics.filter((topic) => topic.workflowState === "approved").length;
-  const refreshCount = data.persistedTopics.filter((topic) => topic.workflowState === "refresh_recommended").length;
+  const work = mapTopicsToBuckets(data.persistedTopics);
 
   return (
     <PageShell
-      title="Operations overview"
-      description="One product surface for opportunity intake, workflow control, human review, publishing, and refresh work."
+      title="Work"
+      description="Start with the items that need action now."
       actions={
         <>
           <Link href="/grid" className="app-button is-primary">
-            Open workflow grid
+            Open bulk editor
           </Link>
-          <Link href="/inbox" className="app-button">
-            Open inbox
+          <Link href="/review" className="app-button">
+            Open review
           </Link>
         </>
       }
     >
-      <section className="app-stat-grid">
-        <div className="app-stat">
-          <div className="app-stat-label">Workflow model</div>
-          <div className="app-stat-value">Single app</div>
-          <div className="app-stat-detail">All operators, workflows, and review gates live in one governed surface.</div>
-        </div>
-        <div className="app-stat">
-          <div className="app-stat-label">Orchestrator</div>
-          <div className="app-stat-value">{data.workflowRun.orchestrator}</div>
-          <div className="app-stat-detail">State: {data.workflowRun.state}</div>
-        </div>
-        <div className="app-stat">
-          <div className="app-stat-label">Internal agents</div>
-          <div className="app-stat-value">{data.agentControlRows.length}</div>
-          <div className="app-stat-detail">Prompt-isolated, retry-safe, review-gated.</div>
-        </div>
-        <div className="app-stat">
-          <div className="app-stat-label">Review queue</div>
-          <div className="app-stat-value">{pendingReviewCount}</div>
-          <div className="app-stat-detail">{approvedCount} approved • {refreshCount} refresh tasks</div>
-        </div>
-      </section>
-
       <section className="app-grid-sidebar">
         <div className="app-section">
-          <div className="app-card">
-            <div className="app-card-head">
-              <div className="app-card-title">Operational queue</div>
-              <div className="app-card-meta">Persisted workflow state</div>
-            </div>
-            <div className="app-card-body">
-              <div className="app-list">
-                {data.persistedTopics.slice(0, 6).map((topic) => (
-                  <div key={topic.id} className="app-list-item">
-                    <div className="app-list-title">
-                      <span>{topic.title}</span>
-                      <span className="app-badge">{topic.workflowState}</span>
-                    </div>
-                    <div className="app-list-meta">
-                      Score {topic.totalScore} • {topic.recommendation} • Cannibalization {topic.cannibalizationRisk}
-                    </div>
-                    <div className="app-muted">{topic.rationale}</div>
-                    <div>
-                      <Link href="/grid" className="app-inline-link">Open in workflow grid</Link>
-                    </div>
-                  </div>
-                ))}
-                {data.persistedTopics.length === 0 ? (
-                  <div className="app-muted">No persisted topics yet. Run discovery from the worker.</div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          <div className="app-card">
-            <div className="app-card-head">
-              <div className="app-card-title">Live system status</div>
-              <div className="app-card-meta">Automation and integrations</div>
-            </div>
-            <div className="app-card-body app-grid-2">
-              <div className="app-stack">
-                <div className="app-muted">Discovery cadence</div>
-                <div>{data.automationStatus.discoveryCron}</div>
-              </div>
-              <div className="app-stack">
-                <div className="app-muted">Monitoring cadence</div>
-                <div>{data.automationStatus.monitoringCron}</div>
-              </div>
-              <div className="app-stack">
-                <div className="app-muted">Refresh cadence</div>
-                <div>{data.automationStatus.refreshCron}</div>
-              </div>
-              <div className="app-stack">
-                <div className="app-muted">Publish gate</div>
-                <div>Manual approval required</div>
-              </div>
-            </div>
-            <div className="app-card-body" style={{ borderTop: "1px solid #eef2f6" }}>
-              <div className="app-list">
-                {data.integrations.map((integration) => (
-                  <div key={integration.name} className="app-list-item">
-                    <div className="app-list-title">
-                      <span>{integration.name}</span>
-                      <span className={`app-badge${integration.status === "connected" ? " is-success" : ""}`}>{integration.status}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <WorkSection
+            title="Needs review"
+            description="Drafts and briefs that need a human decision."
+            items={work.needsReview}
+          />
+          <WorkSection
+            title="Ready to write"
+            description="Topics that are worth drafting next."
+            items={work.readyToWrite}
+          />
         </div>
 
         <div className="app-stack">
-          <div className="app-card">
-            <div className="app-card-head">
-              <div className="app-card-title">Operator workspaces</div>
-            </div>
-            <div className="app-card-body app-stack">
-              <Link href="/grid" className="app-inline-link">Workflow grid</Link>
-              <Link href="/review" className="app-inline-link">Human review</Link>
-              <Link href="/published" className="app-inline-link">Published inventory</Link>
-              <Link href="/monitoring" className="app-inline-link">Monitoring</Link>
-              <Link href="/recommendations" className="app-inline-link">Refresh tasks</Link>
-              <Link href="/agents" className="app-inline-link">Agent control</Link>
-            </div>
-          </div>
+          <WorkSection
+            title="Ready to publish"
+            description="Items that can move forward once review is complete."
+            items={work.readyToPublish}
+          />
+          <WorkSection
+            title="Needs retry"
+            description="Items that need a rerun, refresh, or operational follow-up."
+            items={work.needsRetry}
+          />
 
-          <div className="app-card">
+          <section className="app-card">
             <div className="app-card-head">
-              <div className="app-card-title">Current draft</div>
-              <div className="app-card-meta">In review</div>
+              <div className="app-card-title">What the system recommends next</div>
+              <div className="app-card-meta">Current priority</div>
             </div>
             <div className="app-card-body app-stack">
-              <div style={{ fontWeight: 600 }}>{data.draft.h1}</div>
-              <div className="app-muted">{data.draft.metaDescriptionOptions[0]}</div>
-              <div>
-                <span className="app-badge is-warning">in_review</span>
+              <div style={{ fontWeight: 700 }}>{data.persistedTopics[0]?.title ?? data.draft.h1}</div>
+              <div className="app-muted">
+                {data.persistedTopics[0]?.rationale ??
+                  "Start with the strongest topic in the queue, get the draft into review, and move it forward before widening the pipeline."}
               </div>
-              <Link href="/review" className="app-inline-link">Open review package</Link>
+              <div>
+                <Link href="/review" className="app-inline-link">Review draft</Link>
+              </div>
             </div>
-          </div>
+          </section>
         </div>
       </section>
     </PageShell>

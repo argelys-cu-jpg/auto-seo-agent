@@ -9,13 +9,13 @@ export default async function MonitoringPage() {
 
   return (
     <PageShell
-      title="Post-publish monitoring"
-      description="Track page-level search performance, spot decline early, and turn performance signals into refresh work."
+      title="Performance"
+      description="Find pages that need attention and turn signals into actions."
       actions={<Link href="/recommendations" className="app-button is-primary">Open refresh tasks</Link>}
     >
       <section className="app-card">
         <div className="app-card-head">
-          <div className="app-card-title">Active signals</div>
+          <div className="app-card-title">Pages with live signals</div>
           <div className="app-card-meta">{monitored.length} monitored pages</div>
         </div>
         <div className="app-card-body">
