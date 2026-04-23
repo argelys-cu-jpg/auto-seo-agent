@@ -116,90 +116,208 @@ function keywordToSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-function buildLocalDetail(row: GridOpportunityRow): GridOpportunityDetail {
-  const now = new Date().toISOString();
+function buildLocalDraftHtml(row: GridOpportunityRow, title: string) {
+  const keywordLabel = row.keyword;
+  if (row.path === "landing_page") {
+    return `<article>
+<h1>${title}</h1>
+<p>People searching for ${keywordLabel} are not looking for generic meal-kit language. They are trying to decide whether a meal delivery service will actually fit their schedule, food preferences, and budget. This draft is written to answer that decision quickly and move the reader toward trial.</p>
+<p>CookUnity should position this page around restaurant-quality meals, real weekly variety, and the convenience of having fully prepared dishes ready when life gets busy. The copy should stay practical and specific instead of leaning on broad “healthy lifestyle” claims.</p>
+<h2>What shoppers care about first</h2>
+<p>The first questions are usually simple: How flexible is the plan, what kind of meals are available, and does the service still feel worth it after a long workweek. This section should answer those concerns in plain language and make it easy to understand where CookUnity fits.</p>
+<p>Lead with menu range, delivery consistency, and the fact that meals arrive ready to heat instead of requiring prep. That difference matters for high-intent visitors comparing options side by side.</p>
+<h2>How CookUnity should frame the offer</h2>
+<p>CookUnity’s advantage is not just convenience. It is the combination of chef-led menus, broad cuisine coverage, and a service model that fits weeknight reality. The page should emphasize that readers get finished meals from working chefs, not a box of ingredients they still need to cook.</p>
+<p>Use this section to connect the topic back to real use cases: busy professionals, families trying to reduce cooking friction, and customers who want variety without sacrificing quality.</p>
+<h2>What comparison readers need before choosing</h2>
+<p>Comparison readers need help evaluating value, quality, dietary fit, and flexibility. Break down what to compare: meal variety, skipping or pausing options, portion expectations, delivery windows, and how easy it is to keep the service aligned with a changing schedule.</p>
+<p>This is also the right place to explain where CookUnity feels strongest. Keep the tone confident, but anchor it in specifics instead of vague superlatives.</p>
+<h2>Proof points that make the page more persuasive</h2>
+<p>Use concrete examples like cuisine diversity, rotating weekly menus, and the convenience of having prepared meals available after training, commuting, or late meetings. If customer proof or chef credibility is available, place it here to support conversion.</p>
+<p>Any CTA that appears below should feel earned. By this point, the reader should understand why CookUnity is relevant and what problem it solves better than the alternatives they are evaluating.</p>
+<h2>Bottom line</h2>
+<p>Close with a direct trial CTA. Remind the reader that CookUnity is built for people who want excellent meals without the time cost of planning, shopping, and cooking every night.</p>
+</article>`;
+  }
+
+  return `<article>
+<h1>${title}</h1>
+<p>If someone is searching for ${keywordLabel}, they usually want a practical plan they can follow in real life. They are not looking for filler. They want to know what matters, what to compare, and how to make the topic fit a busy schedule.</p>
+<p>For CookUnity, the goal of this article is to capture that demand with useful, readable copy and then bridge the reader into deeper menu exploration. The draft should sound informed and direct, with enough structure to feel helpful on first read.</p>
+<h2>Key takeaways</h2>
+<ul>
+  <li>Readers want a realistic answer, not a generic overview.</li>
+  <li>CookUnity should position convenience, quality, and menu breadth together.</li>
+  <li>The article needs to create confidence before moving into an email capture or menu CTA.</li>
+</ul>
+<h2>What readers are actually trying to solve</h2>
+<p>Most readers are trying to make a better weeknight decision. They may be balancing training, commuting, work, or family obligations, and they need a meal approach that fits all of that without becoming another project to manage.</p>
+<p>This section should explain the pressure clearly. Use straightforward language and frame the problem in a way that makes the rest of the article feel immediately relevant.</p>
+<h2>How CookUnity should position the topic</h2>
+<p>CookUnity should show up here as the practical upgrade from repetitive meal prep or lower-quality convenience food. The positioning needs to connect chef-led quality with actual ease: prepared meals, broad menu variety, and realistic flexibility across the week.</p>
+<p>Avoid generic nutrition language unless it supports a concrete reader question. The voice should be premium but grounded, with examples that feel lived-in rather than promotional.</p>
+<h2>What to compare before making a choice</h2>
+<p>Before choosing any meal solution, readers tend to compare quality, convenience, variety, and long-term fit. The article should help them think through those points without overwhelming them.</p>
+<p>This is where the copy can address portion expectations, menu rotation, dietary fit, and how easy the service is to keep aligned with changing routines. Keep the advice concrete and readable.</p>
+<h2>Where CookUnity becomes more compelling</h2>
+<p>CookUnity becomes more compelling when the reader starts thinking beyond a single dinner. A stronger weekly routine depends on consistency, and consistency is easier when the meals are already prepared and still feel worth eating.</p>
+<p>Use this section to connect convenience with taste and menu depth. That is the core bridge from informational curiosity to genuine interest.</p>
+<h2>How to close the article</h2>
+<p>End with a clear next step. For blog content, that usually means a light capture CTA paired with a path into the menu. The close should feel useful, not abrupt, and it should reinforce that the reader now has a clearer lens for deciding what works.</p>
+<h2>Frequently asked questions</h2>
+<h3>Is this a topic people are researching before they buy?</h3>
+<p>Yes. The search intent is largely informational, but it often sits close to evaluation. A good article should acknowledge that and make the bridge into menu exploration feel natural.</p>
+<h3>What should the article emphasize most?</h3>
+<p>It should emphasize practical fit, quality, and flexibility. Those are the points that make the topic useful to the reader and strategically relevant for CookUnity.</p>
+</article>`;
+}
+
+function buildLocalStepPayload(row: GridOpportunityRow, stepName: typeof orderedSteps[number]) {
   const title = titleizeKeyword(row.keyword);
   const slug = keywordToSlug(row.keyword);
-  const intro =
-    row.path === "blog"
-      ? `${title} is a strong capture topic for CookUnity. This draft is a working fallback so the editorial team can review real copy instead of a blank workflow.`
-      : `${title} is a strong conversion topic for CookUnity. This landing page draft is a working fallback so the team can iterate on actual copy.`;
-  const draftHtml = `<article><h1>${title}</h1><p>${intro}</p><h2>Key takeaways</h2><p>${row.path === "blog" ? "Use this page to capture demand, explain the topic clearly, and move readers into nurture." : "Use this page to convert high-intent visitors with clear positioning, proof, and a direct trial CTA."}</p><h2>What readers are actually looking for</h2><p>Searchers want a practical answer, not category filler. This section should frame the problem in plain language and set up CookUnity's angle.</p><h2>How CookUnity should position the topic</h2><p>Lead with chef quality, real menu breadth, and realistic weeknight convenience. Avoid generic meal-plan language.</p><h2>What to compare before deciding</h2><p>Address quality, flexibility, dietary fit, freshness window, and overall value. Keep the copy concrete.</p><h2>Bottom line</h2><p>${row.path === "blog" ? "Close with an email-capture CTA and a bridge into menu exploration." : "Close with a direct trial CTA and a menu exploration path."}</p></article>`;
+  const reviewLabel = row.path === "blog" ? "Blog → email capture → nurture → trial" : "Landing page → direct trial";
 
-  const completedStep = (stepName: typeof orderedSteps[number], version: number, output: Record<string, unknown>, status: GridStepView["status"] = "completed"): GridStepView => ({
-    id: row.steps.find((step) => step.stepName === stepName)?.id ?? `local_${row.id}_${stepName}`,
-    stepName,
-    status,
-    version,
-    startedAt: now,
-    completedAt: now,
-    output,
-  });
-
-  return {
-    ...row,
-    rowStatus: "needs_review",
-    updatedAt: now,
-    steps: [
-      completedStep("discovery", 1, {
+  switch (stepName) {
+    case "discovery":
+      return {
         keyword: row.keyword,
         path: row.path,
+        intent: row.intent,
         message: `Discovered ${row.keyword} for the ${row.path === "blog" ? "capture" : "conversion"} workflow.`,
-      }),
-      completedStep("prioritization", 1, {
+        relatedAngles: [
+          `${row.keyword} for busy weekdays`,
+          `${row.keyword} guide`,
+          `best ${row.keyword}`,
+        ],
+      };
+    case "prioritization":
+      return {
         keyword: row.keyword,
-        explanation: `Prioritized ${row.keyword} for immediate drafting so the team can review actual copy.`,
-      }),
-      completedStep("brief", 1, {
+        explanation: `Prioritized ${row.keyword} because it aligns with ${row.path === "blog" ? "top-of-funnel demand capture" : "high-intent conversion demand"} and is worth drafting immediately.`,
+        reviewLabel,
+      };
+    case "brief":
+      return {
         primaryKeyword: row.keyword,
         intentSummary: row.path === "blog"
           ? "Capture-first fallback brief for editorial review."
           : "Trial-first fallback landing page brief for editorial review.",
-        reviewLabel: row.path === "blog"
-          ? "Blog → email capture → nurture → trial"
-          : "Landing page → direct trial",
+        reviewLabel,
         titleOptions: [title, `${title} guide`, `How to choose ${row.keyword}`],
-        briefJson: {
-          selectedTitle: title,
-          selectedSlug: slug,
-        },
-      }),
-      completedStep("draft", 1, {
+        selectedTitle: title,
+        selectedSlug: slug,
+        outline: [
+          "What readers are actually trying to solve",
+          "How CookUnity should position the topic",
+          "What to compare before making a choice",
+          "Where CookUnity becomes more compelling",
+          "How to close the article",
+        ],
+      };
+    case "draft":
+      return {
         h1: title,
         slugRecommendation: slug,
-        intro,
-        html: draftHtml,
+        intro: row.path === "blog"
+          ? `${title} is a strong capture topic for CookUnity and this fallback draft is written so the team can review real copy today.`
+          : `${title} is a strong conversion topic for CookUnity and this fallback draft is written so the team can iterate on real landing page copy today.`,
+        html: buildLocalDraftHtml(row, title),
         titleTagOptions: [`${title} | CookUnity`],
         metaDescriptionOptions: [
           row.path === "blog"
-            ? `Fallback article draft for ${row.keyword}.`
-            : `Fallback landing page draft for ${row.keyword}.`,
+            ? `A practical CookUnity draft for ${row.keyword}, built for demand capture and editorial review.`
+            : `A conversion-focused CookUnity draft for ${row.keyword}, built for landing page review.`,
         ],
-      }),
-      completedStep("qa", 1, {
+      };
+    case "qa":
+      return {
         passed: true,
         requiresHumanReview: true,
         reviewLabel: row.path === "blog"
           ? "Review for email capture readiness"
           : "Review for trial conversion readiness",
-      }, "needs_review"),
-      {
-        id: row.steps.find((step) => step.stepName === "publish")?.id ?? `local_${row.id}_publish`,
-        stepName: "publish",
-        status: "not_started",
-        version: 0,
-      },
-    ],
+        notes: [
+          "Check brand tone before approval.",
+          "Confirm CTA placement and internal links.",
+          "Replace fallback examples with production proof points where available.",
+        ],
+      };
+    default:
+      return {
+        message: "Publish is not available in local fallback mode.",
+      };
+  }
+}
+
+function buildLocalDetail(
+  row: GridOpportunityRow,
+  upToStep: typeof orderedSteps[number] = "qa",
+  existingDetail?: GridOpportunityDetail,
+): GridOpportunityDetail {
+  const now = new Date().toISOString();
+  const stepIndex = orderedSteps.indexOf(upToStep);
+  const existingByStep = new Map((existingDetail?.steps ?? []).map((step) => [step.stepName, step]));
+  const auditLog = existingDetail?.auditLog ?? [];
+  const revisionNotes = existingDetail?.revisionNotes ?? [];
+  const publishResults = existingDetail?.publishResults ?? [];
+
+  const steps: GridStepView[] = orderedSteps.map((stepName, index) => {
+    const current = existingByStep.get(stepName);
+    if (index > stepIndex && stepName !== "publish") {
+      return current && current.version > 0
+        ? current
+        : {
+            id: row.steps.find((step) => step.stepName === stepName)?.id ?? `local_${row.id}_${stepName}`,
+            stepName,
+            status: "not_started" as const,
+            version: 0,
+          };
+    }
+
+    if (stepName === "publish") {
+      return current && current.version > 0
+        ? current
+        : {
+            id: row.steps.find((step) => step.stepName === stepName)?.id ?? `local_${row.id}_${stepName}`,
+            stepName,
+            status: "not_started" as const,
+            version: 0,
+          };
+    }
+
+    const rerun = current?.version && current.version > 0 && stepName === upToStep;
+    const nextStep: GridStepView = {
+      id: current?.id ?? row.steps.find((step) => step.stepName === stepName)?.id ?? `local_${row.id}_${stepName}`,
+      stepName,
+      status: stepName === "qa" && index === stepIndex ? "needs_review" : "completed",
+      version: rerun ? current.version + 1 : Math.max(current?.version ?? 0, 1),
+      startedAt: current?.startedAt ?? now,
+      completedAt: now,
+      output: current?.manualOutput ?? buildLocalStepPayload(row, stepName),
+    };
+    if (current?.manualOutput) nextStep.manualOutput = current.manualOutput;
+    if (stepName === upToStep && current?.revisionNote) nextStep.revisionNote = current.revisionNote;
+    if (current?.approvedAt) nextStep.approvedAt = current.approvedAt;
+    if (current?.approvedBy) nextStep.approvedBy = current.approvedBy;
+    return nextStep;
+  });
+
+  return {
+    ...row,
+    rowStatus: upToStep === "qa" ? "needs_review" : "running",
+    updatedAt: now,
+    steps,
     auditLog: [
       {
-        id: `local_audit_${row.id}`,
-        action: "local_fallback_generated",
+        id: `local_audit_${row.id}_${Date.now()}`,
+        action: `local_${upToStep}_generated`,
         actorType: "system",
         createdAt: now,
       },
+      ...auditLog,
     ],
-    revisionNotes: [],
-    publishResults: [],
+    revisionNotes,
+    publishResults,
   };
 }
 
@@ -327,7 +445,6 @@ export function WorkflowGridControlPlane(props: {
   const [rowEdits, setRowEdits] = useState<Record<string, { keyword: string; path: "blog" | "landing_page"; type: "keyword" | "page_idea" | "competitor_page" | "lp_optimization" }>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [autoGeneratingForId, setAutoGeneratingForId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [drawerOpen, setDrawerOpen] = useState(Boolean(props.initialRows[0]?.id));
 
@@ -528,7 +645,7 @@ export function WorkflowGridControlPlane(props: {
       if (!targetRow) {
         throw nextError;
       }
-      const localDetail = buildLocalDetail(targetRow);
+      const localDetail = buildLocalDetail(targetRow, "qa", detail?.id === targetRow.id ? detail : undefined);
       setDetail(localDetail);
       setRows((current) => applyDetailToRows(current, localDetail));
       setSelectedId(localDetail.id);
@@ -624,20 +741,6 @@ export function WorkflowGridControlPlane(props: {
 
     return () => window.clearInterval(intervalId);
   }, [currentSteps, drawerOpen, props.persistenceMode, selectedId]);
-
-  useEffect(() => {
-    if (props.persistenceMode !== "database") return;
-    if (!drawerOpen) return;
-    if (!selectedRow) return;
-    if (autoGeneratingForId === selectedRow.id) return;
-    const hasAnyRealStep = currentSteps.some((step) => step.version > 0);
-    if (hasAnyRealStep) return;
-
-    setAutoGeneratingForId(selectedRow.id);
-    runAction(async () => {
-      await generateDraftForSelected(selectedRow.id);
-    });
-  }, [autoGeneratingForId, currentSteps, drawerOpen, props.persistenceMode, selectedRow]);
 
   return (
     <div className="airops-grid-layout">
@@ -953,7 +1056,16 @@ export function WorkflowGridControlPlane(props: {
                                 onClick={(event) => {
                                   event.stopPropagation();
                                   runAction(async () => {
-                                    if (props.persistenceMode !== "database") {
+                                    if (
+                                      props.persistenceMode !== "database" ||
+                                      !props.databaseReady ||
+                                      row.id.startsWith("pending_") ||
+                                      row.steps.some((item) => isLocalStep(item))
+                                    ) {
+                                      const existingDetail = detail?.id === row.id ? detail : undefined;
+                                      const localDetail = buildLocalDetail(row, stepName, existingDetail);
+                                      setLocalDetail(localDetail);
+                                      setNotice(`${stepName} completed in local fallback mode.`);
                                       setSelectedId(row.id);
                                       setDrawerOpen(true);
                                       return;
@@ -1441,7 +1553,13 @@ export function WorkflowGridControlPlane(props: {
                         onClick={() =>
                           runAction(async () => {
                             if (isLocalWorkflow || isLocalStep(step)) {
-                              await generateDraftForSelected(selectedRow.id);
+                              const localDetail = buildLocalDetail(selectedRow, step.stepName, detail ?? undefined);
+                              setLocalDetail(localDetail);
+                              setNotice(
+                                step.stepName === "qa"
+                                  ? "QA package generated in local fallback mode."
+                                  : `${step.stepName} completed in local fallback mode.`,
+                              );
                               return;
                             }
                             if (step.version === 0) {
