@@ -124,6 +124,21 @@ export interface DashboardData {
   agentNames: readonly string[];
   publishedInventory: DashboardPublicationSummary[];
   persistedTopics: DashboardTopicSummary[];
+  performanceActions: {
+    losingTraction: PerformanceActionItem[];
+    lowCtr: PerformanceActionItem[];
+    readyForRefresh: PerformanceActionItem[];
+    weakConversion: PerformanceActionItem[];
+  };
+}
+
+export interface PerformanceActionItem {
+  id: string;
+  title: string;
+  signal: string;
+  summary: string;
+  actionLabel: string;
+  href: string;
 }
 
 export interface WorkflowGridCell {
@@ -166,6 +181,92 @@ export interface WorkflowGridRow {
     html: string;
     reviewDocUrl?: string;
     reviewDocProvider?: string;
+  };
+}
+
+function buildPerformanceActions(persistedTopics: DashboardTopicSummary[]): DashboardData["performanceActions"] {
+  const publishedTopics = persistedTopics.filter((topic) => topic.publications.length > 0);
+
+  const losingTraction = publishedTopics
+    .filter((topic) => {
+      const snapshot = topic.publications[0]?.metricSnapshots[0];
+      return snapshot ? snapshot.averagePosition > 8 || snapshot.clicks < 25 : false;
+    })
+    .slice(0, 6)
+    .map((topic) => {
+      const snapshot = topic.publications[0]?.metricSnapshots[0];
+      return {
+        id: `losing_${topic.id}`,
+        title: topic.title,
+        signal: "Losing traction",
+        summary: snapshot
+          ? `Average position is ${snapshot.averagePosition.toFixed(1)} with ${snapshot.clicks} clicks on the latest snapshot.`
+          : "Latest performance is trending down.",
+        actionLabel: "Create refresh brief",
+        href: "/recommendations",
+      };
+    });
+
+  const lowCtr = publishedTopics
+    .filter((topic) => {
+      const snapshot = topic.publications[0]?.metricSnapshots[0];
+      return snapshot ? snapshot.impressions >= 250 && snapshot.ctr < 2 : false;
+    })
+    .slice(0, 6)
+    .map((topic) => {
+      const snapshot = topic.publications[0]?.metricSnapshots[0];
+      return {
+        id: `ctr_${topic.id}`,
+        title: topic.title,
+        signal: "Low CTR",
+        summary: snapshot
+          ? `${snapshot.impressions} impressions with ${snapshot.ctr.toFixed(2)}% CTR.`
+          : "Search visibility is not turning into clicks.",
+        actionLabel: "Rewrite title tag",
+        href: "/review",
+      };
+    });
+
+  const readyForRefresh = publishedTopics
+    .filter((topic) => topic.publications[0]?.optimizationTasks.length)
+    .slice(0, 6)
+    .map((topic) => {
+      const task = topic.publications[0]?.optimizationTasks[0];
+      return {
+        id: `refresh_${topic.id}`,
+        title: topic.title,
+        signal: "Ready for refresh",
+        summary: task?.reason ?? "A refresh opportunity is already queued for this page.",
+        actionLabel: "Open refresh task",
+        href: "/recommendations",
+      };
+    });
+
+  const weakConversion = publishedTopics
+    .filter((topic) => {
+      const snapshot = topic.publications[0]?.metricSnapshots[0];
+      return snapshot ? snapshot.impressions >= 250 && snapshot.conversions < 3 : false;
+    })
+    .slice(0, 6)
+    .map((topic) => {
+      const snapshot = topic.publications[0]?.metricSnapshots[0];
+      return {
+        id: `conversion_${topic.id}`,
+        title: topic.title,
+        signal: "Weak conversion",
+        summary: snapshot
+          ? `${snapshot.impressions} impressions and ${snapshot.conversions} conversions on the latest snapshot.`
+          : "Traffic is not turning into downstream action.",
+        actionLabel: "Review CTA",
+        href: "/review",
+      };
+    });
+
+  return {
+    losingTraction,
+    lowCtr,
+    readyForRefresh,
+    weakConversion,
   };
 }
 
@@ -421,7 +522,9 @@ export async function getDashboardData(): Promise<DashboardData> {
             priority: mockOptimizationTask.priority,
             reason: mockOptimizationTask.reason,
             actions: mockOptimizationTask.actions,
-          };
+        };
+
+    const performanceActions = buildPerformanceActions(persistedTopics);
 
     return {
       prioritized: persistedTopics.map((topic) => ({
@@ -499,8 +602,12 @@ export async function getDashboardData(): Promise<DashboardData> {
       agentNames,
       publishedInventory,
       persistedTopics,
+      performanceActions,
     };
   }
+
+  const mockPersistedTopics: DashboardTopicSummary[] = [];
+  const performanceActions = buildPerformanceActions(mockPersistedTopics);
 
   return {
     prioritized: mockTopicCandidates.map((topic) => ({
@@ -560,7 +667,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     orchestratorTimeline: [],
     agentNames,
     publishedInventory: [],
-    persistedTopics: [],
+    persistedTopics: mockPersistedTopics,
+    performanceActions,
   };
 }
 
