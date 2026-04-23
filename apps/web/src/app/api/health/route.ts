@@ -6,11 +6,13 @@ export async function GET(): Promise<NextResponse> {
     const prisma = dbModule.prisma;
     await prisma.$connect();
     await prisma.$queryRaw`SELECT 1`;
+    await prisma.opportunity.count();
 
     return NextResponse.json({
       ok: true,
       service: "web",
       database: "connected",
+      workflowSchema: "ready",
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
@@ -20,6 +22,7 @@ export async function GET(): Promise<NextResponse> {
         ok: false,
         service: "web",
         database: "error",
+        workflowSchema: "missing_or_invalid",
         error: message,
         timestamp: new Date().toISOString(),
       },

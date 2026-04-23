@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { OpportunityWorkflowService } from "@cookunity-seo-agent/core/src/services/opportunity-workflow-service";
-import { getGridOpportunityDetail } from "../../../../lib/workflow-grid-store";
-
-const service = new OpportunityWorkflowService();
+import { getGridOpportunityDetail, updateOpportunityRecord } from "../../../../lib/workflow-grid-store";
 
 export async function GET(
   _request: Request,
@@ -30,7 +27,7 @@ export async function PATCH(
       competitorPageUrl?: string | null;
     };
 
-    await service.updateOpportunity(params.opportunityId, body);
+    await updateOpportunityRecord(params.opportunityId, body);
     const result = await getGridOpportunityDetail(params.opportunityId);
     return NextResponse.json({ success: true, result });
   } catch (error) {

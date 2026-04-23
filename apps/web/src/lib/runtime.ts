@@ -4,6 +4,7 @@ export async function isDatabaseReady(): Promise<boolean> {
     const prisma = dbModule.prisma;
     await prisma.$connect();
     await prisma.$queryRaw`SELECT 1`;
+    await prisma.opportunity.count();
     return true;
   } catch {
     return false;

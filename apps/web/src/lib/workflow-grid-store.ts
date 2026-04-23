@@ -1,11 +1,13 @@
-import { OpportunityWorkflowService } from "@cookunity-seo-agent/core/src/services/opportunity-workflow-service";
 import type {
+  ContentBrief,
+  Draft,
   OpportunityPath,
   OpportunityType,
   RowStatus,
   WorkflowStepName,
   WorkflowStepStatus,
 } from "@cookunity-seo-agent/shared";
+import { mockBrief, mockDraft } from "@cookunity-seo-agent/shared";
 
 function toJsonValue(value: unknown) {
   return value as Record<string, unknown> | null;
@@ -18,8 +20,27 @@ async function getPrismaClient() {
   return prisma;
 }
 
-const service = new OpportunityWorkflowService();
 const orderedSteps: WorkflowStepName[] = ["discovery", "prioritization", "brief", "draft", "qa", "publish"];
+
+function normalizeKeyword(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function inferIntent(keyword: string, path: OpportunityPath): string {
+  const normalized = keyword.toLowerCase();
+  if (path === "landing_page") {
+    if (normalized.includes("vs") || normalized.includes("compare")) return "comparison";
+    if (normalized.includes("price") || normalized.includes("cost")) return "cost";
+    return "direct_trial";
+  }
+  if (normalized.includes("what is") || normalized.includes("guide") || normalized.includes("how")) return "education";
+  if (normalized.includes("best") || normalized.includes("ideas") || normalized.includes("foods")) return "curated_roundup";
+  return "capture";
+}
+
+function keywordToSlug(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 
 export interface GridStepView {
   id: string;
@@ -386,6 +407,444 @@ export async function getGridOpportunityDetail(opportunityId: string): Promise<G
   }
 }
 
+async function recordAudit(
+  prisma: Awaited<ReturnType<typeof getPrismaClient>>,
+  entityType: string,
+  entityId: string,
+  action: string,
+  actorType: string,
+  payload: Record<string, unknown>,
+) {
+  await prisma.auditLog.create({
+    data: {
+      entityType,
+      entityId,
+      action,
+      actorType,
+      payload: payload as never,
+    },
+  });
+}
+
+async function ensureWorkflowRun(
+  prisma: Awaited<ReturnType<typeof getPrismaClient>>,
+  opportunityId: string,
+) {
+  const existing = await prisma.workflowRun.findFirst({
+    where: {
+      opportunityId,
+      status: { in: ["idle", "running", "blocked", "needs_review", "approved"] },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  return prisma.workflowRun.create({
+    data: {
+      opportunityId,
+      trigger: "web_grid_materialize",
+      status: "idle",
+    },
+  });
+}
+
+function buildFallbackBrief(opportunity: {
+  id: string;
+  keyword: string;
+  path: OpportunityPath;
+  intent: string;
+}): ContentBrief {
+  return {
+    ...mockBrief,
+    id: `brief_${opportunity.id}`,
+    topicId: opportunity.id,
+    primaryKeyword: opportunity.keyword,
+    secondaryKeywords: [
+      `${opportunity.keyword} guide`,
+      `best ${opportunity.keyword}`,
+      `${opportunity.keyword} ideas`,
+    ],
+    titleOptions: [
+      opportunity.keyword.replace(/\b\w/g, (character) => character.toUpperCase()),
+      `${opportunity.keyword.replace(/\b\w/g, (character) => character.toUpperCase())} guide`,
+      `How to choose ${opportunity.keyword}`,
+    ],
+    intentSummary:
+      opportunity.path === "blog"
+        ? "Capture-first fallback brief generated directly in the web app."
+        : "Trial-first fallback brief generated directly in the web app.",
+    ctaRecommendations:
+      opportunity.path === "blog"
+        ? ["Get menu updates by email", "Download the comparison guide"]
+        : ["Start your trial", "See this week's menu"],
+    briefJson: {
+      ...(mockBrief.briefJson as Record<string, unknown>),
+      path: opportunity.path,
+      intent: opportunity.intent,
+      successMetric: opportunity.path === "blog" ? "capture_rate" : "checkout_cvr",
+      workflowLabel: opportunity.path === "blog" ? "Blog → email capture → nurture → trial" : "Landing pages → direct trial",
+      generatedBy: "web_fallback",
+    },
+  };
+}
+
+function buildFallbackDraft(opportunity: {
+  id: string;
+  keyword: string;
+  path: OpportunityPath;
+}): Draft {
+  const title = opportunity.keyword.replace(/\b\w/g, (character) => character.toUpperCase());
+  const slug = keywordToSlug(opportunity.keyword);
+  const intro =
+    opportunity.path === "blog"
+      ? `This fallback article draft for ${opportunity.keyword} is ready for editorial review and email-capture refinement.`
+      : `This fallback landing page draft for ${opportunity.keyword} is ready for conversion-focused review and iteration.`;
+  const html = `<article><h1>${title}</h1><p>${intro}</p><h2>What this page needs to do</h2><p>${opportunity.path === "blog" ? "Capture demand and move readers into nurture." : "Convert high-intent searchers into trial starts."}</p><h2>How CookUnity should frame the topic</h2><p>Use this persisted fallback draft as a working document instead of blocking the workflow.</p><h2>Bottom line</h2><p>${opportunity.path === "blog" ? "Use the CTA to collect email and continue the relationship." : "Use the CTA to move readers directly into trial."}</p></article>`;
+
+  return {
+    ...mockDraft,
+    id: `draft_${opportunity.id}`,
+    topicId: opportunity.id,
+    briefId: `brief_${opportunity.id}`,
+    slugRecommendation: slug,
+    h1: title,
+    intro,
+    html,
+    titleTagOptions: [`${title} | CookUnity`],
+    metaDescriptionOptions: [
+      opportunity.path === "blog"
+        ? `Fallback draft for ${opportunity.keyword}. Review and refine for capture.`
+        : `Fallback draft for ${opportunity.keyword}. Review and refine for direct trial conversion.`,
+    ],
+    ctaSuggestions:
+      opportunity.path === "blog"
+        ? ["Get menu updates by email", "Download the comparison guide"]
+        : ["Start your trial", "See this week's menu"],
+    editorNotes: [
+      ...(mockDraft.editorNotes ?? []),
+      "Generated by the direct web fallback workflow.",
+    ],
+  };
+}
+
+async function materializeFallbackWorkflow(opportunityId: string, targetStep?: WorkflowStepName) {
+  const prisma = await getPrismaClient();
+  const opportunity = await prisma.opportunity.findUnique({ where: { id: opportunityId } });
+  if (!opportunity) {
+    throw new Error(`Opportunity not found: ${opportunityId}`);
+  }
+
+  const workflowRun = await ensureWorkflowRun(prisma, opportunityId);
+  const stepsToRun = targetStep
+    ? orderedSteps.slice(0, orderedSteps.indexOf(targetStep) + 1)
+    : orderedSteps.slice(0, orderedSteps.indexOf("publish"));
+
+  await prisma.opportunity.update({
+    where: { id: opportunityId },
+    data: { rowStatus: "running", lastError: null },
+  });
+  await prisma.workflowRun.update({
+    where: { id: workflowRun.id },
+    data: { status: "running" },
+  });
+
+  const keyword = await prisma.keyword.upsert({
+    where: { normalizedTerm: opportunity.normalizedKeyword },
+    update: {
+      term: opportunity.keyword,
+      source: "manual",
+      searchVolume: 1200,
+      keywordDifficulty: 24,
+      trendVelocity: 8,
+    },
+    create: {
+      term: opportunity.keyword,
+      normalizedTerm: opportunity.normalizedKeyword,
+      source: "manual",
+      searchVolume: 1200,
+      keywordDifficulty: 24,
+      trendVelocity: 8,
+    },
+  });
+
+  const topicCandidate = await prisma.topicCandidate.upsert({
+    where: { normalizedKeyword: opportunity.normalizedKeyword },
+    update: {
+      title: opportunity.keyword,
+      keywordId: keyword.id,
+      source: "manual",
+      workflowState: "queued",
+      recommendation: opportunity.path === "landing_page" ? "write_now" : "monitor",
+      totalScore: opportunity.path === "landing_page" ? 82 : 74,
+      scoreBreakdownJson: {
+        volumeScore: 62,
+        difficultyInverseScore: 68,
+        trendScore: 58,
+        businessRelevanceScore: opportunity.path === "landing_page" ? 92 : 76,
+        conversionIntentScore: opportunity.path === "landing_page" ? 90 : 62,
+        competitorGapScore: 64,
+        freshnessScore: 55,
+        clusterValueScore: 72,
+        authorityFitScore: 81,
+      } as never,
+      rationale: "Direct web fallback workflow materialized this opportunity.",
+      cannibalizationRisk: 18,
+      topicType: opportunity.path === "landing_page" ? "support_cluster" : "new_article",
+    },
+    create: {
+      title: opportunity.keyword,
+      normalizedKeyword: opportunity.normalizedKeyword,
+      keywordId: keyword.id,
+      source: "manual",
+      workflowState: "queued",
+      recommendation: opportunity.path === "landing_page" ? "write_now" : "monitor",
+      totalScore: opportunity.path === "landing_page" ? 82 : 74,
+      scoreBreakdownJson: {
+        volumeScore: 62,
+        difficultyInverseScore: 68,
+        trendScore: 58,
+        businessRelevanceScore: opportunity.path === "landing_page" ? 92 : 76,
+        conversionIntentScore: opportunity.path === "landing_page" ? 90 : 62,
+        competitorGapScore: 64,
+        freshnessScore: 55,
+        clusterValueScore: 72,
+        authorityFitScore: 81,
+      } as never,
+      rationale: "Direct web fallback workflow materialized this opportunity.",
+      topicType: opportunity.path === "landing_page" ? "support_cluster" : "new_article",
+    },
+  });
+
+  await prisma.opportunity.update({
+    where: { id: opportunityId },
+    data: {
+      topicCandidateId: topicCandidate.id,
+      intent: inferIntent(opportunity.keyword, opportunity.path),
+    },
+  });
+
+  const baseOutputs: Partial<Record<WorkflowStepName, Record<string, unknown>>> = {
+    discovery: {
+      keyword: opportunity.keyword,
+      path: opportunity.path,
+      intent: inferIntent(opportunity.keyword, opportunity.path),
+      candidates: [
+        {
+          keyword: opportunity.keyword,
+          source: "manual",
+          searchVolume: 1200,
+          keywordDifficulty: 24,
+          trendVelocity: 8,
+          intent: inferIntent(opportunity.keyword, opportunity.path),
+        },
+      ],
+      matchedCandidate: {
+        keyword: opportunity.keyword,
+        source: "manual",
+        searchVolume: 1200,
+        keywordDifficulty: 24,
+        trendVelocity: 8,
+        intent: inferIntent(opportunity.keyword, opportunity.path),
+      },
+    },
+    prioritization: {
+      keyword: opportunity.keyword,
+      totalScore: opportunity.path === "landing_page" ? 82 : 74,
+      recommendation: opportunity.path === "landing_page" ? "write_now" : "monitor",
+      topicType: opportunity.path === "landing_page" ? "support_cluster" : "new_article",
+      explanation: "Direct web fallback prioritization.",
+      breakdown: {
+        volumeScore: 62,
+        difficultyInverseScore: 68,
+        trendScore: 58,
+        businessRelevanceScore: opportunity.path === "landing_page" ? 92 : 76,
+        conversionIntentScore: opportunity.path === "landing_page" ? 90 : 62,
+        competitorGapScore: 64,
+        freshnessScore: 55,
+        clusterValueScore: 72,
+        authorityFitScore: 81,
+      },
+      path: opportunity.path,
+      intent: inferIntent(opportunity.keyword, opportunity.path),
+    },
+  };
+
+  let briefRecordId: string | null = null;
+  let draftRecordId: string | null = null;
+
+  for (const stepName of stepsToRun) {
+    if (stepName === "publish") {
+      break;
+    }
+
+    const previousCount = await prisma.workflowStepRun.count({
+      where: { workflowRunId: workflowRun.id, stepName },
+    });
+
+    const stepRun = await prisma.workflowStepRun.create({
+      data: {
+        opportunityId,
+        workflowRunId: workflowRun.id,
+        stepName,
+        version: previousCount + 1,
+        status: "running",
+        startedAt: new Date(),
+      },
+    });
+
+    let output: Record<string, unknown>;
+    let status: WorkflowStepStatus = "completed";
+    let artifactType: string | null = null;
+    let artifactId: string | null = null;
+
+    if (stepName === "brief") {
+      const brief = buildFallbackBrief({
+        id: topicCandidate.id,
+        keyword: opportunity.keyword,
+        path: opportunity.path,
+        intent: inferIntent(opportunity.keyword, opportunity.path),
+      });
+      const briefRecord = await prisma.contentBrief.create({
+        data: {
+          topicCandidateId: topicCandidate.id,
+          promptVersionId: "web_fallback",
+          primaryKeyword: brief.primaryKeyword,
+          secondaryKeywordsJson: brief.secondaryKeywords as never,
+          briefJson: brief as never,
+        },
+      });
+      await prisma.outline.create({
+        data: {
+          topicCandidateId: topicCandidate.id,
+          promptVersionId: "web_fallback",
+          outlineJson: brief.briefJson as never,
+        },
+      });
+      await prisma.topicCandidate.update({
+        where: { id: topicCandidate.id },
+        data: { workflowState: "outline_generated" },
+      });
+      briefRecordId = briefRecord.id;
+      artifactType = "ContentBrief";
+      artifactId = briefRecord.id;
+      output = {
+        ...brief,
+        artifactId: briefRecord.id,
+        path: opportunity.path,
+        reviewLabel: opportunity.path === "blog" ? "Capture-focused brief" : "Trial-focused LP brief",
+      };
+    } else if (stepName === "draft") {
+      const briefId = briefRecordId ?? (await prisma.contentBrief.findFirst({
+        where: { topicCandidateId: topicCandidate.id },
+        orderBy: { createdAt: "desc" },
+      }))?.id;
+      const draft = buildFallbackDraft({
+        id: topicCandidate.id,
+        keyword: opportunity.keyword,
+        path: opportunity.path,
+      });
+      const draftRecord = await prisma.draft.create({
+        data: {
+          topicCandidateId: topicCandidate.id,
+          briefId: briefId ?? null,
+          promptVersionId: "web_fallback",
+          draftJson: draft as never,
+          html: draft.html,
+          markdown: JSON.stringify(draft.sections),
+        },
+      });
+      await prisma.topicCandidate.update({
+        where: { id: topicCandidate.id },
+        data: { workflowState: "draft_generated" },
+      });
+      draftRecordId = draftRecord.id;
+      artifactType = "Draft";
+      artifactId = draftRecord.id;
+      output = {
+        ...draft,
+        artifactId: draftRecord.id,
+      };
+    } else if (stepName === "qa") {
+      const normalizedDraft = buildFallbackDraft({
+        id: topicCandidate.id,
+        keyword: opportunity.keyword,
+        path: opportunity.path,
+      });
+      await prisma.topicCandidate.update({
+        where: { id: topicCandidate.id },
+        data: { workflowState: "in_review" },
+      });
+      output = {
+        passed: true,
+        flags: ["Direct web fallback QA."],
+        requiresHumanReview: true,
+        normalizedDraft,
+        path: opportunity.path,
+        reviewLabel:
+          opportunity.path === "blog"
+            ? "Review for email capture readiness"
+            : "Review for trial conversion readiness",
+      };
+      status = "needs_review";
+    } else {
+      output = baseOutputs[stepName] ?? { message: `${stepName} completed.` };
+      if (stepName === "discovery") {
+        await prisma.topicCandidate.update({
+          where: { id: topicCandidate.id },
+          data: { workflowState: "discovered" },
+        });
+      }
+      if (stepName === "prioritization") {
+        await prisma.topicCandidate.update({
+          where: { id: topicCandidate.id },
+          data: { workflowState: "queued" },
+        });
+      }
+    }
+
+    await prisma.workflowStepRun.update({
+      where: { id: stepRun.id },
+      data: {
+        status,
+        completedAt: new Date(),
+        outputJson: output as never,
+        ...(artifactType ? { artifactType } : {}),
+        ...(artifactId ? { artifactId } : {}),
+      },
+    });
+
+    await recordAudit(prisma, "workflow_step_run", stepRun.id, `${stepName}:${status}`, "system", {
+      opportunityId,
+      workflowRunId: workflowRun.id,
+      generatedBy: "web_fallback",
+    });
+
+    if (status === "needs_review") {
+      await prisma.workflowRun.update({
+        where: { id: workflowRun.id },
+        data: { status: "needs_review", currentStep: stepName },
+      });
+      await prisma.opportunity.update({
+        where: { id: opportunityId },
+        data: { rowStatus: "needs_review" },
+      });
+      return;
+    }
+  }
+
+  await prisma.workflowRun.update({
+    where: { id: workflowRun.id },
+    data: { status: "needs_review", currentStep: "qa" },
+  });
+  await prisma.opportunity.update({
+    where: { id: opportunityId },
+    data: { rowStatus: "needs_review" },
+  });
+}
+
 export async function createOpportunityRecordAndRunWorkflow(input: {
   keyword: string;
   path: OpportunityPath;
@@ -393,8 +852,8 @@ export async function createOpportunityRecordAndRunWorkflow(input: {
   pageIdea?: string;
   competitorPageUrl?: string;
 }) {
-  const opportunity = await service.createOpportunity(input);
-  await service.runWorkflow(opportunity.id, { forceFallback: true });
+  const opportunity = await createOpportunityRecord(input);
+  await materializeFallbackWorkflow(opportunity.id);
   const detail = await getGridOpportunityDetail(opportunity.id);
   if (!detail) {
     throw new Error("Created workflow could not be loaded.");
@@ -409,7 +868,67 @@ export async function createOpportunityRecord(input: {
   pageIdea?: string;
   competitorPageUrl?: string;
 }) {
-  return service.createOpportunity(input);
+  const prisma = await getPrismaClient();
+  const normalizedKeyword = normalizeKeyword(input.keyword);
+  return prisma.opportunity.upsert({
+    where: { normalizedKeyword },
+    update: {
+      keyword: input.keyword.trim(),
+      path: input.path,
+      type: input.type,
+      pageIdea: input.pageIdea?.trim() || null,
+      competitorPageUrl: input.competitorPageUrl?.trim() || null,
+      intent: inferIntent(input.keyword, input.path),
+      rowStatus: "idle",
+      lastError: null,
+    },
+    create: {
+      keyword: input.keyword.trim(),
+      normalizedKeyword,
+      path: input.path,
+      type: input.type,
+      pageIdea: input.pageIdea?.trim() || null,
+      competitorPageUrl: input.competitorPageUrl?.trim() || null,
+      intent: inferIntent(input.keyword, input.path),
+      rowStatus: "idle",
+    },
+  });
+}
+
+export async function updateOpportunityRecord(
+  opportunityId: string,
+  input: {
+    keyword?: string;
+    path?: OpportunityPath;
+    type?: OpportunityType;
+    pageIdea?: string | null;
+    competitorPageUrl?: string | null;
+  },
+) {
+  const prisma = await getPrismaClient();
+  const existing = await prisma.opportunity.findUnique({ where: { id: opportunityId } });
+  if (!existing) {
+    throw new Error(`Opportunity not found: ${opportunityId}`);
+  }
+
+  const nextKeyword = input.keyword?.trim() || existing.keyword;
+  const nextPath = input.path ?? existing.path;
+  const nextType = input.type ?? existing.type;
+
+  return prisma.opportunity.update({
+    where: { id: opportunityId },
+    data: {
+      keyword: nextKeyword,
+      normalizedKeyword: normalizeKeyword(nextKeyword),
+      path: nextPath,
+      type: nextType,
+      ...(input.pageIdea !== undefined ? { pageIdea: input.pageIdea?.trim() || null } : {}),
+      ...(input.competitorPageUrl !== undefined
+        ? { competitorPageUrl: input.competitorPageUrl?.trim() || null }
+        : {}),
+      intent: inferIntent(nextKeyword, nextPath),
+    },
+  });
 }
 
 export async function createOpportunityAndRunWorkflow(input: {
@@ -423,7 +942,7 @@ export async function createOpportunityAndRunWorkflow(input: {
 }
 
 export async function runWorkflowForOpportunity(opportunityId: string) {
-  await service.runWorkflow(opportunityId, { forceFallback: true });
+  await materializeFallbackWorkflow(opportunityId);
   const detail = await getGridOpportunityDetail(opportunityId);
   if (!detail) {
     throw new Error("Workflow detail could not be loaded.");
@@ -432,10 +951,7 @@ export async function runWorkflowForOpportunity(opportunityId: string) {
 }
 
 export async function runWorkflowStepForOpportunity(opportunityId: string, stepName: WorkflowStepName) {
-  await service.executeStep(opportunityId, stepName, {
-    trigger: "manual_step_run",
-    forceFallback: true,
-  });
+  await materializeFallbackWorkflow(opportunityId, stepName);
   const detail = await getGridOpportunityDetail(opportunityId);
   if (!detail) {
     throw new Error("Workflow detail could not be loaded after step execution.");
@@ -444,6 +960,8 @@ export async function runWorkflowStepForOpportunity(opportunityId: string, stepN
 }
 
 export async function rerunWorkflowStep(stepRunId: string, requestedBy: string, note?: string) {
+  const { OpportunityWorkflowService } = await import("@cookunity-seo-agent/core/src/services/opportunity-workflow-service");
+  const service = new OpportunityWorkflowService();
   const result = await service.rerunStep(stepRunId, requestedBy, note);
   if (!result) {
     throw new Error("Workflow detail could not be loaded after rerun.");
@@ -452,6 +970,8 @@ export async function rerunWorkflowStep(stepRunId: string, requestedBy: string, 
 }
 
 export async function approveWorkflowStep(stepRunId: string, approvedBy: string) {
+  const { OpportunityWorkflowService } = await import("@cookunity-seo-agent/core/src/services/opportunity-workflow-service");
+  const service = new OpportunityWorkflowService();
   const result = await service.approveStep(stepRunId, approvedBy);
   if (!result) {
     throw new Error("Workflow detail could not be loaded after approval.");
@@ -460,6 +980,8 @@ export async function approveWorkflowStep(stepRunId: string, approvedBy: string)
 }
 
 export async function requestWorkflowStepRevision(stepRunId: string, requestedBy: string, note: string) {
+  const { OpportunityWorkflowService } = await import("@cookunity-seo-agent/core/src/services/opportunity-workflow-service");
+  const service = new OpportunityWorkflowService();
   const result = await service.requestRevision(stepRunId, requestedBy, note);
   if (!result) {
     throw new Error("Workflow detail could not be loaded after revision request.");
@@ -468,6 +990,8 @@ export async function requestWorkflowStepRevision(stepRunId: string, requestedBy
 }
 
 export async function saveWorkflowStepEdit(stepRunId: string, editedBy: string, manualOutput: unknown) {
+  const { OpportunityWorkflowService } = await import("@cookunity-seo-agent/core/src/services/opportunity-workflow-service");
+  const service = new OpportunityWorkflowService();
   const result = await service.saveManualEdit(stepRunId, editedBy, manualOutput);
   if (!result) {
     throw new Error("Workflow detail could not be loaded after saving manual edit.");
@@ -476,6 +1000,8 @@ export async function saveWorkflowStepEdit(stepRunId: string, editedBy: string, 
 }
 
 export async function publishOpportunityFromGrid(opportunityId: string, actor: string) {
+  const { OpportunityWorkflowService } = await import("@cookunity-seo-agent/core/src/services/opportunity-workflow-service");
+  const service = new OpportunityWorkflowService();
   const result = await service.publishOpportunity(opportunityId, actor);
   if (!result) {
     throw new Error("Workflow detail could not be loaded after publishing.");
