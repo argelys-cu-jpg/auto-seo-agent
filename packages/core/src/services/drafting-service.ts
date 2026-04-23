@@ -206,29 +206,32 @@ export class DraftingService {
   }
 
   private buildFallbackSections(brief: ContentBrief): Draft["sections"] {
+    const secondaryA = brief.secondaryKeywords[0] ?? `${brief.primaryKeyword} guide`;
+    const secondaryB = brief.secondaryKeywords[1] ?? `best ${brief.primaryKeyword}`;
+    const secondaryC = brief.secondaryKeywords[2] ?? `${brief.primaryKeyword} ideas`;
     return [
       {
         heading: "Key takeaways",
         level: 2,
-        body: `Readers searching for ${brief.primaryKeyword} usually want a clear answer they can use this week. The article should help them compare quality, convenience, and flavor in plain language, then show where CookUnity feels more like dinner from a talented chef than generic subscription food.`,
+        body: `Readers searching for ${brief.primaryKeyword} usually want a clear answer they can use this week. The article should help them compare quality, convenience, and flavor in plain language, then support the main topic with adjacent demand like ${secondaryA} and ${secondaryB} so the page feels complete instead of thin.`,
       },
       {
         heading: `What to know before choosing ${brief.primaryKeyword}`,
         level: 2,
         body:
-          "Start with the practical questions: does the food taste good enough to crave again, does it hold up on a hectic Wednesday, and does the menu leave room for appetite, variety, and dietary preferences. The strongest draft should treat those as real decision criteria, not lifestyle wallpaper.",
+          `Start with the practical questions: does the food taste good enough to crave again, does it hold up on a hectic Wednesday, and does the menu leave room for appetite, variety, and dietary preferences. The strongest draft should treat those as real decision criteria, not lifestyle wallpaper, and should use terms like ${secondaryC} where they help sharpen the answer.`,
       },
       {
         heading: `How ${brief.primaryKeyword} options differ in practice`,
         level: 2,
         body:
-          "Many services blur together at the category level, but the lived experience is different: chef quality, flavor range, portion feel, flexibility, and whether the meals still feel appealing after the first week. Give readers a concrete way to picture what shows up at the door and what ends up on the plate.",
+          `Many services blur together at the category level, but the lived experience is different: chef quality, flavor range, portion feel, flexibility, and whether the meals still feel appealing after the first week. Give readers a concrete way to picture what shows up at the door and what ends up on the plate, and use ${secondaryA} or ${secondaryB} where those subtopics naturally expand the comparison.`,
       },
       {
         heading: "What to compare before you order",
         level: 2,
         body:
-          "Encourage readers to compare menu rotation, dietary filters, delivery cadence, storage window, and the tradeoff between convenience and pleasure. The article should make room for taste and texture, not just logistics, because nobody sticks with a meal routine that feels dull.",
+          `Encourage readers to compare menu rotation, dietary filters, delivery cadence, storage window, and the tradeoff between convenience and pleasure. The article should make room for taste and texture, not just logistics, because nobody sticks with a meal routine that feels dull. This is also where the article can pick up supporting intent around ${secondaryC} without losing the main thread.`,
       },
       {
         heading: "How CookUnity fits the decision set",
@@ -288,6 +291,7 @@ export class DraftingService {
     const cta = brief.ctaRecommendations[0];
     return [
       `Lead with the reader’s real decision around ${brief.primaryKeyword}, not category filler.`,
+      ...(brief.secondaryKeywords[0] ? [`Use ${brief.secondaryKeywords[0]} to reinforce the article where it adds real explanatory value.`] : []),
       seoOpportunity
         ? `${seoOpportunity.charAt(0).toUpperCase()}${seoOpportunity.slice(1)}.`
         : "Keep the article practical, chef-aware, and rooted in real weeknight use.",
@@ -297,7 +301,8 @@ export class DraftingService {
   }
 
   private buildFallbackIntro(brief: ContentBrief): string {
-    return `If you're evaluating ${brief.primaryKeyword}, the real question is not just what looks good on a landing page. It's what will still taste satisfying, feel convenient on a busy night, and hold up as part of your actual routine.`;
+    const support = brief.secondaryKeywords.slice(0, 2).join(" and ");
+    return `If you're evaluating ${brief.primaryKeyword}, the real question is not just what looks good on a landing page. It's what will still taste satisfying, feel convenient on a busy night, and hold up as part of your actual routine. The article should answer that directly, then use supporting angles like ${support || "comparison criteria and practical examples"} to make the page feel complete.`;
   }
 
   private buildImagePlan(title: string, sections: Draft["sections"]) {

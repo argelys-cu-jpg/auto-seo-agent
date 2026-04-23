@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getGridOpportunityDetail, updateOpportunityRecord } from "../../../../lib/workflow-grid-store";
+import { deleteOpportunityRecord, getGridOpportunityDetail, updateOpportunityRecord } from "../../../../lib/workflow-grid-store";
 
 export async function GET(
   _request: Request,
@@ -33,6 +33,22 @@ export async function PATCH(
   } catch (error) {
     return NextResponse.json(
       { success: false, message: error instanceof Error ? error.message : "Failed to update opportunity." },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  context: { params: Promise<{ opportunityId: string }> },
+) {
+  try {
+    const params = await context.params;
+    await deleteOpportunityRecord(params.opportunityId);
+    return NextResponse.json({ success: true, deletedId: params.opportunityId });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, message: error instanceof Error ? error.message : "Failed to delete opportunity." },
       { status: 500 },
     );
   }

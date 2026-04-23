@@ -379,11 +379,24 @@ function buildLocalKeyTakeaways(row: GridOpportunityRow) {
   ];
 }
 
+function buildLocalSecondaryKeywords(row: GridOpportunityRow) {
+  const cleaned = row.keyword.replace(/\s+/g, " ").trim();
+  return [
+    `${cleaned} guide`,
+    `${cleaned} ideas`,
+    `best ${cleaned}`,
+    `${cleaned} tips`,
+    `how to choose ${cleaned}`,
+  ].filter((value, index, all) => value && all.indexOf(value) === index).slice(0, 5);
+}
+
 function buildLocalDraftHtml(row: GridOpportunityRow, title: string) {
   const keyTakeawaysHtml = `<h2>Key takeaways</h2><ul>${buildLocalKeyTakeaways(row)
     .map((item) => `<li>${item}</li>`)
     .join("")}</ul>`;
   const normalized = row.keyword.toLowerCase();
+  const secondaryKeywords = buildLocalSecondaryKeywords(row);
+  const [secondaryA, secondaryB, secondaryC, secondaryD] = secondaryKeywords;
   if (row.path === "landing_page") {
     return `<article>
 <h1>${title}</h1>
@@ -391,11 +404,11 @@ function buildLocalDraftHtml(row: GridOpportunityRow, title: string) {
 <p>CookUnity should lead with meals from real chefs, strong weekly variety, and the relief of having dinner handled without another round of planning, shopping, chopping, or cleanup. That combination is what makes the offer feel genuinely useful, not just convenient in theory.</p>
 ${keyTakeawaysHtml}
 <h2>Why this category matters in real life</h2>
-<p>Shoppers in this category are rarely comparing abstract features. They are comparing the lived experience of getting through a packed week with less friction and better food. The strongest copy should reflect that reality from the first screen.</p>
-<p>That means emphasizing convenience, but not in a cheap or generic way. The right message is that CookUnity removes work while still feeling like a meal you would actually look forward to eating.</p>
+<p>Shoppers in this category are rarely comparing abstract features. They are comparing the lived experience of getting through a packed week with less friction and better food. The strongest copy should reflect that reality from the first screen while also supporting related demand like ${secondaryA} and ${secondaryB} in a way that feels useful instead of forced.</p>
+<p>That means emphasizing convenience, but not in a cheap or generic way. The right message is that CookUnity removes work while still feeling like a meal you would actually look forward to eating. Supporting terms such as ${secondaryC} should deepen the comparison rather than pull the page off topic.</p>
 <h2>What people compare before they commit</h2>
 <p>Most visitors compare flexibility, menu range, dietary fit, and whether the service seems realistic for their schedule. They also want to know if the quality will feel consistent enough to justify ordering again after the first box arrives.</p>
-<p>This is where the page should help them think clearly. Spell out what matters: the number of weekly options, the ability to skip or adjust, and the difference between prepared meals and products that still require cooking.</p>
+<p>This is where the page should help them think clearly. Spell out what matters: the number of weekly options, the ability to skip or adjust, and the difference between prepared meals and products that still require cooking. If ${secondaryD} belongs in the SERP around this topic, the page should address it in a concrete section instead of hoping the reader connects the dots alone.</p>
 <h2>How CookUnity should position the offer</h2>
 <p>CookUnity stands out when the page makes a simple promise: restaurant-quality prepared meals with enough variety to stay interesting across the week. The positioning should feel grounded, specific, and closely tied to everyday routines.</p>
 <p>That matters because many competing pages rely on broad lifestyle language instead of showing why the product fits into a real calendar. CookUnity should sound more operational, more useful, and more honest.</p>
@@ -444,17 +457,17 @@ ${keyTakeawaysHtml}
 <p>For CookUnity, the opportunity is to deliver that clarity in plain language and then make the next step obvious. The article should feel useful first and persuasive second, with enough texture that it sounds like it was written by someone who actually cares what dinner tastes like.</p>
 ${keyTakeawaysHtml}
 <h2>Define the goal before building the week</h2>
-<p>Any useful plan starts with the real constraint. Sometimes the issue is lack of time. Sometimes it is inconsistent eating during workdays. Sometimes it is the gap between wanting better meals and having the energy to keep planning them. Naming the constraint clearly helps the rest of the plan feel relevant instead of generic.</p>
+<p>Any useful plan starts with the real constraint. Sometimes the issue is lack of time. Sometimes it is inconsistent eating during workdays. Sometimes it is the gap between wanting better meals and having the energy to keep planning them. Naming the constraint clearly helps the rest of the plan feel relevant instead of generic, and it gives terms like ${secondaryA} a reason to show up in the article instead of floating around as metadata.</p>
 <p>Once the goal is defined, decision-making gets easier. The reader can evaluate meals based on fit, not just aspiration.</p>
 <h2>Choose meals that are easy to repeat</h2>
 <p>The best plans usually rely on a few repeatable patterns rather than constant novelty. That does not mean eating the same thing every day. It means having a dependable structure for lunch and dinner so the week does not start from zero every time.</p>
-<p>Repeatable meals reduce decision fatigue. They also make it easier to keep quality high without spending the entire weekend planning, shopping, and prepping.</p>
+<p>Repeatable meals reduce decision fatigue. They also make it easier to keep quality high without spending the entire weekend planning, shopping, and prepping. Supporting phrases like ${secondaryB} and ${secondaryC} should appear where they genuinely sharpen the advice, not where they merely inflate the page.</p>
 <h2>Balance convenience with quality</h2>
 <p>Convenience matters most when it supports consistency. A plan only works if it is easy enough to follow on the nights when work runs late or energy is low. That is why prepared meals can be useful: they preserve time without forcing the reader to settle for food that feels like an afterthought.</p>
 <p>CookUnity should frame this as a practical advantage. The point is not just speed. The point is access to meals that still feel satisfying when life gets crowded.</p>
 <h2>Plan for the days most likely to break the routine</h2>
 <p>Every strong meal routine has weak points. Travel, late meetings, social plans, or fatigue after a long day will test the plan faster than the average Tuesday ever will. Articles that ignore this tend to feel unrealistic.</p>
-<p>A stronger draft addresses those friction points directly. It shows the reader how to protect the routine even when the week stops behaving the way they expected.</p>
+<p>A stronger draft addresses those friction points directly. It shows the reader how to protect the routine even when the week stops behaving the way they expected. If ${secondaryD} matters to searchers in this cluster, that section should earn its place by making the plan more actionable.</p>
 <h2>Use the close to move the reader forward</h2>
 <p>Once the article has clarified the problem and offered a practical framework, the close should give the reader a clear next step. For blog content, that usually means a menu or email-capture bridge rather than a hard sell.</p>
 <p>The transition works best when the article has already earned trust. If the advice feels concrete, the CTA will feel like a natural continuation instead of a jarring pivot.</p>
@@ -513,6 +526,7 @@ function buildLocalStepPayload(row: GridOpportunityRow, stepName: typeof ordered
           ? `${title} is a strong capture topic for CookUnity and this fallback draft is written so the team can review real copy today.`
           : `${title} is a strong conversion topic for CookUnity and this fallback draft is written so the team can iterate on real landing page copy today.`,
         keyTakeaways: buildLocalKeyTakeaways(row),
+        targetKeywords: [row.keyword, ...buildLocalSecondaryKeywords(row)],
         html: buildLocalDraftHtml(row, title),
         titleTagOptions: [`${title} | CookUnity`],
         metaDescriptionOptions: [
@@ -978,7 +992,31 @@ export function WorkflowGridControlPlane(props: {
       return;
     }
     try {
-      await runWorkflowInline(opportunityId);
+      let currentDetail = detail?.id === opportunityId ? detail : null;
+      if (!currentDetail) {
+        const initialPayload = await requestJson(`/api/opportunities/${opportunityId}`);
+        currentDetail = initialPayload.result ?? null;
+      }
+      for (const stepName of ["discovery", "prioritization", "brief", "draft", "qa"] as const) {
+        const step = currentDetail?.steps.find((item) => item.stepName === stepName);
+        const shouldRun =
+          !step ||
+          step.version === 0 ||
+          step.status === "not_started" ||
+          step.status === "failed" ||
+          step.status === "running";
+        if (!shouldRun) {
+          continue;
+        }
+        const payload = await requestJson(`/api/opportunities/${opportunityId}/steps/${stepName}/run`, {
+          method: "POST",
+        });
+        currentDetail = payload.result ?? currentDetail;
+      }
+      if (currentDetail) {
+        setDetail(currentDetail);
+        setRows((current) => applyDetailToRows(current, currentDetail));
+      }
       await refreshRow(opportunityId);
       setNotice("Draft generated.");
     } catch (nextError) {
@@ -1064,6 +1102,21 @@ export function WorkflowGridControlPlane(props: {
     const baseDetail = detail ?? (selectedRow ? buildLocalDetail(selectedRow) : null);
     if (!baseDetail) return;
     setLocalDetail(mutator(baseDetail));
+  }
+
+  function removeRowLocally(rowId: string) {
+    const nextRows = rows.filter((row) => row.id !== rowId);
+    if (props.persistenceMode === "database") {
+      setRows(nextRows);
+    } else {
+      saveMockRows(nextRows);
+    }
+    if (selectedId === rowId) {
+      const nextSelected = nextRows[0]?.id ?? null;
+      setSelectedId(nextSelected);
+      setDetail(nextSelected && detail?.id !== nextSelected ? null : detail?.id === rowId ? null : detail);
+      setDrawerOpen(Boolean(nextSelected));
+    }
   }
 
   useEffect(() => {
@@ -1479,6 +1532,27 @@ export function WorkflowGridControlPlane(props: {
                         >
                           Publish
                         </button>
+                        <button
+                          className="air-mini-button"
+                          type="button"
+                          disabled={pending}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            runAction(async () => {
+                              if (props.persistenceMode !== "database") {
+                                removeRowLocally(row.id);
+                                setNotice("Row removed.");
+                                return;
+                              }
+                              await requestJson(`/api/opportunities/${row.id}`, { method: "DELETE" });
+                              removeRowLocally(row.id);
+                              router.refresh();
+                              setNotice("Row removed.");
+                            });
+                          }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1536,6 +1610,25 @@ export function WorkflowGridControlPlane(props: {
                     }}
                   >
                     Open review page
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() =>
+                      runAction(async () => {
+                        if (props.persistenceMode !== "database") {
+                          removeRowLocally(selectedRow.id);
+                          setNotice("Row removed.");
+                          return;
+                        }
+                        await requestJson(`/api/opportunities/${selectedRow.id}`, { method: "DELETE" });
+                        removeRowLocally(selectedRow.id);
+                        router.refresh();
+                        setNotice("Row removed.");
+                      })
+                    }
+                  >
+                    Delete row
                   </button>
                 </div>
               </div>
