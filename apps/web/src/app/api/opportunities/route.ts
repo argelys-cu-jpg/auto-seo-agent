@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createOpportunityRecord } from "../../../lib/workflow-grid-store";
+import { createOpportunityRecordAndRunWorkflow } from "../../../lib/workflow-grid-store";
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Keyword is required." }, { status: 400 });
     }
 
-    const opportunity = await createOpportunityRecord({
+    const opportunity = await createOpportunityRecordAndRunWorkflow({
       keyword: body.keyword.trim(),
       path: body.path ?? "blog",
       type: body.type ?? "keyword",

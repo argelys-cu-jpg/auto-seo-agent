@@ -592,15 +592,17 @@ export function WorkflowGridControlPlane(props: {
                         method: "POST",
                         body: JSON.stringify(payload),
                       });
-                      const createdId = response.result?.id;
-                      if (createdId) {
-                        await runWorkflowInline(createdId);
-                        setNotice("Opportunity created and workflow started.");
+                      const createdDetail = response.result ?? null;
+                      if (createdDetail) {
+                        setRows((current) => applyDetailToRows(current.filter((row) => row.id !== optimisticRow.id), createdDetail));
+                        setDetail(createdDetail);
+                        setSelectedId(createdDetail.id);
+                        setDrawerOpen(true);
+                        setNotice("Opportunity created and workflow artifacts generated.");
                       } else {
                         router.refresh();
                         setNotice("Opportunity created.");
                       }
-                      setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
                     } catch (nextError) {
                       setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
                       throw nextError;
