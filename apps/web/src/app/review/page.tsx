@@ -4,7 +4,7 @@ import { ReviewWorkspace } from "../../components/review-workspace";
 
 export default function ReviewPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<div style={{ padding: 24 }}>Loading review workspace…</div>}>
       <ReviewWorkspace />
     </Suspense>
   );

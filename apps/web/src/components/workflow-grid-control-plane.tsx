@@ -787,6 +787,7 @@ export function WorkflowGridControlPlane(props: {
   const [rowEdits, setRowEdits] = useState<Record<string, { keyword: string; path: "blog" | "landing_page"; type: "keyword" | "page_idea" | "competitor_page" | "lp_optimization" }>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [drawerTab, setDrawerTab] = useState<"recommendation" | "draft" | "history">("recommendation");
   const [pending, startTransition] = useTransition();
   const [drawerOpen, setDrawerOpen] = useState(Boolean(props.initialRows[0]?.id));
 
@@ -949,6 +950,7 @@ export function WorkflowGridControlPlane(props: {
   useEffect(() => {
     if (selectedId) {
       setDrawerOpen(true);
+      setDrawerTab("recommendation");
     }
   }, [selectedId]);
 
@@ -1599,7 +1601,7 @@ export function WorkflowGridControlPlane(props: {
                       })
                     }
                   >
-                    Generate draft now
+                    Write draft
                   </button>
                   <button
                     type="button"
@@ -1633,29 +1635,271 @@ export function WorkflowGridControlPlane(props: {
                 </div>
               </div>
 
-              {(() => {
+              <div className="air-drawer-tabs">
+                {[
+                  { key: "recommendation", label: "Recommendation" },
+                  { key: "draft", label: "Draft" },
+                  { key: "history", label: "History" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className={`air-drawer-tab${drawerTab === tab.key ? " is-active" : ""}`}
+                    onClick={() => setDrawerTab(tab.key as "recommendation" | "draft" | "history")}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {drawerTab === "draft" && (() => {
                 const draftStep = currentSteps.find((step) => step.stepName === "draft");
                 const draftHtml = draftStep ? getDraftHtml(draftStep) : null;
-                if (!draftHtml) return null;
+                const draftPayload = draftStep ? getStepPayload(draftStep) : null;
+                const targetKeywords = Array.isArray(draftPayload?.targetKeywords)
+                  ? draftPayload.targetKeywords.map((item) => String(item))
+                  : [];
                 return (
                   <div className="air-drawer-section">
-                    <div className="air-drawer-section-title">Draft preview</div>
+                    <div className="air-drawer-section-title">Draft</div>
+                    <div className="air-drawer-note">
+                      {draftHtml
+                        ? "This is the current draft the system recommends reviewing next."
+                        : "No draft has been written yet. Use Write draft to materialize one before review."}
+                    </div>
+                    {targetKeywords.length ? (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                        {targetKeywords.map((keyword) => (
+                          <Badge key={keyword} variant="grid">{keyword}</Badge>
+                        ))}
+                      </div>
+                    ) : null}
                     <div
                       style={{
                         border: "1px solid #e2d7c7",
                         borderRadius: 10,
                         padding: 12,
                         background: "#fff",
-                        maxHeight: 320,
+                        maxHeight: 420,
                         overflowY: "auto",
                       }}
-                      dangerouslySetInnerHTML={{ __html: draftHtml }}
+                      dangerouslySetInnerHTML={{ __html: draftHtml ?? "<p>No draft preview available yet.</p>" }}
                     />
+                    {draftStep ? (
+                      <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                        <textarea
+                          className="air-textarea"
+                          value={
+                            stepEdits[draftStep.id] ??
+                            JSON.stringify(getStepPayload(draftStep) ?? {}, null, 2)
+                          }
+                          onChange={(event) => setStepEdits((current) => ({ ...current, [draftStep.id]: event.target.value }))}
+                          placeholder="Manual draft edit JSON"
+                          style={{ minHeight: 160, fontFamily: "monospace" }}
+                        />
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() =>
+                              runAction(async () => {
+                                await generateDraftForSelected(selectedRow.id);
+                                if (props.persistenceMode === "database") {
+                                  router.refresh();
+                                }
+                              })
+                            }
+                          >
+                            Write draft again
+                          </button>
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() => {
+                              const reviewDetail = detail ?? buildLocalDetail(selectedRow);
+                              openReviewWorkspace(reviewDetail);
+                            }}
+                          >
+                            Review draft
+                          </button>
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() =>
+                              runAction(async () => {
+                                const manualOutput = JSON.parse(stepEdits[draftStep.id] ?? "{}") as unknown;
+                                if (isLocalWorkflow || isLocalStep(draftStep)) {
+                                  updateLocalDetail((current) => ({
+                                    ...current,
+                                    steps: current.steps.map((item) =>
+                                      item.id === draftStep.id
+                                        ? {
+                                            ...item,
+                                            manualOutput: manualOutput as Record<string, unknown>,
+                                            completedAt: new Date().toISOString(),
+                                            status: "needs_review",
+                                          }
+                                        : item,
+                                    ),
+                                  }));
+                                  setNotice("Draft changes saved locally.");
+                                  return;
+                                }
+                                await requestJson(`/api/workflow/steps/${draftStep.id}/edit`, {
+                                  method: "POST",
+                                  body: JSON.stringify({ manualOutput }),
+                                });
+                                await refreshRow(selectedRow.id);
+                              })
+                            }
+                          >
+                            Save changes
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })()}
 
-              {currentSteps.map((step) => (
+              {drawerTab === "recommendation" && (() => {
+                const briefStep = currentSteps.find((step) => step.stepName === "brief");
+                if (!briefStep || !getBriefPackage(briefStep)) {
+                  return (
+                    <div className="air-drawer-section">
+                      <div className="air-drawer-section-title">Recommendation</div>
+                      <p style={{ margin: 0 }}>No brief has been generated yet. Run brief to see the system recommendation.</p>
+                    </div>
+                  );
+                }
+                const step = briefStep;
+                const outlinePackage = getBriefPackage(step)!;
+                const selectedTitle = briefTitleSelections[step.id] ?? outlinePackage.selectedTitle ?? outlinePackage.titleOptions[0] ?? "";
+                const selectedSlug = briefSlugSelections[step.id] ?? outlinePackage.selectedSlug ?? outlinePackage.slugOptions[0] ?? "";
+                const selectedSecondaryKeywords =
+                  briefSecondarySelections[step.id] ?? outlinePackage.selectedSecondaryKeywords.map((item) => item.keyword);
+                return (
+                  <div style={{ display: "grid", gap: 12 }}>
+                    <div className="air-drawer-section">
+                      <div className="air-drawer-section-title">Recommended next step</div>
+                      <div className="air-drawer-note">
+                        {currentSteps.find((item) => item.stepName === "draft" && item.version > 0)
+                          ? "The system recommends reviewing the draft and checking the CTA before approval."
+                          : "The system recommends confirming the brief choices, then writing the draft."}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
+                      <div style={{ fontWeight: 700 }}>Search demand</div>
+                      <div style={{ fontSize: 13 }}>
+                        Search volume: {outlinePackage.keywordOverview?.searchVolume?.toLocaleString?.() ?? "n/a"}
+                      </div>
+                      <div style={{ fontSize: 13, color: "#58685d" }}>{outlinePackage.analysis.searchIntent}</div>
+                    </div>
+
+                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
+                      <div style={{ fontWeight: 700 }}>Title</div>
+                      {outlinePackage.titleOptions.map((title) => (
+                        <label key={title} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                          <input
+                            type="radio"
+                            name={`title_${step.id}`}
+                            checked={selectedTitle === title}
+                            onChange={() => setBriefTitleSelections((current) => ({ ...current, [step.id]: title }))}
+                          />
+                          <span>{title}</span>
+                        </label>
+                      ))}
+                    </div>
+
+                    {outlinePackage.slugOptions.length ? (
+                      <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
+                        <div style={{ fontWeight: 700 }}>Slug</div>
+                        {outlinePackage.slugOptions.map((slug) => (
+                          <label key={slug} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                            <input
+                              type="radio"
+                              name={`slug_${step.id}`}
+                              checked={selectedSlug === slug}
+                              onChange={() => setBriefSlugSelections((current) => ({ ...current, [step.id]: slug }))}
+                            />
+                            <span>{slug}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
+                      <div style={{ fontWeight: 700 }}>Supporting keywords</div>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        {outlinePackage.secondaryKeywordOptions.slice(0, 20).map((item) => {
+                          const checked = selectedSecondaryKeywords.includes(item.keyword);
+                          return (
+                            <label key={item.keyword} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  setBriefSecondarySelections((current) => {
+                                    const currentValues = current[step.id] ?? outlinePackage.selectedSecondaryKeywords.map((entry) => entry.keyword);
+                                    const nextValues = checked
+                                      ? currentValues.filter((value) => value !== item.keyword)
+                                      : [...currentValues, item.keyword];
+                                    return { ...current, [step.id]: nextValues };
+                                  })
+                                }
+                              />
+                              <span>{item.keyword} • {item.searchVolume.toLocaleString()}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
+                      <div style={{ fontWeight: 700 }}>What competitors cover</div>
+                      <p style={{ margin: 0, lineHeight: 1.6 }}>{outlinePackage.analysis.competitorSummary}</p>
+                    </div>
+
+                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
+                      <div style={{ fontWeight: 700 }}>Proposed structure</div>
+                      {outlinePackage.analysis.outline.map((item, index) => (
+                        <div key={`${item.heading}_${index}`} style={{ fontSize: 13 }}>
+                          <strong>{`H${item.level} • ${item.heading}`}</strong>
+                          <div style={{ color: "#58685d" }}>{item.notes}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={pending || props.persistenceMode !== "database"}
+                      onClick={() =>
+                        runAction(async () => {
+                          const selectedKeywordObjects = outlinePackage.secondaryKeywordOptions.filter((item) =>
+                            selectedSecondaryKeywords.includes(item.keyword),
+                          );
+                          const manualOutput = serializeBriefManualOutput(
+                            step,
+                            selectedTitle,
+                            selectedSlug,
+                            selectedKeywordObjects,
+                          );
+                          await requestJson(`/api/workflow/steps/${step.id}/edit`, {
+                            method: "POST",
+                            body: JSON.stringify({ manualOutput }),
+                          });
+                          await refreshRow(selectedRow.id);
+                        })
+                      }
+                    >
+                      Save brief choices
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {drawerTab === "history" && currentSteps.map((step) => (
                 <div key={step.id} className="air-section-card">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                     <div>
@@ -1674,194 +1918,7 @@ export function WorkflowGridControlPlane(props: {
                   {step.output ? (
                     <div style={{ marginTop: 12 }}>
                       <div style={{ fontWeight: 700, marginBottom: 8 }}>Output</div>
-                      {step.stepName === "brief" && getBriefPackage(step) ? (
-                        (() => {
-                          const outlinePackage = getBriefPackage(step)!;
-                          const selectedTitle = briefTitleSelections[step.id] ?? outlinePackage.selectedTitle ?? outlinePackage.titleOptions[0] ?? "";
-                          const selectedSlug = briefSlugSelections[step.id] ?? outlinePackage.selectedSlug ?? outlinePackage.slugOptions[0] ?? "";
-                          const selectedSecondaryKeywords =
-                            briefSecondarySelections[step.id] ?? outlinePackage.selectedSecondaryKeywords.map((item) => item.keyword);
-
-                          return (
-                            <div style={{ display: "grid", gap: 12 }}>
-                              <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                                <div style={{ fontWeight: 700 }}>Keyword overview</div>
-                                <div style={{ fontSize: 13 }}>
-                                  Search volume: {outlinePackage.keywordOverview?.searchVolume?.toLocaleString?.() ?? "n/a"}
-                                </div>
-                                {outlinePackage.keywordOverview?.keywordDifficulty !== undefined ? (
-                                  <div style={{ fontSize: 13, color: "#58685d" }}>
-                                    Keyword difficulty: {outlinePackage.keywordOverview.keywordDifficulty}
-                                  </div>
-                                ) : null}
-                              </div>
-
-                              <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                                <div style={{ fontWeight: 700 }}>Main internal link</div>
-                                {outlinePackage.mainInternalLink?.link ? (
-                                  <div style={{ fontSize: 13 }}>
-                                    <strong>{outlinePackage.mainInternalLink.keyword}</strong>
-                                    <div style={{ color: "#58685d", wordBreak: "break-all" }}>{outlinePackage.mainInternalLink.link}</div>
-                                  </div>
-                                ) : (
-                                  <p style={{ margin: 0 }}>No strong main internal link match found.</p>
-                                )}
-                              </div>
-
-                              <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                                <div style={{ fontWeight: 700 }}>Title selection</div>
-                                {outlinePackage.titleOptions.map((title) => (
-                                  <label key={title} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                                    <input
-                                      type="radio"
-                                      name={`title_${step.id}`}
-                                      checked={selectedTitle === title}
-                                      onChange={() => setBriefTitleSelections((current) => ({ ...current, [step.id]: title }))}
-                                    />
-                                    <span>{title}</span>
-                                  </label>
-                                ))}
-                              </div>
-
-                              {outlinePackage.slugOptions.length ? (
-                                <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                                  <div style={{ fontWeight: 700 }}>Slug selection</div>
-                                  {outlinePackage.slugOptions.map((slug) => (
-                                    <label key={slug} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                                      <input
-                                        type="radio"
-                                        name={`slug_${step.id}`}
-                                        checked={selectedSlug === slug}
-                                        onChange={() => setBriefSlugSelections((current) => ({ ...current, [step.id]: slug }))}
-                                      />
-                                      <span>{slug}</span>
-                                    </label>
-                                  ))}
-                                </div>
-                              ) : null}
-
-                              <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                                <div style={{ fontWeight: 700 }}>Secondary keyword selection</div>
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                  <Badge variant="grid">{`Top ${outlinePackage.secondaryKeywordOptions.length} fetched`}</Badge>
-                                  <Badge variant="grid">
-                                    {outlinePackage.keywordOverview ? "Semrush-backed keyword set" : "Keyword set"}
-                                  </Badge>
-                                </div>
-                                <div style={{ display: "grid", gap: 6 }}>
-                                  {outlinePackage.secondaryKeywordOptions.map((item) => (
-                                    <div
-                                      key={`chip_${item.keyword}`}
-                                      style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        gap: 12,
-                                        alignItems: "center",
-                                        fontSize: 13,
-                                        padding: "8px 10px",
-                                        borderRadius: 10,
-                                        background: "#f8f3ea",
-                                        border: "1px solid #eadfce",
-                                      }}
-                                    >
-                                      <span style={{ fontWeight: 600 }}>{item.keyword}</span>
-                                      <span
-                                        style={{
-                                          whiteSpace: "nowrap",
-                                          fontSize: 12,
-                                          fontWeight: 800,
-                                          color: "#58685d",
-                                        }}
-                                      >
-                                        {item.searchVolume.toLocaleString()} / mo
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                                {outlinePackage.secondaryKeywordOptions.slice(0, 20).map((item) => {
-                                  const checked = selectedSecondaryKeywords.includes(item.keyword);
-                                  return (
-                                    <label key={item.keyword} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                                      <input
-                                        type="checkbox"
-                                        checked={checked}
-                                        onChange={() =>
-                                          setBriefSecondarySelections((current) => {
-                                            const currentValues = current[step.id] ?? outlinePackage.selectedSecondaryKeywords.map((entry) => entry.keyword);
-                                            const nextValues = checked
-                                              ? currentValues.filter((value) => value !== item.keyword)
-                                              : [...currentValues, item.keyword];
-                                            return { ...current, [step.id]: nextValues };
-                                          })
-                                        }
-                                      />
-                                      <span>{item.keyword} • {item.searchVolume.toLocaleString()}</span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-
-                              <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                                <div style={{ fontWeight: 700 }}>Competitor summary</div>
-                                <p style={{ margin: 0, lineHeight: 1.6 }}>{outlinePackage.analysis.competitorSummary}</p>
-                                <div style={{ display: "grid", gap: 6 }}>
-                                  {outlinePackage.competitors.map((competitor) => (
-                                    <div key={competitor.url} style={{ fontSize: 13 }}>
-                                      <strong>{competitor.title}</strong>
-                                      <div style={{ color: "#58685d" }}>{competitor.url}</div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-
-                              <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                                <div style={{ fontWeight: 700 }}>Meal recommendations</div>
-                                {outlinePackage.mealRecommendations.length ? outlinePackage.mealRecommendations.map((meal) => (
-                                  <div key={meal.id} style={{ fontSize: 13 }}>
-                                    <strong>{meal.name}</strong>
-                                    <div style={{ color: "#58685d" }}>{meal.reason}</div>
-                                  </div>
-                                )) : <p style={{ margin: 0 }}>No meal recommendations yet.</p>}
-                              </div>
-
-                              <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                                <div style={{ fontWeight: 700 }}>Outline</div>
-                                {outlinePackage.analysis.outline.map((item, index) => (
-                                  <div key={`${item.heading}_${index}`} style={{ fontSize: 13 }}>
-                                    <strong>{`H${item.level} • ${item.heading}`}</strong>
-                                    <div style={{ color: "#58685d" }}>{item.notes}</div>
-                                  </div>
-                                ))}
-                              </div>
-
-                              <button
-                                type="button"
-                                disabled={pending || props.persistenceMode !== "database"}
-                                onClick={() =>
-                                  runAction(async () => {
-                                    const selectedKeywordObjects = outlinePackage.secondaryKeywordOptions.filter((item) =>
-                                      selectedSecondaryKeywords.includes(item.keyword),
-                                    );
-                                    const manualOutput = serializeBriefManualOutput(
-                                      step,
-                                      selectedTitle,
-                                      selectedSlug,
-                                      selectedKeywordObjects,
-                                    );
-                                    await requestJson(`/api/workflow/steps/${step.id}/edit`, {
-                                      method: "POST",
-                                      body: JSON.stringify({ manualOutput }),
-                                    });
-                                    await refreshRow(selectedRow.id);
-                                  })
-                                }
-                              >
-                                Save brief selections
-                              </button>
-                            </div>
-                          );
-                        })()
-                      ) : getDraftHtml(step) ? (
+                      {getDraftHtml(step) ? (
                         <div
                           style={{
                             border: "1px solid #e2d7c7",
@@ -2065,43 +2122,47 @@ export function WorkflowGridControlPlane(props: {
                 </div>
               ))}
 
-              <div className="air-drawer-section">
-                <div className="air-drawer-section-title">Audit trail</div>
-                <div style={{ display: "grid", gap: 10 }}>
-                  {(detail?.auditLog ?? []).map((entry) => (
-                    <div key={entry.id} style={{ borderTop: "1px solid #eadfce", paddingTop: 10 }}>
-                      <div style={{ fontWeight: 700 }}>{entry.action}</div>
-                      <div style={{ fontSize: 13, color: "#58685d" }}>
-                        {entry.actorType}
-                        {entry.actorId ? ` • ${entry.actorId}` : ""} • {new Date(entry.createdAt).toLocaleString()}
-                      </div>
+              {drawerTab === "history" ? (
+                <>
+                  <div className="air-drawer-section">
+                    <div className="air-drawer-section-title">Audit trail</div>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {(detail?.auditLog ?? []).map((entry) => (
+                        <div key={entry.id} style={{ borderTop: "1px solid #eadfce", paddingTop: 10 }}>
+                          <div style={{ fontWeight: 700 }}>{entry.action}</div>
+                          <div style={{ fontSize: 13, color: "#58685d" }}>
+                            {entry.actorType}
+                            {entry.actorId ? ` • ${entry.actorId}` : ""} • {new Date(entry.createdAt).toLocaleString()}
+                          </div>
+                        </div>
+                      ))}
+                      {!(detail?.auditLog ?? []).length ? <p style={{ margin: 0 }}>No audit events yet.</p> : null}
                     </div>
-                  ))}
-                  {!(detail?.auditLog ?? []).length ? <p style={{ margin: 0 }}>No audit events yet.</p> : null}
-                </div>
-              </div>
+                  </div>
 
-              <div className="air-drawer-section">
-                <div className="air-drawer-section-title">Revision history</div>
-                <div style={{ display: "grid", gap: 10 }}>
-                  {(detail?.revisionNotes ?? []).map((entry) => (
-                    <div key={entry.id} style={{ borderTop: "1px solid #eadfce", paddingTop: 10 }}>
-                      <div>{entry.note}</div>
-                      <div style={{ fontSize: 13, color: "#58685d" }}>
-                        {entry.requestedBy} • {new Date(entry.createdAt).toLocaleString()}
-                      </div>
+                  <div className="air-drawer-section">
+                    <div className="air-drawer-section-title">Revision history</div>
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {(detail?.revisionNotes ?? []).map((entry) => (
+                        <div key={entry.id} style={{ borderTop: "1px solid #eadfce", paddingTop: 10 }}>
+                          <div>{entry.note}</div>
+                          <div style={{ fontSize: 13, color: "#58685d" }}>
+                            {entry.requestedBy} • {new Date(entry.createdAt).toLocaleString()}
+                          </div>
+                        </div>
+                      ))}
+                      {!(detail?.revisionNotes ?? []).length ? <p style={{ margin: 0 }}>No revision notes yet.</p> : null}
                     </div>
-                  ))}
-                  {!(detail?.revisionNotes ?? []).length ? <p style={{ margin: 0 }}>No revision notes yet.</p> : null}
-                </div>
-              </div>
+                  </div>
 
-              <div className="air-drawer-section">
-                <div className="air-drawer-section-title">Version history</div>
-                <p style={{ marginTop: 0, marginBottom: 0 }}>
-                  Version history is now captured per step run. The drawer currently shows the latest version only; deeper diff views are the next milestone.
-                </p>
-              </div>
+                  <div className="air-drawer-section">
+                    <div className="air-drawer-section-title">Version history</div>
+                    <p style={{ marginTop: 0, marginBottom: 0 }}>
+                      Version history is captured per step run. The drawer currently shows the latest version only; deeper diff views are the next milestone.
+                    </p>
+                  </div>
+                </>
+              ) : null}
             </div>
           )}
         </div>
