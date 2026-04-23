@@ -207,6 +207,8 @@ function isLocalStep(step: GridStepView) {
   return step.id.startsWith("local_") || step.id.startsWith("pending_") || step.id.startsWith("mock_");
 }
 
+const REVIEW_STORAGE_KEY = "cookunity-review-draft";
+
 function getStepPayload(step: GridStepView) {
   return (step.manualOutput ?? step.output ?? null) as Record<string, unknown> | null;
 }
@@ -433,6 +435,12 @@ export function WorkflowGridControlPlane(props: {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(mockStorageKey(), JSON.stringify(nextRows));
     }
+  }
+
+  function openReviewWorkspace(sourceDetail: GridOpportunityDetail) {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(sourceDetail));
+    window.location.href = `/review?opportunityId=${encodeURIComponent(sourceDetail.id)}`;
   }
 
   const selectedRow = useMemo(
@@ -1055,15 +1063,27 @@ export function WorkflowGridControlPlane(props: {
                 <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button
                     type="button"
-                    disabled={pending || props.persistenceMode !== "database"}
+                    disabled={pending}
                     onClick={() =>
                       runAction(async () => {
                         await generateDraftForSelected(selectedRow.id);
-                        router.refresh();
+                        if (props.persistenceMode === "database") {
+                          router.refresh();
+                        }
                       })
                     }
                   >
                     Generate draft now
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!detail && !selectedRow}
+                    onClick={() => {
+                      const reviewDetail = detail ?? buildLocalDetail(selectedRow);
+                      openReviewWorkspace(reviewDetail);
+                    }}
+                  >
+                    Open review page
                   </button>
                 </div>
               </div>
