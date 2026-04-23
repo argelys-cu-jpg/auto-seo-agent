@@ -213,43 +213,74 @@ export class DraftingService {
       {
         heading: "Key takeaways",
         level: 2,
-        body: `Readers searching for ${brief.primaryKeyword} usually want a clear answer they can use this week. The article should help them compare quality, convenience, and flavor in plain language, then support the main topic with adjacent demand like ${secondaryA} and ${secondaryB} so the page feels complete instead of thin.`,
+        body: [
+          `Readers searching for ${brief.primaryKeyword} usually want a clear answer they can use this week. The article should help them compare quality, convenience, and flavor in plain language, then support the main topic with adjacent demand like ${secondaryA} and ${secondaryB} so the page feels complete instead of thin.`,
+          `The strongest version of this piece should answer the main question early, then build confidence with concrete detail. That means showing what matters in real life, what tradeoffs deserve attention, and where CookUnity fits without drifting into vague category language.`,
+          `A useful draft should also create enough depth to satisfy search intent on the first visit. Supporting angles like ${secondaryC} should be woven into the article where they strengthen the answer, not treated like detached keyword targets.`,
+        ].join("\n\n"),
       },
       {
         heading: `What to know before choosing ${brief.primaryKeyword}`,
         level: 2,
-        body:
+        body: [
           `Start with the practical questions: does the food taste good enough to crave again, does it hold up on a hectic Wednesday, and does the menu leave room for appetite, variety, and dietary preferences. The strongest draft should treat those as real decision criteria, not lifestyle wallpaper, and should use terms like ${secondaryC} where they help sharpen the answer.`,
+          `That framing matters because people rarely search this topic in the abstract. They are trying to make a real decision about convenience, quality, and repeatability, often in the middle of an already overloaded week.`,
+          `A complete article should help them evaluate the category through that lens. It should move from broad category understanding into a clearer decision framework instead of circling the topic with generic advice.`,
+        ].join("\n\n"),
       },
       {
         heading: `How ${brief.primaryKeyword} options differ in practice`,
         level: 2,
-        body:
+        body: [
           `Many services blur together at the category level, but the lived experience is different: chef quality, flavor range, portion feel, flexibility, and whether the meals still feel appealing after the first week. Give readers a concrete way to picture what shows up at the door and what ends up on the plate, and use ${secondaryA} or ${secondaryB} where those subtopics naturally expand the comparison.`,
+          `This is the section where the article should get specific. Explain what a stronger option actually feels like across several meals, not just on a single “hero” dinner. Readers are trying to predict consistency, not just first impressions.`,
+          `That specificity is also what separates a rich search result from a thin one. A competitive page needs enough detail that the reader can compare providers, expectations, and use cases without bouncing back to the SERP for basic context.`,
+        ].join("\n\n"),
       },
       {
         heading: "What to compare before you order",
         level: 2,
-        body:
+        body: [
           `Encourage readers to compare menu rotation, dietary filters, delivery cadence, storage window, and the tradeoff between convenience and pleasure. The article should make room for taste and texture, not just logistics, because nobody sticks with a meal routine that feels dull. This is also where the article can pick up supporting intent around ${secondaryC} without losing the main thread.`,
+          `The draft should be explicit about what deserves more weight. Variety matters because repetition kills adherence. Flexibility matters because routines change from week to week. Quality matters because convenience only sticks when the meals still feel worth eating.`,
+          `This is also a natural place to support adjacent keyword demand. If users are also looking for ${secondaryA} or ${secondaryB}, the article should answer those angles with real criteria rather than turning them into awkward subheadings with no substance.`,
+        ].join("\n\n"),
       },
       {
         heading: "How CookUnity fits the decision set",
         level: 2,
-        body:
+        body: [
           "Position CookUnity as a chef-led prepared meal option with more personality, more culinary point of view, and a stronger sense of menu discovery than generic subscription language suggests. Keep the comparison grounded in product experience and avoid sweeping claims you cannot support.",
+          "The draft should make the product fit feel obvious. That means connecting the service to weeknight relief, better meal variety, and the sense that prepared food does not need to feel generic or joyless.",
+          "The tone here matters. It should feel premium and assured, but still practical. Readers should understand why CookUnity is different without being hit with generic “healthy and convenient” copy that could apply to any provider in the category.",
+        ].join("\n\n"),
       },
       {
         heading: "Common tradeoffs and mistakes to avoid",
         level: 2,
-        body:
+        body: [
           "Readers should understand the tradeoffs between convenience, price sensitivity, variety, and nutritional preferences. Call out common mistakes like obsessing over a single claim while ignoring flavor, freshness, or whether the plan still works on the most chaotic day of the week.",
+          "This is where the article can sound especially useful. Point out how easy it is to over-focus on surface-level claims while ignoring the practical reasons a meal routine succeeds or falls apart after two weeks.",
+          "A richer draft should help the reader avoid obvious traps: choosing for novelty without consistency, choosing for macro headlines without taste, or choosing for price without considering whether the experience will still feel worthwhile on busy nights.",
+        ].join("\n\n"),
+      },
+      {
+        heading: "How to make the choice work week after week",
+        level: 2,
+        body: [
+          `A comprehensive article should not stop at comparison. It should help the reader think about what happens after the first order: how meals fit into the week, how variety supports consistency, and how to keep the plan realistic when work and personal schedules shift.`,
+          `That follow-through matters for both rankings and usefulness. Readers are more likely to trust the piece when it anticipates the real-life questions that show up after the initial decision, including how to keep ${brief.primaryKeyword} sustainable instead of aspirational.`,
+          `This is also a good place to reinforce supporting demand around ${secondaryA}, ${secondaryB}, or ${secondaryC} if those terms help cover long-tail intent without making the article feel padded.`,
+        ].join("\n\n"),
       },
       {
         heading: "Bottom line",
         level: 2,
-        body:
+        body: [
           "Close with a decision-oriented summary that helps the reader move forward. The conclusion should reinforce what matters most in the category and make the CookUnity CTA feel like a natural next move, not a sudden sales pivot.",
+          `A strong ending should leave the reader with clarity: what to prioritize, what to ignore, and how to evaluate fit with more confidence than they had at the start. That is what makes the page feel complete instead of merely optimized.`,
+          `For CookUnity, the close should bridge useful guidance into a concrete next step. In a blog flow that usually means a softer capture or menu-exploration CTA; in a landing-page flow it should move more directly into trial.`,
+        ].join("\n\n"),
       },
     ];
   }
@@ -302,7 +333,10 @@ export class DraftingService {
 
   private buildFallbackIntro(brief: ContentBrief): string {
     const support = brief.secondaryKeywords.slice(0, 2).join(" and ");
-    return `If you're evaluating ${brief.primaryKeyword}, the real question is not just what looks good on a landing page. It's what will still taste satisfying, feel convenient on a busy night, and hold up as part of your actual routine. The article should answer that directly, then use supporting angles like ${support || "comparison criteria and practical examples"} to make the page feel complete.`;
+    return [
+      `If you're evaluating ${brief.primaryKeyword}, the real question is not just what looks good on a landing page. It's what will still taste satisfying, feel convenient on a busy night, and hold up as part of your actual routine.`,
+      `A strong article should answer that directly, then use supporting angles like ${support || "comparison criteria and practical examples"} to make the page feel complete. The goal is not to hit a word count for its own sake. The goal is to cover the topic with enough depth that the reader can stop searching and start deciding.`,
+    ].join("\n\n");
   }
 
   private buildImagePlan(title: string, sections: Draft["sections"]) {
@@ -347,7 +381,10 @@ export class DraftingService {
     return [
       "<article>",
       `<h1>${this.escapeHtml(args.title)}</h1>`,
-      `<p>${this.escapeHtml(args.intro)}</p>`,
+      ...args.intro
+        .split(/\n\s*\n/)
+        .filter(Boolean)
+        .map((paragraph) => `<p>${this.escapeHtml(paragraph)}</p>`),
       ...(args.keyTakeaways?.length
         ? [
             "<h2>Key takeaways</h2>",
@@ -358,7 +395,12 @@ export class DraftingService {
         : []),
       ...args.sections.map((section) => {
         const tag = section.level >= 3 ? "h3" : "h2";
-        return `<${tag}>${this.escapeHtml(section.heading)}</${tag}><p>${this.escapeHtml(section.body)}</p>`;
+        const paragraphs = section.body
+          .split(/\n\s*\n/)
+          .filter(Boolean)
+          .map((paragraph) => `<p>${this.escapeHtml(paragraph)}</p>`)
+          .join("");
+        return `<${tag}>${this.escapeHtml(section.heading)}</${tag}>${paragraphs}`;
       }),
       "<h2>Frequently Asked Questions</h2>",
       ...args.faq.map(
