@@ -38,6 +38,24 @@ Signals of a strong guide:
 - a complete plan section when the title promises one
 - practical interpretation instead of abstract category filler`;
 
+export const whatIsEditorialPattern = `What-Is pattern:
+
+- Open with a direct definition in the first section after the intro.
+- Explain how the concept works before moving into broader benefits or implications.
+- Use simple tables or bullets when they clarify terminology, mechanisms, or comparisons.
+- Include both benefits and risks when the topic can affect health, behavior, or decision-making.
+- Add a "how to start" or "how to apply it" section so the reader can act on the explanation.
+- Use an FAQ section that answers the obvious objections and edge cases.
+- Include sources or expert grounding when the topic involves nutrition, health, or expert-backed guidance.
+
+Signals of a strong What-Is article:
+
+- fast, explicit answer to the core definitional question
+- useful explanation of mechanism, not just a label
+- balanced treatment of upside and downside
+- practical next-step guidance after the explainer
+- expert or source-backed framing when the topic demands trust`;
+
 export const mealListicleEditorialPattern = `Meal listicle pattern:
 
 - If the query implies a recommendation list, define the selection criteria before the list so the reader knows what "good" means.
@@ -75,12 +93,13 @@ export const contentTypeEditorialPatterns = `Use the matching pattern for the co
 - Guide: follow the Guide pattern.
 - Listicle: if it is food, meal, or snack oriented, follow the Meal Listicle pattern.
 - Recipe Listicle: follow the Recipe Listicle pattern.
-- What-Is style queries should currently inherit the Guide pattern.`;
+- What-Is style queries should follow the What-Is pattern.`;
 
 export const topPerformingSeoArticlePattern = [
   sharedEditorialQualityBar,
   contentTypeEditorialPatterns,
   guideEditorialPattern,
+  whatIsEditorialPattern,
   mealListicleEditorialPattern,
   recipeListicleEditorialPattern,
 ].join("\n\n");
