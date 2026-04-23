@@ -116,59 +116,215 @@ function keywordToSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+function inferLocalOutlineHeadings(row: GridOpportunityRow) {
+  const normalized = row.keyword.toLowerCase();
+  if (normalized.includes("athlete")) {
+    return [
+      "Start with the energy demands of the week",
+      "Build each meal around protein and recovery",
+      "Use carbohydrates strategically instead of avoiding them",
+      "Make the plan realistic for training days and rest days",
+      "Keep convenience high enough to stay consistent",
+      "Frequently asked questions",
+      "Bottom line",
+    ];
+  }
+  if (normalized.includes("meal plan")) {
+    return [
+      "Define the goal before building the week",
+      "Choose meals that are easy to repeat",
+      "Balance protein, carbohydrates, and vegetables across the day",
+      "Plan for the days most likely to break the routine",
+      "Use prepared meals to reduce decision fatigue",
+      "Frequently asked questions",
+      "Bottom line",
+    ];
+  }
+  return [
+    "What readers need to understand first",
+    "How to evaluate the best option",
+    "What matters most in real-life use",
+    "Where CookUnity fits the decision",
+    "Frequently asked questions",
+    "Bottom line",
+  ];
+}
+
+function buildLocalOutlinePackage(row: GridOpportunityRow): OutlinePackage {
+  const title = titleizeKeyword(row.keyword);
+  const slug = keywordToSlug(row.keyword);
+  const headings = inferLocalOutlineHeadings(row);
+
+  return {
+    primaryKeyword: row.keyword,
+    contentFormat: row.keyword.toLowerCase().includes("best") || row.keyword.toLowerCase().includes("ideas") ? "listicle" : "guide",
+    keywordOverview: {
+      keyword: row.keyword,
+      searchVolume: row.searchVolume ?? 1200,
+      keywordDifficulty: 32,
+      competition: 0.46,
+      cpc: 2.1,
+      resultsCount: 125000,
+    },
+    mainInternalLink: {
+      keyword: row.path === "blog" ? "Prepared meal delivery" : "Meal delivery service",
+      link: row.path === "blog" ? "https://www.cookunity.com/blog" : "https://www.cookunity.com/",
+    },
+    keywordList: [
+      { keyword: row.keyword, searchVolume: row.searchVolume ?? 1200 },
+      { keyword: `${row.keyword} guide`, searchVolume: 600 },
+      { keyword: `best ${row.keyword}`, searchVolume: 450 },
+    ],
+    popularFoods: [],
+    serpResults: [],
+    competitors: [],
+    competitorKeywordRollup: [],
+    titleOptions: [title, `${title} guide`, `How to choose ${row.keyword}`],
+    selectedTitle: title,
+    slugOptions: [slug, `${slug}-guide`],
+    selectedSlug: slug,
+    secondaryKeywordOptions: [
+      { keyword: `${row.keyword} guide`, searchVolume: 600 },
+      { keyword: `best ${row.keyword}`, searchVolume: 450 },
+      { keyword: `${row.keyword} ideas`, searchVolume: 320 },
+    ],
+    selectedSecondaryKeywords: [
+      { keyword: `${row.keyword} guide`, searchVolume: 600 },
+      { keyword: `best ${row.keyword}`, searchVolume: 450 },
+    ],
+    internalLinks: [
+      {
+        label: "Menu",
+        url: "https://www.cookunity.com/menus",
+        anchorText: "CookUnity weekly menu",
+      },
+      {
+        label: "How it works",
+        url: "https://www.cookunity.com/how-it-works",
+        anchorText: "how CookUnity works",
+      },
+    ],
+    mealRecommendations: [
+      {
+        id: "local_meal_1",
+        name: "Seared salmon with seasonal vegetables",
+        chef: "CookUnity",
+        dietaryTags: ["high protein"],
+        reason: "Shows how prepared meals can still support performance and consistency.",
+      },
+      {
+        id: "local_meal_2",
+        name: "Chicken bowl with grains and greens",
+        chef: "CookUnity",
+        dietaryTags: ["balanced"],
+        reason: "Useful example of a weekday meal that covers recovery and convenience together.",
+      },
+    ],
+    analysis: {
+      persona: row.path === "blog" ? "Reader looking for a workable answer before committing to a solution" : "High-intent shopper comparing meal solutions",
+      searchIntent: row.path === "blog" ? "Informational with evaluation intent" : "Commercial and conversion-oriented",
+      competitorSummary: `The local fallback brief assumes the top competing pages are either generic meal planning articles or thin commercial pages that do not explain how to make ${row.keyword} sustainable in real life.`,
+      seoOpportunities: [
+        "Answer the core reader question immediately",
+        "Use a stronger structure than generic category pages",
+        "Bridge naturally into CookUnity without turning the article into a sales pitch too early",
+      ],
+      faqRecommendations: [
+        `How do you make ${row.keyword} realistic for busy weekdays?`,
+        `What should you prioritize first with ${row.keyword}?`,
+      ],
+      mealPlacementSuggestions: [
+        "Use one meal example early to make the category concrete",
+        "Use another example near the close to connect the topic to menu exploration",
+      ],
+      outline: headings.map((heading) => ({
+        heading,
+        level: 2,
+        notes: `Cover ${heading.toLowerCase()} with clear, written guidance instead of framework language.`,
+      })),
+    },
+    reviewState: {
+      titleApproved: false,
+      secondaryKeywordsApproved: false,
+    },
+  };
+}
+
 function buildLocalDraftHtml(row: GridOpportunityRow, title: string) {
-  const keywordLabel = row.keyword;
+  const normalized = row.keyword.toLowerCase();
   if (row.path === "landing_page") {
     return `<article>
 <h1>${title}</h1>
-<p>People searching for ${keywordLabel} are not looking for generic meal-kit language. They are trying to decide whether a meal delivery service will actually fit their schedule, food preferences, and budget. This draft is written to answer that decision quickly and move the reader toward trial.</p>
-<p>CookUnity should position this page around restaurant-quality meals, real weekly variety, and the convenience of having fully prepared dishes ready when life gets busy. The copy should stay practical and specific instead of leaning on broad “healthy lifestyle” claims.</p>
-<h2>What shoppers care about first</h2>
-<p>The first questions are usually simple: How flexible is the plan, what kind of meals are available, and does the service still feel worth it after a long workweek. This section should answer those concerns in plain language and make it easy to understand where CookUnity fits.</p>
-<p>Lead with menu range, delivery consistency, and the fact that meals arrive ready to heat instead of requiring prep. That difference matters for high-intent visitors comparing options side by side.</p>
-<h2>How CookUnity should frame the offer</h2>
-<p>CookUnity’s advantage is not just convenience. It is the combination of chef-led menus, broad cuisine coverage, and a service model that fits weeknight reality. The page should emphasize that readers get finished meals from working chefs, not a box of ingredients they still need to cook.</p>
-<p>Use this section to connect the topic back to real use cases: busy professionals, families trying to reduce cooking friction, and customers who want variety without sacrificing quality.</p>
-<h2>What comparison readers need before choosing</h2>
-<p>Comparison readers need help evaluating value, quality, dietary fit, and flexibility. Break down what to compare: meal variety, skipping or pausing options, portion expectations, delivery windows, and how easy it is to keep the service aligned with a changing schedule.</p>
-<p>This is also the right place to explain where CookUnity feels strongest. Keep the tone confident, but anchor it in specifics instead of vague superlatives.</p>
-<h2>Proof points that make the page more persuasive</h2>
-<p>Use concrete examples like cuisine diversity, rotating weekly menus, and the convenience of having prepared meals available after training, commuting, or late meetings. If customer proof or chef credibility is available, place it here to support conversion.</p>
-<p>Any CTA that appears below should feel earned. By this point, the reader should understand why CookUnity is relevant and what problem it solves better than the alternatives they are evaluating.</p>
+<p>People looking for ${row.keyword} are usually close to a decision. They are trying to figure out whether a meal delivery service will actually make life easier, whether the food will feel worth the price, and whether the experience will hold up after the first week. A good landing page should answer those questions directly.</p>
+<p>CookUnity should lead with prepared meals from real chefs, strong weekly variety, and the practical advantage of having dinner handled without another round of planning, shopping, or cleanup. That makes the offer feel relevant right away.</p>
+<h2>Why this category matters in real life</h2>
+<p>Shoppers in this category are rarely comparing abstract features. They are comparing the lived experience of getting through a packed week with less friction and better food. The strongest copy should reflect that reality from the first screen.</p>
+<p>That means emphasizing convenience, but not in a cheap or generic way. The right message is that CookUnity removes work while still feeling like a meal you would actually look forward to eating.</p>
+<h2>What people compare before they commit</h2>
+<p>Most visitors compare flexibility, menu range, dietary fit, and whether the service seems realistic for their schedule. They also want to know if the quality will feel consistent enough to justify ordering again after the first box arrives.</p>
+<p>This is where the page should help them think clearly. Spell out what matters: the number of weekly options, the ability to skip or adjust, and the difference between prepared meals and products that still require cooking.</p>
+<h2>How CookUnity should position the offer</h2>
+<p>CookUnity stands out when the page makes a simple promise: restaurant-quality prepared meals with enough variety to stay interesting across the week. The positioning should feel grounded, specific, and closely tied to everyday routines.</p>
+<p>That matters because many competing pages rely on broad lifestyle language instead of showing why the product fits into a real calendar. CookUnity should sound more operational, more useful, and more honest.</p>
+<h2>What turns interest into action</h2>
+<p>Interest becomes action when the visitor can see a clear next step. Show what the menu looks like, make the value proposition concrete, and keep the CTA close to the proof. The page should reduce uncertainty rather than forcing the visitor to guess what happens next.</p>
+<p>If the visitor leaves with a better sense of meal quality, flexibility, and relevance to their routine, the page has done its job.</p>
 <h2>Bottom line</h2>
-<p>Close with a direct trial CTA. Remind the reader that CookUnity is built for people who want excellent meals without the time cost of planning, shopping, and cooking every night.</p>
+<p>Close with a direct trial CTA. The final message should be simple: if you want prepared meals that feel high-quality and reduce weeknight effort, CookUnity gives you a stronger starting point than a generic subscription promise.</p>
+</article>`;
+  }
+
+  if (normalized.includes("athlete")) {
+    return `<article>
+<h1>${title}</h1>
+<p>A good meal plan for athletes does not need to be perfect to be effective. It needs to be repeatable. Most athletes already know they should eat enough protein, recover well, and stay consistent through busy weeks. The harder part is building a structure that actually survives travel, work, early training sessions, and the days when cooking falls apart.</p>
+<p>The strongest plan starts by matching food intake to training reality. That means enough calories to support workload, enough protein to help recovery, enough carbohydrates to keep energy available, and enough convenience to make the plan realistic for more than a few days at a time.</p>
+<h2>Start with the energy demands of the week</h2>
+<p>Before choosing individual meals, it helps to look at the week as a whole. Hard training days, double sessions, and long workdays create very different energy needs than lighter recovery days. Athletes who undereat on the busiest days often feel it first in performance, recovery, and appetite swings later in the week.</p>
+<p>A more useful approach is to think in ranges rather than rigid rules. Heavier days need more support, especially from carbohydrates and total calories, while lighter days can stay simpler without becoming restrictive.</p>
+<h2>Build each meal around protein and recovery</h2>
+<p>Protein is the easiest place to create consistency. A meal plan becomes much easier to follow when each lunch and dinner already starts with a meaningful protein source, then builds out with vegetables, grains, legumes, or other recovery-supporting sides.</p>
+<p>For most athletes, the goal is not to chase a perfect number in every meal. The goal is to make sure protein shows up often enough that recovery does not depend on a single shake or an oversized dinner at the end of the day.</p>
+<h2>Use carbohydrates strategically instead of avoiding them</h2>
+<p>Carbohydrates are often the difference between feeling fueled and constantly feeling flat. Athletes who train hard usually benefit from using carbohydrates around sessions rather than treating them as something to minimize by default.</p>
+<p>That can look simple in practice: grains, potatoes, fruit, or legumes on training days, and meals that leave enough room to recover without feeling heavy. The plan works best when the food supports performance instead of fighting it.</p>
+<h2>Make the plan realistic for training days and rest days</h2>
+<p>The biggest mistake in athlete meal planning is pretending every day looks the same. It doesn’t. Some days require speed and convenience, while others leave enough room for a slower meal or more prep at home.</p>
+<p>A workable plan accounts for both. Training days should remove friction, and rest days should help reset the week without turning meal prep into a second job.</p>
+<h2>Keep convenience high enough to stay consistent</h2>
+<p>Consistency usually breaks when the plan depends on too much cooking, too much cleanup, or too many decisions at the exact moment energy is lowest. That is where prepared meals can help: they reduce friction without forcing athletes into repetitive or low-quality choices.</p>
+<p>For CookUnity, the relevant angle is not “healthy meals” in the abstract. It is the ability to have balanced, satisfying meals ready on the nights when training, work, and recovery leave very little room for more effort.</p>
+<h2>Frequently asked questions</h2>
+<h3>Should athletes eat the same way every day?</h3>
+<p>Not necessarily. The best plans flex with training load, appetite, and schedule. What matters most is keeping the core structure strong enough that hard days are supported and lighter days still feel balanced.</p>
+<h3>What makes a meal plan sustainable?</h3>
+<p>Sustainability usually comes from simplicity and repetition. When meals are easy to access, enjoyable to eat, and flexible enough for the real week, the plan stops feeling like a separate project.</p>
+<h2>Bottom line</h2>
+<p>A strong meal plan for athletes should support performance, recovery, and consistency at the same time. If prepared meals make it easier to stay on plan during the busiest parts of the week, they can be a meaningful part of the solution rather than a compromise.</p>
 </article>`;
   }
 
   return `<article>
 <h1>${title}</h1>
-<p>If someone is searching for ${keywordLabel}, they usually want a practical plan they can follow in real life. They are not looking for filler. They want to know what matters, what to compare, and how to make the topic fit a busy schedule.</p>
-<p>For CookUnity, the goal of this article is to capture that demand with useful, readable copy and then bridge the reader into deeper menu exploration. The draft should sound informed and direct, with enough structure to feel helpful on first read.</p>
-<h2>Key takeaways</h2>
-<ul>
-  <li>Readers want a realistic answer, not a generic overview.</li>
-  <li>CookUnity should position convenience, quality, and menu breadth together.</li>
-  <li>The article needs to create confidence before moving into an email capture or menu CTA.</li>
-</ul>
-<h2>What readers are actually trying to solve</h2>
-<p>Most readers are trying to make a better weeknight decision. They may be balancing training, commuting, work, or family obligations, and they need a meal approach that fits all of that without becoming another project to manage.</p>
-<p>This section should explain the pressure clearly. Use straightforward language and frame the problem in a way that makes the rest of the article feel immediately relevant.</p>
-<h2>How CookUnity should position the topic</h2>
-<p>CookUnity should show up here as the practical upgrade from repetitive meal prep or lower-quality convenience food. The positioning needs to connect chef-led quality with actual ease: prepared meals, broad menu variety, and realistic flexibility across the week.</p>
-<p>Avoid generic nutrition language unless it supports a concrete reader question. The voice should be premium but grounded, with examples that feel lived-in rather than promotional.</p>
-<h2>What to compare before making a choice</h2>
-<p>Before choosing any meal solution, readers tend to compare quality, convenience, variety, and long-term fit. The article should help them think through those points without overwhelming them.</p>
-<p>This is where the copy can address portion expectations, menu rotation, dietary fit, and how easy the service is to keep aligned with changing routines. Keep the advice concrete and readable.</p>
-<h2>Where CookUnity becomes more compelling</h2>
-<p>CookUnity becomes more compelling when the reader starts thinking beyond a single dinner. A stronger weekly routine depends on consistency, and consistency is easier when the meals are already prepared and still feel worth eating.</p>
-<p>Use this section to connect convenience with taste and menu depth. That is the core bridge from informational curiosity to genuine interest.</p>
-<h2>How to close the article</h2>
-<p>End with a clear next step. For blog content, that usually means a light capture CTA paired with a path into the menu. The close should feel useful, not abrupt, and it should reinforce that the reader now has a clearer lens for deciding what works.</p>
-<h2>Frequently asked questions</h2>
-<h3>Is this a topic people are researching before they buy?</h3>
-<p>Yes. The search intent is largely informational, but it often sits close to evaluation. A good article should acknowledge that and make the bridge into menu exploration feel natural.</p>
-<h3>What should the article emphasize most?</h3>
-<p>It should emphasize practical fit, quality, and flexibility. Those are the points that make the topic useful to the reader and strategically relevant for CookUnity.</p>
+<p>Most people looking for ${row.keyword} are not searching for theory. They want a workable answer that fits into a busy schedule and helps them make a better decision today. That usually means understanding what matters most, what mistakes to avoid, and how to choose an option they can actually stick with.</p>
+<p>For CookUnity, the opportunity is to deliver that clarity in plain language and then make the next step obvious. The article should feel useful first and strategic second, which is exactly why the draft needs to read like a finished article instead of a planning document.</p>
+<h2>Define the goal before building the week</h2>
+<p>Any useful plan starts with the real constraint. Sometimes the issue is lack of time. Sometimes it is inconsistent eating during workdays. Sometimes it is the gap between wanting better meals and having the energy to keep planning them. Naming the constraint clearly helps the rest of the plan feel relevant instead of generic.</p>
+<p>Once the goal is defined, decision-making gets easier. The reader can evaluate meals based on fit, not just aspiration.</p>
+<h2>Choose meals that are easy to repeat</h2>
+<p>The best plans usually rely on a few repeatable patterns rather than constant novelty. That does not mean eating the same thing every day. It means having a dependable structure for lunch and dinner so the week does not start from zero every time.</p>
+<p>Repeatable meals reduce decision fatigue. They also make it easier to keep quality high without spending the entire weekend planning, shopping, and prepping.</p>
+<h2>Balance convenience with quality</h2>
+<p>Convenience matters most when it supports consistency. A plan only works if it is easy enough to follow on the nights when work runs late or energy is low. That is why prepared meals can be useful: they preserve time without forcing the reader to settle for food that feels like an afterthought.</p>
+<p>CookUnity should frame this as a practical advantage. The point is not just speed. The point is access to meals that still feel satisfying when life gets crowded.</p>
+<h2>Plan for the days most likely to break the routine</h2>
+<p>Every strong meal routine has weak points. Travel, late meetings, social plans, or fatigue after a long day will test the plan faster than the average Tuesday ever will. Articles that ignore this tend to feel unrealistic.</p>
+<p>A stronger draft addresses those friction points directly. It shows the reader how to protect the routine even when the week stops behaving the way they expected.</p>
+<h2>Use the close to move the reader forward</h2>
+<p>Once the article has clarified the problem and offered a practical framework, the close should give the reader a clear next step. For blog content, that usually means a menu or email-capture bridge rather than a hard sell.</p>
+<p>The transition works best when the article has already earned trust. If the advice feels concrete, the CTA will feel like a natural continuation instead of a jarring pivot.</p>
+<h2>Bottom line</h2>
+<p>A useful answer to ${row.keyword} should leave the reader with a clearer decision framework and an easier next step. That is the real job of the article, and it is where CookUnity can be differentiated without sounding generic.</p>
 </article>`;
 }
 
@@ -176,6 +332,7 @@ function buildLocalStepPayload(row: GridOpportunityRow, stepName: typeof ordered
   const title = titleizeKeyword(row.keyword);
   const slug = keywordToSlug(row.keyword);
   const reviewLabel = row.path === "blog" ? "Blog → email capture → nurture → trial" : "Landing page → direct trial";
+  const outlinePackage = buildLocalOutlinePackage(row);
 
   switch (stepName) {
     case "discovery":
@@ -203,16 +360,15 @@ function buildLocalStepPayload(row: GridOpportunityRow, stepName: typeof ordered
           ? "Capture-first fallback brief for editorial review."
           : "Trial-first fallback landing page brief for editorial review.",
         reviewLabel,
-        titleOptions: [title, `${title} guide`, `How to choose ${row.keyword}`],
+        titleOptions: outlinePackage.titleOptions,
         selectedTitle: title,
         selectedSlug: slug,
-        outline: [
-          "What readers are actually trying to solve",
-          "How CookUnity should position the topic",
-          "What to compare before making a choice",
-          "Where CookUnity becomes more compelling",
-          "How to close the article",
-        ],
+        outlinePackage,
+        briefJson: {
+          outlinePackage,
+          selectedTitle: title,
+          selectedSlug: slug,
+        },
       };
     case "draft":
       return {
@@ -637,6 +793,18 @@ export function WorkflowGridControlPlane(props: {
 
   async function generateDraftForSelected(opportunityId: string) {
     const targetRow = rows.find((row) => row.id === opportunityId) ?? selectedRow;
+    const isDirectLocalFallback =
+      props.persistenceMode !== "database" ||
+      !props.databaseReady ||
+      Boolean(targetRow?.id.startsWith("pending_")) ||
+      Boolean(targetRow?.steps.some((step) => isLocalStep(step)));
+    if (isDirectLocalFallback && targetRow) {
+      const localDetail = buildLocalDetail(targetRow, "qa", detail?.id === targetRow.id ? detail : undefined);
+      setLocalDetail(localDetail);
+      setNotice("Draft generated locally from fallback copy.");
+      setError(null);
+      return;
+    }
     try {
       await runWorkflowInline(opportunityId);
       await refreshRow(opportunityId);
