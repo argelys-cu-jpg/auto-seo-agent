@@ -95,8 +95,45 @@ export const contentTypeEditorialPatterns = `Use the matching pattern for the co
 - Recipe Listicle: follow the Recipe Listicle pattern.
 - What-Is style queries should follow the What-Is pattern.`;
 
+export const stepByStepAnalysisQualityBar = `Before generating the brief, do a real pre-brief analysis package with this level of depth:
+
+- Persona and search intent analysis:
+  - who is searching
+  - why they are searching
+  - pain points
+  - desired outcomes
+  - core questions
+  - leftover questions competitors did not fully answer
+  - top secondary keywords that matter most
+- Competitor header analysis:
+  - what each major competitor heading is trying to answer
+  - the SEO rationale for that section
+  - whether a similar section should be included
+- Article synthesis:
+  - full list of questions the article must answer
+  - common subtopics and follow-up questions
+  - common sequencing and header syntax patterns
+  - FAQ opportunities
+  - title-to-topic alignment
+- Outline development:
+  - initial H2 set
+  - H2/H3 development
+  - FAQ plan
+  - refined outline narrative
+- CookUnity positioning:
+  - how the brand should relate to the topic
+  - unique value to weave in
+  - SEO opportunities competitors leave open
+  - which meals or menu proof points can appear naturally
+  - the right CTA direction for the path
+- Outline evaluation:
+  - whether the sequence is complete, SEO-fit, and structurally sound
+
+Do not jump straight from keyword to outline. The brief should clearly reflect that this analysis happened first.`;
+
 export const topPerformingSeoArticlePattern = [
   sharedEditorialQualityBar,
+  stepByStepAnalysisQualityBar,
   contentTypeEditorialPatterns,
   guideEditorialPattern,
   whatIsEditorialPattern,

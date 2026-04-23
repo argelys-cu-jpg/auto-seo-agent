@@ -240,6 +240,108 @@ function buildLocalOutlinePackage(row: GridOpportunityRow): OutlinePackage {
         "Use one meal example early to make the category concrete",
         "Use another example near the close to connect the topic to menu exploration",
       ],
+      personaAnalysis: {
+        audiences: [
+          row.path === "blog" ? "Reader searching for a practical, real-life answer" : "Shopper evaluating meal delivery options",
+          "Reader who needs clarity without diet-industry filler",
+        ],
+        motivations: [
+          `Figure out whether ${row.keyword} is worth trying`,
+          "Find guidance that actually fits a weekday routine",
+        ],
+        painPoints: [
+          "Thin articles that do not answer the real question",
+          "Advice that sounds abstract instead of usable",
+        ],
+        desiredOutcomes: [
+          "A clear recommendation path",
+          "A realistic sense of how CookUnity fits the topic",
+        ],
+        coreQuestions: [
+          `What does ${row.keyword} actually mean in practice?`,
+          `What matters most when evaluating ${row.keyword}?`,
+        ],
+        unansweredQuestions: [
+          `How does ${row.keyword} hold up on busy weekdays?`,
+          "What examples make the topic concrete?",
+        ],
+        topSecondaryKeywords: [
+          { keyword: row.keyword, searchVolume: 0 },
+        ],
+      },
+      competitorAnalysis: {
+        topQuestionsAnswered: [
+          `What is ${row.keyword}?`,
+          `How do you make ${row.keyword} work in real life?`,
+        ],
+        commonSubtopics: [
+          "What readers are actually trying to solve",
+          "How to compare options",
+          "How CookUnity should frame the category",
+        ],
+        commonStructure: [
+          "Definition or framing",
+          "Benefits or evaluation criteria",
+          "Examples or proof points",
+          "FAQ and close",
+        ],
+        syntaxPatterns: [
+          "\"What is...\" framing near the top",
+          "Action-oriented H2s and H3s",
+          "FAQ follow-ups at the end",
+        ],
+        competitors: [],
+      },
+      outlineDevelopment: {
+        initialH2s: headings.map((heading) => ({
+          heading,
+          source: "local fallback",
+          justification: `Cover ${heading.toLowerCase()} with direct, written guidance.`,
+        })),
+        h2WithH3s: headings.map((heading) => ({
+          heading,
+          notes: `Support ${heading.toLowerCase()} with concrete examples.`,
+          h3s: [],
+        })),
+        faqPlan: [
+          `What should readers know first about ${row.keyword}?`,
+          `How should someone apply ${row.keyword} in real life?`,
+        ],
+        refinedOutlineNarrative: [
+          "Start with answer-first context and key takeaways.",
+          "Move into practical explanation, proof points, and FAQs.",
+        ],
+      },
+      cookunityPositioning: {
+        relationshipToArticle:
+          row.path === "blog"
+            ? `Use CookUnity to make ${row.keyword} feel actionable rather than theoretical.`
+            : `Position CookUnity as a stronger option for shoppers evaluating ${row.keyword}.`,
+        uniqueValue: [
+          "Chef-led quality",
+          "Prepared-meal convenience",
+          "Menu breadth that fits real routines",
+        ],
+        seoOpportunityDetails: [
+          "Answer the search intent faster than generic category pages.",
+          "Use concrete examples instead of vague positioning.",
+        ],
+        mealIntegrationNotes: [
+          "Use one meal example early.",
+          "Use another meal example near the close.",
+        ],
+        ctaDirection:
+          row.path === "blog"
+            ? "Use a light capture CTA with a menu bridge."
+            : "Use a more direct menu or trial CTA.",
+      },
+      evaluation: {
+        comprehensiveness: "The local analysis covers intent, framing, practical questions, and the refined outline path.",
+        structure: "The sequence moves from direct answer into practical evaluation and a close.",
+        seoFit: "The structure is optimized for answer-first retrieval and skimmable readability.",
+        toneAndStyle: "The brief should sound editorial, useful, and grounded in real-life use cases.",
+        verdict: "Use the local analysis package as the working pre-brief foundation when the live analysis path is unavailable.",
+      },
       outline: headings.map((heading) => ({
         heading,
         level: 2,
@@ -580,6 +682,42 @@ function serializeBriefManualOutput(
       seoOpportunities: [],
       faqRecommendations: [],
       mealPlacementSuggestions: [],
+      personaAnalysis: {
+        audiences: [],
+        motivations: [],
+        painPoints: [],
+        desiredOutcomes: [],
+        coreQuestions: [],
+        unansweredQuestions: [],
+        topSecondaryKeywords: [],
+      },
+      competitorAnalysis: {
+        topQuestionsAnswered: [],
+        commonSubtopics: [],
+        commonStructure: [],
+        syntaxPatterns: [],
+        competitors: [],
+      },
+      outlineDevelopment: {
+        initialH2s: [],
+        h2WithH3s: [],
+        faqPlan: [],
+        refinedOutlineNarrative: [],
+      },
+      cookunityPositioning: {
+        relationshipToArticle: "",
+        uniqueValue: [],
+        seoOpportunityDetails: [],
+        mealIntegrationNotes: [],
+        ctaDirection: "",
+      },
+      evaluation: {
+        comprehensiveness: "",
+        structure: "",
+        seoFit: "",
+        toneAndStyle: "",
+        verdict: "",
+      },
       outline: [],
     },
     reviewState: {

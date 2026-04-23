@@ -261,6 +261,68 @@ export const outlinePackageSchema = z.object({
     seoOpportunities: z.array(z.string()),
     faqRecommendations: z.array(z.string()),
     mealPlacementSuggestions: z.array(z.string()),
+    personaAnalysis: z.object({
+      audiences: z.array(z.string()).default([]),
+      motivations: z.array(z.string()).default([]),
+      painPoints: z.array(z.string()).default([]),
+      desiredOutcomes: z.array(z.string()).default([]),
+      coreQuestions: z.array(z.string()).default([]),
+      unansweredQuestions: z.array(z.string()).default([]),
+      topSecondaryKeywords: z.array(keywordOptionSchema).default([]),
+    }),
+    competitorAnalysis: z.object({
+      topQuestionsAnswered: z.array(z.string()).default([]),
+      commonSubtopics: z.array(z.string()).default([]),
+      commonStructure: z.array(z.string()).default([]),
+      syntaxPatterns: z.array(z.string()).default([]),
+      competitors: z.array(
+        z.object({
+          title: z.string(),
+          url: z.string(),
+          sections: z.array(
+            z.object({
+              heading: z.string(),
+              keyQuestion: z.string(),
+              seoRationale: z.string(),
+              shouldAdd: z.boolean(),
+              recommendation: z.string(),
+            }),
+          ).default([]),
+        }),
+      ).default([]),
+    }),
+    outlineDevelopment: z.object({
+      initialH2s: z.array(
+        z.object({
+          heading: z.string(),
+          source: z.string(),
+          justification: z.string(),
+        }),
+      ).default([]),
+      h2WithH3s: z.array(
+        z.object({
+          heading: z.string(),
+          notes: z.string(),
+          h3s: z.array(z.string()).default([]),
+        }),
+      ).default([]),
+      faqPlan: z.array(z.string()).default([]),
+      refinedOutlineNarrative: z.array(z.string()).default([]),
+    }),
+    cookunityPositioning: z.object({
+      relationshipToArticle: z.string(),
+      uniqueValue: z.array(z.string()).default([]),
+      seoOpportunityDetails: z.array(z.string()).default([]),
+      mealIntegrationNotes: z.array(z.string()).default([]),
+      ctaDirection: z.string(),
+    }),
+    evaluation: z.object({
+      comprehensiveness: z.string(),
+      structure: z.string(),
+      seoFit: z.string(),
+      toneAndStyle: z.string(),
+      verdict: z.string(),
+    }),
     outline: z.array(
       z.object({
         heading: z.string(),
