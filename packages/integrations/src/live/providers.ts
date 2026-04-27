@@ -70,25 +70,170 @@ export class LiveAhrefsProvider implements AhrefsProvider {
       throw new Error("AHREFS_API_KEY is required for live mode.");
     }
 
-    const response = await fetch(`${config.AHREFS_BASE_URL}/v1/keywords`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.AHREFS_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ seeds: seedTerms }),
+    const normalizedSeeds = [...new Set(seedTerms.map((term) => term.trim()).filter(Boolean))];
+    if (normalizedSeeds.length === 0) {
+      return [];
+    }
+
+    const overviewPromise = this.fetchKeywordReport("overview", {
+      keywords: normalizedSeeds.join(","),
+      limit: String(Math.min(normalizedSeeds.length, 50)),
     });
 
-    const payload = await safeJson<{ rows: Array<Record<string, unknown>> }>(response);
-    return payload.rows.map((row) => ({
-      keyword: String(row.keyword),
+    const matchingTermsPromise = this.fetchKeywordReport("matching-terms", {
+      keywords: normalizedSeeds.join(","),
+      limit: "40",
+      match_mode: "terms",
+      terms: "all",
+      order_by: "volume:desc",
+    });
+
+    const questionTermsPromise = this.fetchKeywordReport("matching-terms", {
+      keywords: normalizedSeeds.join(","),
+      limit: "20",
+      match_mode: "terms",
+      terms: "questions",
+      order_by: "volume:desc",
+    });
+
+    const suggestionsPromise = this.fetchKeywordReport("search-suggestions", {
+      keywords: normalizedSeeds.join(","),
+      limit: "20",
+      order_by: "volume:desc",
+    });
+
+    const [overview, matchingTerms, questionTerms, suggestions] = await Promise.all([
+      overviewPromise,
+      matchingTermsPromise,
+      questionTermsPromise,
+      suggestionsPromise,
+    ]);
+
+    const byKeyword = new Map<string, KeywordDiscoveryRecord>();
+    for (const row of [...overview, ...matchingTerms, ...questionTerms, ...suggestions]) {
+      const record = this.mapKeywordRow(row);
+      const key = record.keyword.toLowerCase();
+      const existing = byKeyword.get(key);
+      if (!existing || record.searchVolume > existing.searchVolume) {
+        byKeyword.set(key, record);
+      }
+    }
+
+    return [...byKeyword.values()].sort((left, right) => right.searchVolume - left.searchVolume);
+  }
+
+  private async fetchKeywordReport(
+    report: "overview" | "matching-terms" | "search-suggestions",
+    params: Record<string, string>,
+  ): Promise<Array<Record<string, unknown>>> {
+    const config = getConfig();
+    const url = new URL(`${config.AHREFS_BASE_URL}/v3/keywords-explorer/${report}`);
+    url.searchParams.set("country", config.AHREFS_COUNTRY);
+    url.searchParams.set(
+      "select",
+      [
+        "keyword",
+        "volume",
+        "volume_monthly",
+        "difficulty",
+        "intents",
+        "parent_topic",
+        "traffic_potential",
+        "cpc",
+      ].join(","),
+    );
+
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
+
+    const response = await fetch(url.toString(), {
+      headers: {
+        Authorization: `Bearer ${config.AHREFS_API_KEY}`,
+        Accept: "application/json",
+      },
+    });
+
+    const payload = await safeJson<{ keywords?: Array<Record<string, unknown>> }>(response);
+    return payload.keywords ?? [];
+  }
+
+  private mapKeywordRow(row: Record<string, unknown>): KeywordDiscoveryRecord {
+    const keyword = String(row.keyword ?? "").trim();
+    const volume = Number(row.volume ?? 0);
+    const volumeMonthly = Number(row.volume_monthly ?? volume);
+    const difficulty = Number(row.difficulty ?? 0);
+    const trafficPotential = Number(row.traffic_potential ?? 0);
+    const parentTopic = String(row.parent_topic ?? "").trim();
+    const cpc = Number(row.cpc ?? 0);
+
+    return {
+      keyword,
       source: "ahrefs",
-      searchVolume: Number(row.volume ?? 0),
-      keywordDifficulty: Number(row.kd ?? 0),
-      trendVelocity: 0,
-      intent: String(row.intent ?? "unknown"),
-      notes: "Mapped from Ahrefs API response.",
-    }));
+      searchVolume: Number.isFinite(volume) ? volume : 0,
+      keywordDifficulty: Number.isFinite(difficulty) ? difficulty : 0,
+      // Inference: use latest month vs. 12-month average as a lightweight momentum signal.
+      trendVelocity: this.estimateTrendVelocity(volume, volumeMonthly),
+      intent: this.mapIntent(row.intents),
+      notes: this.buildNotes({
+        parentTopic,
+        trafficPotential,
+        cpc,
+      }),
+    };
+  }
+
+  private estimateTrendVelocity(volume: number, volumeMonthly: number) {
+    if (!Number.isFinite(volume) || volume <= 0 || !Number.isFinite(volumeMonthly)) {
+      return 0;
+    }
+    const delta = ((volumeMonthly - volume) / volume) * 100;
+    return Math.max(-100, Math.min(100, Math.round(delta)));
+  }
+
+  private mapIntent(raw: unknown) {
+    if (!raw || typeof raw !== "object") {
+      return "unknown";
+    }
+
+    const intentPairs: Array<[string, string]> = [
+      ["informational", "informational"],
+      ["commercial", "commercial investigation"],
+      ["transactional", "transactional"],
+      ["navigational", "navigational"],
+      ["local", "local"],
+      ["branded", "branded"],
+    ];
+
+    const intentMap = raw as Record<string, unknown>;
+    const labels: string[] = [];
+    for (const pair of intentPairs) {
+      const key = pair[0];
+      const label = pair[1];
+      if (intentMap[key] === true) {
+        labels.push(label);
+      }
+    }
+
+    return labels.length ? labels.join(" + ") : "unknown";
+  }
+
+  private buildNotes(args: {
+    parentTopic?: string;
+    trafficPotential?: number;
+    cpc?: number;
+  }) {
+    const parts: string[] = [];
+    if (args.parentTopic) {
+      parts.push(`Parent topic: ${args.parentTopic}`);
+    }
+    if (args.trafficPotential && args.trafficPotential > 0) {
+      parts.push(`Traffic potential: ${args.trafficPotential.toLocaleString()}`);
+    }
+    if (args.cpc && args.cpc > 0) {
+      parts.push(`CPC: $${(args.cpc / 100).toFixed(2)}`);
+    }
+    return parts.join(" • ") || "Mapped from Ahrefs Keywords Explorer.";
   }
 }
 

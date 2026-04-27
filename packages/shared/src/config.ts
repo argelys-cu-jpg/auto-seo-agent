@@ -13,6 +13,7 @@ const envSchema = z.object({
   OPENAI_MODEL: z.string().default("gpt-4.1"),
   AHREFS_API_KEY: z.string().optional(),
   AHREFS_BASE_URL: z.string().url().default("https://api.ahrefs.com"),
+  AHREFS_COUNTRY: z.string().default("us"),
   GSC_CLIENT_EMAIL: z.string().optional(),
   GSC_PRIVATE_KEY: z.string().optional(),
   GSC_SITE_URL: z.string().default("https://www.cookunity.com"),
