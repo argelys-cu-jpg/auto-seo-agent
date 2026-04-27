@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   createOpportunityRecord,
   getGridOpportunityDetail,
+  listGridControlPlane,
   runWorkflowForOpportunity,
 } from "../../../lib/workflow-grid-store";
 
@@ -29,9 +30,26 @@ export async function POST(request: Request) {
 
     try {
       const detail = await runWorkflowForOpportunity(opportunity.id);
+      const rows = await listGridControlPlane();
+      if (!rows.some((row) => row.id === opportunity.id)) {
+        throw new Error("Opportunity was created but is missing from the grid list.");
+      }
       return NextResponse.json({ success: true, result: detail });
     } catch (workflowError) {
       const detail = await getGridOpportunityDetail(opportunity.id);
+      const rows = await listGridControlPlane();
+      if (!rows.some((row) => row.id === opportunity.id)) {
+        return NextResponse.json(
+          {
+            success: false,
+            message:
+              workflowError instanceof Error
+                ? `Row creation did not persist to the grid: ${workflowError.message}`
+                : "Row creation did not persist to the grid.",
+          },
+          { status: 500 },
+        );
+      }
       if (detail) {
         return NextResponse.json({
           success: true,

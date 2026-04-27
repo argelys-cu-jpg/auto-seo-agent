@@ -1490,6 +1490,11 @@ export function WorkflowGridControlPlane(props: {
                         setSelectedId(createdDetail.id);
                         setDrawerOpen(true);
                         await refreshRow(createdDetail.id);
+                        const liveRows = await requestGridRows();
+                        if (!liveRows.some((row) => row.id === createdDetail.id)) {
+                          throw new Error("The row was not returned by the live grid after creation.");
+                        }
+                        setRows(liveRows);
                         setNotice(response.warning ? `Opportunity created. ${response.warning}` : "Opportunity created and workflow artifacts generated.");
                       } else {
                         setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
