@@ -263,7 +263,46 @@ export const outlinePackageSchema = z.object({
   analysis: z.object({
     persona: z.string(),
     searchIntent: z.string(),
+    intentAnalysis: z.object({
+      primaryIntent: z.string(),
+      journeyStage: z.string(),
+      recommendedContentFormat: z.string(),
+      evidence: z.array(z.string()).default([]),
+    }),
     competitorSummary: z.string(),
+    keywordStrategy: z.object({
+      primaryKeywordRole: z.string(),
+      selectedSupportingKeywords: z.array(
+        z.object({
+          keyword: z.string(),
+          searchVolume: z.number(),
+          role: z.string(),
+          rationale: z.string(),
+        }),
+      ).default([]),
+      excludedKeywords: z.array(z.string()).default([]),
+      guidance: z.array(z.string()).default([]),
+    }),
+    titleAnalysis: z.object({
+      recommendedTitle: z.string(),
+      rationale: z.string(),
+      alternatives: z.array(
+        z.object({
+          title: z.string(),
+          rationale: z.string(),
+        }),
+      ).default([]),
+    }),
+    slugAnalysis: z.object({
+      recommendedSlug: z.string(),
+      rationale: z.string(),
+      alternatives: z.array(
+        z.object({
+          slug: z.string(),
+          rationale: z.string(),
+        }),
+      ).default([]),
+    }),
     seoOpportunities: z.array(z.string()),
       faqRecommendations: z.array(z.string()),
       mealPlacementSuggestions: z.array(z.string()),

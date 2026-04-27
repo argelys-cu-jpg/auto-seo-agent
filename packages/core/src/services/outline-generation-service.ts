@@ -74,8 +74,13 @@ export class OutlineGenerationService {
     const secondaryKeywordOptions = (await this.providers.workflowResearch.fetchSecondaryKeywords(topic.keyword))
       .sort((left, right) => right.searchVolume - left.searchVolume)
       .slice(0, 20);
-    const selectedSecondaryKeywords = secondaryKeywordOptions.slice(0, 5);
     const contentFormat = this.inferContentFormat(topic.keyword);
+    const selectedSecondaryKeywords = this.selectSecondaryKeywords(
+      topic.keyword,
+      topic.path ?? "blog",
+      secondaryKeywordOptions,
+      competitorKeywordRollup,
+    );
     const popularFoods = this.buildPopularFoods(topic.keyword, contentFormat, secondaryKeywordOptions);
 
     const mealFilters = await this.providers.workflowResearch.determineMealFilters(topic.keyword);
@@ -125,6 +130,13 @@ export class OutlineGenerationService {
 
     const personaAnalysis = this.buildPersonaAnalysis(topic.keyword, topic.path ?? "blog", selectedSecondaryKeywords, contentFormat);
     const competitorAnalysis = this.buildCompetitorAnalysis(competitors, topic.keyword, contentFormat);
+    const intentAnalysis = this.buildIntentAnalysis(topic.keyword, topic.path ?? "blog", contentFormat, selectedSecondaryKeywords);
+    const keywordStrategy = this.buildKeywordStrategy(
+      topic.keyword,
+      topic.path ?? "blog",
+      selectedSecondaryKeywords,
+      secondaryKeywordOptions,
+    );
     const mealPlacementSuggestions = isMealPlanTopic
       ? [
           "Use the seven-day lunch and dinner plan as the center of the article, not as an afterthought",
@@ -156,6 +168,8 @@ export class OutlineGenerationService {
     const outlineDevelopment = this.buildOutlineDevelopment(topic.keyword, contentFormat, outline);
     const cookunityPositioning = this.buildCookunityPositioning(topic.keyword, topic.path ?? "blog", meals, mealPlacementSuggestions);
     const evaluation = this.buildEvaluation(contentFormat);
+    const titleAnalysis = this.buildTitleAnalysis(topic.keyword, topic.path ?? "blog", titleOptions, selectedTitle, intentAnalysis.primaryIntent);
+    const slugAnalysis = this.buildSlugAnalysis(topic.keyword, slugOptions, selectedSlug, intentAnalysis.primaryIntent);
 
     const outlinePackage: OutlinePackage = {
       primaryKeyword: topic.keyword,
@@ -199,7 +213,11 @@ export class OutlineGenerationService {
           (topic.path === "landing_page"
             ? "Commercial comparison and direct-trial consideration"
             : "Informational discovery with capture potential"),
+        intentAnalysis,
         competitorSummary: this.buildCompetitorSummary(competitors),
+        keywordStrategy,
+        titleAnalysis,
+        slugAnalysis,
         seoOpportunities: [
           "Cover the prepared vs kit distinction clearly when relevant",
           "Use richer structure than competing roundups",
@@ -335,6 +353,58 @@ export class OutlineGenerationService {
       .join(" ");
   }
 
+  private selectSecondaryKeywords(
+    keyword: string,
+    path: OpportunityPath,
+    secondaryKeywordOptions: Array<{ keyword: string; searchVolume: number }>,
+    competitorKeywordRollup: Array<{ keyword: string; searchVolume: number }>,
+  ) {
+    const primary = keyword.toLowerCase();
+    const competitorSet = new Set(competitorKeywordRollup.map((item) => item.keyword.toLowerCase()));
+    const seen = new Set<string>();
+
+    return secondaryKeywordOptions
+      .map((item) => ({
+        ...item,
+        score: this.scoreSupportingKeyword(item.keyword, item.searchVolume, primary, path, competitorSet),
+      }))
+      .sort((left, right) => right.score - left.score)
+      .filter((item) => {
+        const normalized = item.keyword.toLowerCase();
+        if (normalized === primary || seen.has(normalized)) {
+          return false;
+        }
+        seen.add(normalized);
+        return true;
+      })
+      .slice(0, 6)
+      .map(({ keyword: supportingKeyword, searchVolume }) => ({
+        keyword: supportingKeyword,
+        searchVolume,
+      }));
+  }
+
+  private scoreSupportingKeyword(
+    supportingKeyword: string,
+    searchVolume: number,
+    primaryKeyword: string,
+    path: OpportunityPath,
+    competitorSet: Set<string>,
+  ) {
+    const normalized = supportingKeyword.toLowerCase();
+    let score = searchVolume;
+
+    if (normalized.includes(primaryKeyword)) score += 1500;
+    if (competitorSet.has(normalized)) score += 900;
+    if (/\b(best|top|ideas|examples)\b/.test(normalized)) score += 420;
+    if (/\bwhat is|how to|guide\b/.test(normalized)) score += path === "blog" ? 520 : 120;
+    if (/\bvs|compare|comparison\b/.test(normalized)) score += path === "landing_page" ? 520 : 180;
+    if (/\bnear me|cheap|free\b/.test(normalized)) score -= 700;
+    if (normalized.split(" ").length > 7) score -= 220;
+
+    return score;
+  }
+
   private buildPersonaAnalysis(
     keyword: string,
     path: OpportunityPath,
@@ -367,6 +437,153 @@ export class OutlineGenerationService {
         ...(contentFormat !== "guide" ? ["What belongs on the list, and why does each item deserve to be there?"] : []),
       ],
       topSecondaryKeywords: selectedSecondaryKeywords.slice(0, 10),
+    };
+  }
+
+  private buildIntentAnalysis(
+    keyword: string,
+    path: OpportunityPath,
+    contentFormat: ContentFormatType,
+    selectedSecondaryKeywords: Array<{ keyword: string; searchVolume: number }>,
+  ) {
+    const normalized = keyword.toLowerCase();
+    const primaryIntent =
+      path === "landing_page"
+        ? /\bvs|compare|best\b/.test(normalized)
+          ? "Commercial comparison"
+          : "Direct-trial commercial"
+        : /\bwhat is|how|guide\b/.test(normalized)
+          ? "Informational explainer"
+          : /\bbest|ideas|meals|foods|recipes\b/.test(normalized)
+            ? "Recommendation / roundup"
+            : "Informational with evaluation intent";
+
+    const journeyStage =
+      path === "landing_page"
+        ? "Decision stage"
+        : /\bwhat is\b/.test(normalized)
+          ? "Early research"
+          : "Mid-funnel evaluation";
+
+    return {
+      primaryIntent,
+      journeyStage,
+      recommendedContentFormat:
+        contentFormat === "guide"
+          ? "Guide-style answer-first article"
+          : contentFormat === "recipe_listicle"
+            ? "Recipe listicle"
+            : "Meal/recommendation listicle",
+      evidence: [
+        `Primary keyword framing: ${keyword}`,
+        `Path bias: ${path === "landing_page" ? "landing page / commercial" : "blog / educational"}`,
+        `Supporting keyword set leans ${selectedSecondaryKeywords.some((item) => /\bvs|compare|best\b/.test(item.keyword.toLowerCase())) ? "evaluative" : "informational"}.`,
+      ],
+    };
+  }
+
+  private buildKeywordStrategy(
+    keyword: string,
+    path: OpportunityPath,
+    selectedSecondaryKeywords: Array<{ keyword: string; searchVolume: number }>,
+    secondaryKeywordOptions: Array<{ keyword: string; searchVolume: number }>,
+  ) {
+    const selectedSet = new Set(selectedSecondaryKeywords.map((item) => item.keyword));
+    return {
+      primaryKeywordRole:
+        path === "landing_page"
+          ? `Use "${keyword}" as the commercial head term in the H1, intro, slug, title tag, and CTA bridge sections.`
+          : `Use "${keyword}" as the main informational head term in the H1, intro, key takeaways, and one core H2.`,
+      selectedSupportingKeywords: selectedSecondaryKeywords.map((item) => ({
+        keyword: item.keyword,
+        searchVolume: item.searchVolume,
+        role: this.inferSupportingKeywordRole(item.keyword, keyword, path),
+        rationale: this.inferSupportingKeywordRationale(item.keyword, keyword, path),
+      })),
+      excludedKeywords: secondaryKeywordOptions
+        .filter((item) => !selectedSet.has(item.keyword))
+        .slice(0, 5)
+        .map((item) => item.keyword),
+      guidance: [
+        "Use supporting keywords to deepen sections, not to create repetitive near-duplicate headings.",
+        "Place the strongest supporting terms in H2s and FAQs where they match real user questions.",
+        "Do not force local or low-intent modifiers that weaken the article’s primary job.",
+      ],
+    };
+  }
+
+  private inferSupportingKeywordRole(supportingKeyword: string, primaryKeyword: string, path: OpportunityPath) {
+    const normalized = supportingKeyword.toLowerCase();
+    if (/\bwhat is|how to|guide\b/.test(normalized)) return "Intent clarification";
+    if (/\bvs|compare|comparison\b/.test(normalized)) return "Decision support";
+    if (/\bbest|top|ideas|examples\b/.test(normalized)) return "Recommendation expansion";
+    if (path === "landing_page") return "Commercial support";
+    if (normalized.includes(primaryKeyword.toLowerCase())) return "Close variant";
+    return "Topical support";
+  }
+
+  private inferSupportingKeywordRationale(supportingKeyword: string, primaryKeyword: string, path: OpportunityPath) {
+    const normalized = supportingKeyword.toLowerCase();
+    if (/\bwhat is|how to|guide\b/.test(normalized)) {
+      return `Helps answer foundational questions around ${primaryKeyword} and strengthens answer-first retrieval.`;
+    }
+    if (/\bvs|compare|comparison\b/.test(normalized)) {
+      return path === "landing_page"
+        ? "Supports buyer comparison behavior close to conversion."
+        : "Captures evaluative searchers who are deciding between options.";
+    }
+    if (/\bbest|top|ideas|examples\b/.test(normalized)) {
+      return "Expands the article into adjacent recommendation intent without changing the primary topic.";
+    }
+    return `Broadens topical coverage around ${primaryKeyword} without diluting the main query.`;
+  }
+
+  private buildTitleAnalysis(
+    keyword: string,
+    path: OpportunityPath,
+    titleOptions: string[],
+    selectedTitle: string,
+    primaryIntent: string,
+  ) {
+    return {
+      recommendedTitle: selectedTitle,
+      rationale:
+        path === "landing_page"
+          ? `Selected because it preserves the commercial head term "${keyword}" while making the comparison or value proposition explicit for ${primaryIntent.toLowerCase()} intent.`
+          : `Selected because it keeps "${keyword}" intact, reads naturally, and signals a direct answer for ${primaryIntent.toLowerCase()} intent.`,
+      alternatives: titleOptions.slice(1).map((title) => ({
+        title,
+        rationale: title.toLowerCase().includes("cookunity")
+          ? "Stronger brand angle, but more branded and potentially narrower for top-of-funnel search."
+          : title.toLowerCase().includes("how to")
+            ? "Useful if you want a more educational framing, but less decisive for evaluative traffic."
+            : "Viable alternative if you want a different SERP framing without changing the primary topic.",
+      })),
+    };
+  }
+
+  private buildSlugAnalysis(
+    keyword: string,
+    slugOptions: string[],
+    selectedSlug: string,
+    primaryIntent: string,
+  ) {
+    const normalizedKeyword = keyword.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    return {
+      recommendedSlug: selectedSlug,
+      rationale:
+        selectedSlug === normalizedKeyword
+          ? `Selected because it keeps the canonical keyword path clean and aligns directly with ${primaryIntent.toLowerCase()} intent.`
+          : `Selected because it preserves the main topic while giving the URL a clearer promise than a generic keyword-only slug.`,
+      alternatives: slugOptions
+        .filter((slug) => slug !== selectedSlug)
+        .map((slug) => ({
+          slug,
+          rationale:
+            slug === normalizedKeyword
+              ? "Closest match to the exact head term."
+              : "Alternative slug if you want the URL to mirror the chosen title more closely.",
+        })),
     };
   }
 

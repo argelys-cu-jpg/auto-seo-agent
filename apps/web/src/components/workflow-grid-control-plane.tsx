@@ -258,7 +258,58 @@ function buildLocalOutlinePackage(row: GridOpportunityRow): OutlinePackage {
     analysis: {
       persona: row.path === "blog" ? "Reader looking for a workable answer before committing to a solution" : "High-intent shopper comparing meal solutions",
       searchIntent: row.path === "blog" ? "Informational with evaluation intent" : "Commercial and conversion-oriented",
+      intentAnalysis: {
+        primaryIntent: row.path === "blog" ? "Informational with evaluation intent" : "Commercial comparison",
+        journeyStage: row.path === "blog" ? "Mid-funnel evaluation" : "Decision stage",
+        recommendedContentFormat:
+          row.keyword.toLowerCase().includes("best") || row.keyword.toLowerCase().includes("ideas")
+            ? "Meal/recommendation listicle"
+            : "Guide-style answer-first article",
+        evidence: [
+          `Primary keyword framing: ${row.keyword}`,
+          `Path bias: ${row.path === "blog" ? "blog / educational" : "landing page / commercial"}`,
+          "Local fallback intent analysis used because the live analysis package is unavailable.",
+        ],
+      },
       competitorSummary: `The local fallback brief assumes the top competing pages are either generic meal planning articles or thin commercial pages that do not explain how to make ${row.keyword} sustainable in real life.`,
+      keywordStrategy: {
+        primaryKeywordRole:
+          row.path === "blog"
+            ? `Use "${row.keyword}" in the H1, intro, key takeaways, and one core H2.`
+            : `Use "${row.keyword}" in the H1, intro, slug, and commercial proof sections.`,
+        selectedSupportingKeywords: selectedSecondaryKeywords.map((item) => ({
+          keyword: item.keyword,
+          searchVolume: item.searchVolume,
+          role: item.keyword.includes("guide")
+            ? "Intent clarification"
+            : item.keyword.includes("best")
+              ? "Recommendation expansion"
+              : "Topical support",
+          rationale: `Supports the main topic "${row.keyword}" without changing the article’s core query.`,
+        })),
+        excludedKeywords: secondaryKeywordOptions.slice(2).map((item) => item.keyword),
+        guidance: [
+          "Use supporting keywords to deepen sections instead of creating repetitive headings.",
+          "Keep the head term stable in the intro and close.",
+          "Use the strongest supporting terms in FAQs and evaluative sections.",
+        ],
+      },
+      titleAnalysis: {
+        recommendedTitle: title,
+        rationale:
+          row.path === "blog"
+            ? `Keeps "${row.keyword}" intact and signals a direct explanatory answer.`
+            : `Keeps "${row.keyword}" commercial and direct for conversion-oriented readers.`,
+        alternatives: [
+          { title: `${title} guide`, rationale: "More educational framing if you want a softer SERP promise." },
+          { title: `How to choose ${row.keyword}`, rationale: "Useful if the page should lean more instructional." },
+        ],
+      },
+      slugAnalysis: {
+        recommendedSlug: slug,
+        rationale: "Keeps the URL close to the head term and easy to map to the page’s main job.",
+        alternatives: [{ slug: `${slug}-guide`, rationale: "Useful if you want the URL to mirror a guide framing more explicitly." }],
+      },
       seoOpportunities: [
         "Answer the core reader question immediately",
         "Use a stronger structure than generic category pages",
@@ -802,7 +853,29 @@ function serializeBriefManualOutput(
     analysis: existingPackage?.analysis ?? {
       persona: "",
       searchIntent: "",
+      intentAnalysis: {
+        primaryIntent: "",
+        journeyStage: "",
+        recommendedContentFormat: "",
+        evidence: [],
+      },
       competitorSummary: "",
+      keywordStrategy: {
+        primaryKeywordRole: "",
+        selectedSupportingKeywords: [],
+        excludedKeywords: [],
+        guidance: [],
+      },
+      titleAnalysis: {
+        recommendedTitle: selectedTitle,
+        rationale: "",
+        alternatives: [],
+      },
+      slugAnalysis: {
+        recommendedSlug: selectedSlug,
+        rationale: "",
+        alternatives: [],
+      },
       seoOpportunities: [],
       faqRecommendations: [],
       mealPlacementSuggestions: [],
@@ -1957,7 +2030,20 @@ export function WorkflowGridControlPlane(props: {
                     </div>
 
                     <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
+                      <div style={{ fontWeight: 700 }}>Intent analysis</div>
+                      <div style={{ fontSize: 13 }}><strong>Primary intent:</strong> {outlinePackage.analysis.intentAnalysis.primaryIntent}</div>
+                      <div style={{ fontSize: 13 }}><strong>Journey stage:</strong> {outlinePackage.analysis.intentAnalysis.journeyStage}</div>
+                      <div style={{ fontSize: 13 }}><strong>Recommended format:</strong> {outlinePackage.analysis.intentAnalysis.recommendedContentFormat}</div>
+                      <div style={{ display: "grid", gap: 4 }}>
+                        {outlinePackage.analysis.intentAnalysis.evidence.map((item, index) => (
+                          <div key={`${item}_${index}`} style={{ fontSize: 13, color: "#58685d" }}>• {item}</div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
                       <div style={{ fontWeight: 700 }}>Title</div>
+                      <div style={{ fontSize: 13, color: "#58685d" }}>{outlinePackage.analysis.titleAnalysis.rationale}</div>
                       {outlinePackage.titleOptions.map((title) => (
                         <label key={title} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                           <input
@@ -1974,6 +2060,7 @@ export function WorkflowGridControlPlane(props: {
                     {outlinePackage.slugOptions.length ? (
                       <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
                         <div style={{ fontWeight: 700 }}>Slug</div>
+                        <div style={{ fontSize: 13, color: "#58685d" }}>{outlinePackage.analysis.slugAnalysis.rationale}</div>
                         {outlinePackage.slugOptions.map((slug) => (
                           <label key={slug} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                             <input
@@ -1990,9 +2077,13 @@ export function WorkflowGridControlPlane(props: {
 
                     <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
                       <div style={{ fontWeight: 700 }}>Supporting keywords</div>
+                      <div style={{ fontSize: 13, color: "#58685d" }}>{outlinePackage.analysis.keywordStrategy.primaryKeywordRole}</div>
                       <div style={{ display: "grid", gap: 6 }}>
                         {outlinePackage.secondaryKeywordOptions.slice(0, 20).map((item) => {
                           const checked = selectedSecondaryKeywords.includes(item.keyword);
+                          const strategyItem = outlinePackage.analysis.keywordStrategy.selectedSupportingKeywords.find(
+                            (entry) => entry.keyword === item.keyword,
+                          );
                           return (
                             <label key={item.keyword} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                               <input
@@ -2008,11 +2099,25 @@ export function WorkflowGridControlPlane(props: {
                                   })
                                 }
                               />
-                              <span>{item.keyword} • {item.searchVolume.toLocaleString()}</span>
+                              <span>
+                                {item.keyword} • {item.searchVolume.toLocaleString()}
+                                {strategyItem ? (
+                                  <span style={{ display: "block", color: "#58685d", fontSize: 12, marginTop: 2 }}>
+                                    {strategyItem.role} — {strategyItem.rationale}
+                                  </span>
+                                ) : null}
+                              </span>
                             </label>
                           );
                         })}
                       </div>
+                      {outlinePackage.analysis.keywordStrategy.guidance.length ? (
+                        <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                          {outlinePackage.analysis.keywordStrategy.guidance.map((item, index) => (
+                            <div key={`${item}_${index}`} style={{ fontSize: 12, color: "#58685d" }}>• {item}</div>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
