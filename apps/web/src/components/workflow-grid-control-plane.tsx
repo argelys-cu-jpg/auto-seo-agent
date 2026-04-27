@@ -1029,11 +1029,15 @@ export function WorkflowGridControlPlane(props: {
   useEffect(() => {
     if (props.persistenceMode === "database") {
       setRows(props.initialRows);
-      if (props.initialSelectedId && props.initialRows.some((row) => row.id === props.initialSelectedId)) {
-        setSelectedId(props.initialSelectedId);
-      } else if (!selectedId && props.initialRows[0]?.id) {
-        setSelectedId(props.initialRows[0].id);
-      }
+      setSelectedId((current) => {
+        if (props.initialSelectedId && props.initialRows.some((row) => row.id === props.initialSelectedId)) {
+          return props.initialSelectedId;
+        }
+        if (current && props.initialRows.some((row) => row.id === current)) {
+          return current;
+        }
+        return props.initialRows[0]?.id ?? null;
+      });
       return;
     }
 
@@ -1054,7 +1058,7 @@ export function WorkflowGridControlPlane(props: {
     } catch {
       setRows(props.initialRows);
     }
-  }, [props.initialRows, props.persistenceMode, props.workspaceKey, props.initialSelectedId, selectedId]);
+  }, [props.initialRows, props.persistenceMode, props.workspaceKey, props.initialSelectedId]);
 
   useEffect(() => {
     if (selectedId) {
