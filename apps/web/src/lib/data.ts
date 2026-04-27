@@ -46,6 +46,14 @@ export interface DashboardPublicationSummary {
   publishedAt?: string;
   metricSnapshots: DashboardMetricSnapshotSummary[];
   optimizationTasks: DashboardOptimizationTaskSummary[];
+  preview?: {
+    h1: string;
+    slug: string;
+    titleTag: string;
+    metaDescription: string;
+    targetKeywords: string[];
+    html: string;
+  };
 }
 
 export interface DashboardTopicSummary {
@@ -386,7 +394,16 @@ async function getPersistedOperationalData() {
         where: { status: "published" },
         orderBy: { publishedAt: "desc" },
         take: 20,
-        include: { topicCandidate: true },
+        include: {
+          topicCandidate: {
+            include: {
+              drafts: {
+                orderBy: { createdAt: "desc" },
+                take: 1,
+              },
+            },
+          },
+        },
       }),
       prisma.workflowStepRun.findMany({
         orderBy: [{ createdAt: "desc" }],
@@ -493,15 +510,30 @@ export async function getDashboardData(): Promise<DashboardData> {
       })),
     }));
 
-    const publishedInventory: DashboardPublicationSummary[] = persisted.latestPublished.map((publication) => ({
-      id: publication.id,
-      slug: publication.slug,
-      status: publication.status,
-      title: publication.topicCandidate.title,
-      ...(publication.publishedAt ? { publishedAt: publication.publishedAt.toISOString() } : {}),
-      metricSnapshots: [],
-      optimizationTasks: [],
-    }));
+    const publishedInventory: DashboardPublicationSummary[] = persisted.latestPublished.map((publication) => {
+      const draftJson = publication.topicCandidate.drafts[0]?.draftJson as Draft | undefined;
+      return {
+        id: publication.id,
+        slug: publication.slug,
+        status: publication.status,
+        title: publication.topicCandidate.title,
+        ...(publication.publishedAt ? { publishedAt: publication.publishedAt.toISOString() } : {}),
+        metricSnapshots: [],
+        optimizationTasks: [],
+        ...(draftJson
+          ? {
+              preview: {
+                h1: draftJson.h1,
+                slug: draftJson.slugRecommendation,
+                titleTag: draftJson.titleTagOptions[0] ?? draftJson.h1,
+                metaDescription: draftJson.metaDescriptionOptions[0] ?? "",
+                targetKeywords: draftJson.targetKeywords,
+                html: draftJson.html,
+              },
+            }
+          : {}),
+      };
+    });
 
     const optimizationTask =
       persisted.latestOptimization
