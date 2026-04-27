@@ -505,8 +505,8 @@ function buildFallbackDraft(opportunity: {
   ];
   const intro =
     opportunity.path === "blog"
-      ? `${title} should help readers understand the topic quickly, then use supporting subtopics to make the answer feel complete instead of thin.`
-      : `${title} should help high-intent readers compare options clearly, understand the strongest decision criteria, and see how CookUnity fits the category.`;
+      ? `${title} helps readers understand the topic quickly, then builds out the answer with supporting subtopics so the page feels complete instead of thin.`
+      : `${title} helps high-intent readers compare options clearly, understand the strongest decision criteria, and see how CookUnity fits the category.`;
   const sections = buildFallbackDraftSections(opportunity.keyword, opportunity.path, secondaryKeywords);
   const faq = [
     {
@@ -587,8 +587,8 @@ function buildFallbackDraftSections(keyword: string, path: OpportunityPath, seco
       heading: `How to frame ${keyword} so the article feels complete`,
       level: 2,
       body: directTrial
-        ? `For conversion-oriented content, the page should move from explanation into comparison quickly. Supporting angles like ${secondaryC} help the article answer the real decision questions around quality, flexibility, and fit rather than stopping at vague category language.`
-        : `For editorial content, the page should move from explanation into practical guidance. Supporting angles like ${secondaryC} help the article feel richer because they expand the answer instead of repeating the main keyword in different words.`,
+        ? `Conversion-oriented content works best when it moves from explanation into comparison quickly. Supporting angles like ${secondaryC} help answer the real decision questions around quality, flexibility, and fit rather than stopping at vague category language.`
+        : `Editorial content works best when it moves from explanation into practical guidance. Supporting angles like ${secondaryC} make the article richer because they expand the answer instead of repeating the main keyword in different words.`,
     },
     {
       heading: "Which supporting sections earn their place",
@@ -599,20 +599,20 @@ function buildFallbackDraftSections(keyword: string, path: OpportunityPath, seco
       heading: "How CookUnity should enter the conversation",
       level: 2,
       body: directTrial
-        ? `CookUnity should show up as the practical answer once the decision criteria are clear. The page should connect chef quality, menu breadth, and ease in a way that feels specific to the category rather than bolted on as a generic CTA.`
-        : `CookUnity should show up as proof that the topic can be made practical. The article should connect the guidance back to real meals and real routines, which is what separates useful editorial copy from thin SEO filler.`,
+        ? `CookUnity is strongest as the practical answer once the decision criteria are clear. The page can connect chef quality, menu breadth, and ease in a way that feels specific to the category rather than bolted on as a generic CTA.`
+        : `CookUnity works best as proof that the topic can be made practical. Connecting the guidance back to real meals and real routines is what separates useful editorial copy from thin SEO filler.`,
     },
     {
       heading: "What the conclusion needs to reinforce",
       level: 2,
-      body: `Before the article closes, it should remind the reader what matters most about ${keyword} and pull the strongest supporting subtopics back into the summary. If the page has used ${secondaryA} and ${secondaryB} well, the conclusion will feel earned rather than abrupt.`,
+      body: `Before the article closes, the reader should be reminded what matters most about ${keyword}, with the strongest supporting subtopics pulled back into the summary. If the page has used ${secondaryA} and ${secondaryB} well, the conclusion will feel earned rather than abrupt.`,
     },
     {
       heading: "Bottom line",
       level: 2,
       body: directTrial
-        ? `A strong ${keyword} draft should reduce uncertainty, cover the key supporting terms naturally, and give the reader a confident next step toward trial.`
-        : `A strong ${keyword} draft should answer the primary query clearly, build out the answer with the right supporting keywords, and leave the reader with a more useful decision framework than they had before they arrived.`,
+        ? `A strong ${keyword} draft reduces uncertainty, covers the key supporting terms naturally, and gives the reader a confident next step toward trial.`
+        : `A strong ${keyword} draft answers the primary query clearly, builds out the answer with the right supporting keywords, and leaves the reader with a more useful decision framework than they had before they arrived.`,
     },
   ];
 }
