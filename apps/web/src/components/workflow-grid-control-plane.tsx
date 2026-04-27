@@ -102,6 +102,30 @@ async function requestJson(url: string, options?: RequestInit) {
   return payload;
 }
 
+async function requestGridRows() {
+  const response = await fetch("/api/grid/rows", {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+  const raw = await response.text();
+  let payload: { success: boolean; message?: string; rows?: GridOpportunityRow[] } | null = null;
+
+  if (raw) {
+    try {
+      payload = JSON.parse(raw) as { success: boolean; message?: string; rows?: GridOpportunityRow[] };
+    } catch {
+      throw new Error(raw.slice(0, 240));
+    }
+  }
+
+  if (!response.ok || !payload?.success || !payload.rows) {
+    throw new Error(payload?.message ?? raw.slice(0, 240) ?? "Failed to load grid rows.");
+  }
+
+  return payload.rows;
+}
+
 function applyDetailToRows(
   current: GridOpportunityRow[],
   nextDetail: GridOpportunityDetail,
@@ -1059,6 +1083,27 @@ export function WorkflowGridControlPlane(props: {
       setRows(props.initialRows);
     }
   }, [props.initialRows, props.persistenceMode, props.workspaceKey, props.initialSelectedId]);
+
+  useEffect(() => {
+    if (props.persistenceMode !== "database") return;
+
+    void requestGridRows()
+      .then((nextRows) => {
+        setRows(nextRows);
+        setSelectedId((current) => {
+          if (props.initialSelectedId && nextRows.some((row) => row.id === props.initialSelectedId)) {
+            return props.initialSelectedId;
+          }
+          if (current && nextRows.some((row) => row.id === current)) {
+            return current;
+          }
+          return nextRows[0]?.id ?? null;
+        });
+      })
+      .catch((nextError) => {
+        setError(nextError instanceof Error ? nextError.message : "Failed to refresh grid rows.");
+      });
+  }, [props.initialSelectedId, props.persistenceMode]);
 
   useEffect(() => {
     if (selectedId) {

@@ -1,5 +1,23 @@
 import { NextResponse } from "next/server";
-import { createKeywordAndRunWorkflow } from "../../../../lib/workflow-grid-store";
+import {
+  createKeywordAndRunWorkflow,
+  listGridControlPlane,
+} from "../../../../lib/workflow-grid-store";
+
+export async function GET(): Promise<NextResponse> {
+  try {
+    const rows = await listGridControlPlane();
+    return NextResponse.json({ success: true, rows });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to load grid rows.",
+      },
+      { status: 500 },
+    );
+  }
+}
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
