@@ -1,6 +1,15 @@
 import { createProviders } from "@cookunity-seo-agent/integrations";
 import { loadBrandVoice, promptTemplates } from "@cookunity-seo-agent/prompts";
-import type { ContentBrief, ContentFormatType, OutlinePackage, OpportunityPath, PopularFood } from "@cookunity-seo-agent/shared";
+import {
+  buildCookunitySevenDayMealPlan,
+  flattenMealPlanDays,
+  searchCookunityMeals,
+  type ContentBrief,
+  type ContentFormatType,
+  type OutlinePackage,
+  type OpportunityPath,
+  type PopularFood,
+} from "@cookunity-seo-agent/shared";
 
 export class OutlineGenerationService {
   private providers = createProviders();
@@ -65,18 +74,38 @@ export class OutlineGenerationService {
     const secondaryKeywordOptions = (await this.providers.workflowResearch.fetchSecondaryKeywords(topic.keyword))
       .sort((left, right) => right.searchVolume - left.searchVolume)
       .slice(0, 20);
+    const selectedSecondaryKeywords = secondaryKeywordOptions.slice(0, 5);
     const contentFormat = this.inferContentFormat(topic.keyword);
     const popularFoods = this.buildPopularFoods(topic.keyword, contentFormat, secondaryKeywordOptions);
 
     const mealFilters = await this.providers.workflowResearch.determineMealFilters(topic.keyword);
-    const meals = (await this.providers.workflowResearch.fetchMeals(mealFilters)).slice(0, 12);
+    const isMealPlanTopic = topic.keyword.toLowerCase().includes("meal plan");
+    const mealPlanDays = isMealPlanTopic
+      ? buildCookunitySevenDayMealPlan(topic.keyword, selectedSecondaryKeywords.map((item) => item.keyword))
+      : [];
+    const meals = isMealPlanTopic
+      ? flattenMealPlanDays(topic.keyword, selectedSecondaryKeywords.map((item) => item.keyword))
+      : searchCookunityMeals({
+          keyword: topic.keyword,
+          secondaryKeywords: selectedSecondaryKeywords.map((item) => item.keyword),
+          filters: mealFilters,
+          count: 12,
+        }).map((meal) => ({
+          id: meal.id,
+          name: meal.name,
+          ...(meal.chef ? { chef: meal.chef } : {}),
+          dietaryTags: meal.dietaryTags,
+          url: meal.url,
+          imageUrl: meal.imageUrl,
+          description: meal.description,
+          rating: meal.rating,
+        }));
     const internalLinkCandidates = await this.providers.workflowResearch.fetchInternalLinkCandidates(topic.keyword);
 
     const titleOptions = this.buildTitleOptions(topic.keyword, competitors.map((competitor) => competitor.title), topic.path ?? "blog");
     const selectedTitle = titleOptions[0] ?? this.titleCase(topic.keyword);
     const slugOptions = this.buildSlugOptions(topic.keyword, selectedTitle, competitors.map((competitor) => competitor.url));
     const selectedSlug = slugOptions[0] ?? topic.keyword.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const selectedSecondaryKeywords = secondaryKeywordOptions.slice(0, 5);
     const internalLinks = [
       ...(topic.pillarPageUrl
         ? [
@@ -96,11 +125,17 @@ export class OutlineGenerationService {
 
     const personaAnalysis = this.buildPersonaAnalysis(topic.keyword, topic.path ?? "blog", selectedSecondaryKeywords, contentFormat);
     const competitorAnalysis = this.buildCompetitorAnalysis(competitors, topic.keyword, contentFormat);
-    const mealPlacementSuggestions = [
-      "Use one meal recommendation near the intro to ground the category in real menu examples",
-      "Place 2-3 meal references in the comparison or examples section",
-      "Use a final meal CTA near the conclusion",
-    ];
+    const mealPlacementSuggestions = isMealPlanTopic
+      ? [
+          "Use the seven-day lunch and dinner plan as the center of the article, not as an afterthought",
+          "Explain why each lunch and dinner pairing fits the training or weekday context",
+          "Bridge from the day-by-day plan into menu exploration near the conclusion",
+        ]
+      : [
+          "Use one meal recommendation near the intro to ground the category in real menu examples",
+          "Place 2-3 meal references in the comparison or examples section",
+          "Use a final meal CTA near the conclusion",
+        ];
     const outline = [
       { heading: "Key takeaways", level: 2, notes: "Open with quick decision-ready context." },
       ...(contentFormat !== "guide"
@@ -144,10 +179,18 @@ export class OutlineGenerationService {
         name: meal.name,
         ...(meal.chef ? { chef: meal.chef } : {}),
         dietaryTags: meal.dietaryTags,
+        ...(meal.url ? { url: meal.url } : {}),
+        ...(meal.imageUrl ? { imageUrl: meal.imageUrl } : {}),
+        ...(meal.description ? { description: meal.description } : {}),
+        ...(typeof meal.rating === "number" ? { rating: meal.rating } : {}),
+        ...("day" in meal && typeof meal.day === "number" ? { day: meal.day } : {}),
+        ...("slot" in meal && (meal as { slot?: "lunch" | "dinner" }).slot ? { slot: (meal as { slot?: "lunch" | "dinner" }).slot } : {}),
         reason:
-          mealFilters.length > 0
-            ? `Matches dietary filters: ${mealFilters.join(", ")}`
-            : "Fits the article naturally as an internal meal recommendation.",
+          "reason" in meal && typeof (meal as { reason?: string }).reason === "string"
+            ? (meal as { reason: string }).reason
+            : mealFilters.length > 0
+              ? `Matches dietary filters: ${mealFilters.join(", ")}`
+              : "Fits the article naturally as an internal meal recommendation.",
       })),
       analysis: {
         persona: topic.path === "landing_page" ? "High-intent shopper comparing direct trial options" : "Reader looking for helpful guidance before signing up",
@@ -169,6 +212,15 @@ export class OutlineGenerationService {
           `Is ${topic.keyword} worth it for busy weekdays?`,
         ],
         mealPlacementSuggestions,
+        ...(mealPlanDays.length
+          ? {
+              mealPlanWeek: mealPlanDays.map((day) => ({
+                day: day.day,
+                lunch: day.lunch.name,
+                dinner: day.dinner.name,
+              })),
+            }
+          : {}),
         personaAnalysis,
         competitorAnalysis,
         outlineDevelopment,

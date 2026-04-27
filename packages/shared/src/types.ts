@@ -215,6 +215,12 @@ export const mealRecommendationSchema = z.object({
   name: z.string(),
   chef: z.string().optional(),
   dietaryTags: z.array(z.string()).default([]),
+  url: z.string().optional(),
+  imageUrl: z.string().optional(),
+  description: z.string().optional(),
+  rating: z.number().optional(),
+  day: z.number().optional(),
+  slot: z.enum(["lunch", "dinner"]).optional(),
   reason: z.string(),
 });
 
@@ -259,9 +265,16 @@ export const outlinePackageSchema = z.object({
     searchIntent: z.string(),
     competitorSummary: z.string(),
     seoOpportunities: z.array(z.string()),
-    faqRecommendations: z.array(z.string()),
-    mealPlacementSuggestions: z.array(z.string()),
-    personaAnalysis: z.object({
+      faqRecommendations: z.array(z.string()),
+      mealPlacementSuggestions: z.array(z.string()),
+      mealPlanWeek: z.array(
+        z.object({
+          day: z.number(),
+          lunch: z.string(),
+          dinner: z.string(),
+        }),
+      ).optional(),
+      personaAnalysis: z.object({
       audiences: z.array(z.string()).default([]),
       motivations: z.array(z.string()).default([]),
       painPoints: z.array(z.string()).default([]),

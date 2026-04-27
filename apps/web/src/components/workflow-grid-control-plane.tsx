@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { KeywordOption, OpportunityPath, OpportunityType, OutlinePackage } from "@cookunity-seo-agent/shared";
+import {
+  flattenMealPlanDays,
+  searchCookunityMeals,
+  type KeywordOption,
+  type OpportunityPath,
+  type OpportunityType,
+  type OutlinePackage,
+} from "@cookunity-seo-agent/shared";
 import { Badge } from "./cards";
 import type { GridOpportunityDetail, GridOpportunityRow, GridStepView } from "../lib/workflow-grid-store";
 
@@ -157,6 +164,29 @@ function buildLocalOutlinePackage(row: GridOpportunityRow): OutlinePackage {
   const title = titleizeKeyword(row.keyword);
   const slug = keywordToSlug(row.keyword);
   const headings = inferLocalOutlineHeadings(row);
+  const secondaryKeywordOptions = [
+    { keyword: `${row.keyword} guide`, searchVolume: 600 },
+    { keyword: `best ${row.keyword}`, searchVolume: 450 },
+    { keyword: `${row.keyword} ideas`, searchVolume: 320 },
+  ];
+  const selectedSecondaryKeywords = secondaryKeywordOptions.slice(0, 2);
+  const mealRecommendations = row.keyword.toLowerCase().includes("meal plan")
+    ? flattenMealPlanDays(row.keyword, selectedSecondaryKeywords.map((item) => item.keyword))
+    : searchCookunityMeals({
+        keyword: row.keyword,
+        secondaryKeywords: selectedSecondaryKeywords.map((item) => item.keyword),
+        count: 8,
+      }).map((meal) => ({
+        id: meal.id,
+        name: meal.name,
+        ...(meal.chef ? { chef: meal.chef } : {}),
+        dietaryTags: meal.dietaryTags,
+        url: meal.url,
+        imageUrl: meal.imageUrl,
+        description: meal.description,
+        rating: meal.rating,
+        reason: "Strong topical fit for this CookUnity article.",
+      }));
 
   return {
     primaryKeyword: row.keyword,
@@ -186,15 +216,8 @@ function buildLocalOutlinePackage(row: GridOpportunityRow): OutlinePackage {
     selectedTitle: title,
     slugOptions: [slug, `${slug}-guide`],
     selectedSlug: slug,
-    secondaryKeywordOptions: [
-      { keyword: `${row.keyword} guide`, searchVolume: 600 },
-      { keyword: `best ${row.keyword}`, searchVolume: 450 },
-      { keyword: `${row.keyword} ideas`, searchVolume: 320 },
-    ],
-    selectedSecondaryKeywords: [
-      { keyword: `${row.keyword} guide`, searchVolume: 600 },
-      { keyword: `best ${row.keyword}`, searchVolume: 450 },
-    ],
+    secondaryKeywordOptions,
+    selectedSecondaryKeywords,
     internalLinks: [
       {
         label: "Menu",
@@ -207,22 +230,7 @@ function buildLocalOutlinePackage(row: GridOpportunityRow): OutlinePackage {
         anchorText: "how CookUnity works",
       },
     ],
-    mealRecommendations: [
-      {
-        id: "local_meal_1",
-        name: "Seared salmon with seasonal vegetables",
-        chef: "CookUnity",
-        dietaryTags: ["high protein"],
-        reason: "Shows how prepared meals can still support performance and consistency.",
-      },
-      {
-        id: "local_meal_2",
-        name: "Chicken bowl with grains and greens",
-        chef: "CookUnity",
-        dietaryTags: ["balanced"],
-        reason: "Useful example of a weekday meal that covers recovery and convenience together.",
-      },
-    ],
+    mealRecommendations,
     analysis: {
       persona: row.path === "blog" ? "Reader looking for a workable answer before committing to a solution" : "High-intent shopper comparing meal solutions",
       searchIntent: row.path === "blog" ? "Informational with evaluation intent" : "Commercial and conversion-oriented",
@@ -390,7 +398,21 @@ function buildLocalSecondaryKeywords(row: GridOpportunityRow) {
   ].filter((value, index, all) => value && all.indexOf(value) === index).slice(0, 5);
 }
 
-function buildLocalDraftHtml(row: GridOpportunityRow, title: string) {
+function getMealPlanDays(outlinePackage: OutlinePackage) {
+  const days = new Map<number, { lunch?: { name: string; chef?: string }; dinner?: { name: string; chef?: string } }>();
+  for (const meal of outlinePackage.mealRecommendations) {
+    if (!meal.day || !meal.slot) continue;
+    const current = days.get(meal.day) ?? {};
+    if (meal.slot === "lunch") current.lunch = { name: meal.name, ...(meal.chef ? { chef: meal.chef } : {}) };
+    if (meal.slot === "dinner") current.dinner = { name: meal.name, ...(meal.chef ? { chef: meal.chef } : {}) };
+    days.set(meal.day, current);
+  }
+  return [...days.entries()]
+    .sort((left, right) => left[0] - right[0])
+    .flatMap(([day, meals]) => (meals.lunch && meals.dinner ? [{ day, lunch: meals.lunch, dinner: meals.dinner }] : []));
+}
+
+function buildLocalDraftHtml(row: GridOpportunityRow, title: string, outlinePackage: OutlinePackage) {
   const keyTakeawaysHtml = `<h2>Key takeaways</h2><ul>${buildLocalKeyTakeaways(row)
     .map((item) => `<li>${item}</li>`)
     .join("")}</ul>`;
@@ -430,6 +452,27 @@ ${keyTakeawaysHtml}
   }
 
   if (normalized.includes("athlete")) {
+    const mealPlanDays = getMealPlanDays(outlinePackage);
+    const dayContexts = [
+      "Mid-morning training day",
+      "Afternoon training day",
+      "Active recovery day",
+      "Early morning training day",
+      "Night training day",
+      "Rest and reset day",
+      "Late afternoon training day",
+    ];
+    const dayPlanHtml = mealPlanDays
+      .map((dayPlan, index) => {
+        const context = dayContexts[index] ?? `Training day ${dayPlan.day}`;
+        const lunchChef = dayPlan.lunch.chef ? ` by Chef ${dayPlan.lunch.chef}` : "";
+        const dinnerChef = dayPlan.dinner.chef ? ` by Chef ${dayPlan.dinner.chef}` : "";
+        return `<h3>Day ${dayPlan.day}: ${context}</h3>
+<p>Lunch: <strong>${dayPlan.lunch.name}</strong>${lunchChef}. This is the kind of midday meal that can steady appetite and give the athlete a clearer recovery base instead of leaving the afternoon to snacks and catch-up eating.</p>
+<p>Dinner: <strong>${dayPlan.dinner.name}</strong>${dinnerChef}. This works best as the lower-friction dinner that keeps recovery on track when training and the rest of the day have already taken most of the available time and energy.</p>
+<p>Together, these meals show how a real week can stay structured without becoming rigid. They give the athlete a concrete lunch-and-dinner pattern that supports consistency instead of relying on willpower at the end of every long day.</p>`;
+      })
+      .join("");
     return `<article>
 <h1>${title}</h1>
 <p>A good meal plan for athletes does not need to be perfect to be effective. It needs to be repeatable. Most athletes already know they should eat enough protein, recover well, and stay consistent through busy weeks. The harder part is building a structure that actually survives travel, work, early training sessions, and the days when cooking falls apart.</p>
@@ -462,10 +505,7 @@ ${keyTakeawaysHtml}
 <p>That difference matters because sustainability comes from fit. If the article only describes the ideal plan and never addresses the messy schedule that most athletes actually live with, it will read as aspirational but not useful. A better draft helps the reader imagine how the plan survives normal disruptions.</p>
 <h2>What a 7-day athlete meal plan can look like</h2>
 <p>A useful seven-day example goes beyond broad principles and shows how the week changes when workout timing changes. It does not need to prescribe an exact calorie target for every reader, but it should make the structure visible enough that someone can adapt it to their own routine.</p>
-<p>One useful pattern is to map the week by training demand. A mid-morning training day might start with toast, nut butter, fruit, and milk, then move into a more recovery-focused lunch with a stronger protein source and a starch that helps replenish energy. An afternoon training day may need a heavier breakfast, a balanced lunch, and a lighter pre-workout snack before dinner becomes the main recovery meal.</p>
-<p>A lower-intensity or active recovery day can stay simpler: a protein-forward breakfast, a balanced lunch, a snack that prevents under-eating, and a dinner that still feels restorative. The point is not rigid sameness. The point is a structure that flexes without losing the plot.</p>
-<p>Late training days usually need the most planning. Dinner may need to happen earlier, fiber and fat may need to stay lower before a hard evening session, and the athlete may need a smaller post-workout recovery option before bed instead of a second full meal. This is the kind of practical detail that makes the article feel worth reading.</p>
-<p>Across the full seven days, the pattern stays recognizable even when the specific foods change. Breakfast builds the day. Lunch supports the next block. Snacks do targeted work. Dinner either restores or protects the plan from falling apart. That is the level of specificity people expect when they search for ${row.keyword}.</p>
+${dayPlanHtml}
 <h2>Keep convenience high enough to stay consistent</h2>
 <p>Consistency usually breaks when the plan depends on too much cooking, too much cleanup, or too many decisions at the exact moment energy is lowest. That is where prepared meals can help: they reduce friction without forcing athletes into repetitive or low-quality choices.</p>
 <p>For CookUnity, the relevant angle is not “healthy meals” in the abstract. It is the ability to have balanced, satisfying meals ready on the nights when training, work, and recovery leave very little room for more effort.</p>
@@ -573,7 +613,7 @@ function buildLocalStepPayload(row: GridOpportunityRow, stepName: typeof ordered
           : `${title} is a strong conversion topic for CookUnity and this fallback draft is written so the team can iterate on real landing page copy today.`,
         keyTakeaways: buildLocalKeyTakeaways(row),
         targetKeywords: [row.keyword, ...buildLocalSecondaryKeywords(row)],
-        html: buildLocalDraftHtml(row, title),
+        html: buildLocalDraftHtml(row, title, outlinePackage),
         titleTagOptions: [`${title} | CookUnity`],
         metaDescriptionOptions: [
           row.path === "blog"

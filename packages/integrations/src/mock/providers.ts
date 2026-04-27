@@ -16,6 +16,7 @@ import type {
 } from "../providers/types";
 import { identifyMainInternalLink } from "../providers/internal-link-catalog";
 import { getStrapiContentModelConfig } from "../providers/strapi-mapper";
+import { searchCookunityMeals } from "@cookunity-seo-agent/shared";
 
 const mockKeywords: KeywordDiscoveryRecord[] = [
   {
@@ -239,14 +240,20 @@ export class MockWorkflowResearchProvider implements WorkflowResearchProvider {
   }
 
   async fetchMeals(filters: string[]) {
-    const base = [
-      { id: "meal_1", name: "Mushroom risotto", chef: "Chef Silvia", dietaryTags: ["vegetarian"] },
-      { id: "meal_2", name: "Chicken shawarma bowl", chef: "Chef Chris", dietaryTags: ["high protein"] },
-      { id: "meal_3", name: "Cauliflower tikka masala", chef: "Chef Akhtar", dietaryTags: ["vegetarian", "gluten free"] },
-    ];
-    return filters.length
-      ? base.filter((meal) => filters.every((filter) => meal.dietaryTags.includes(filter)))
-      : base;
+    return searchCookunityMeals({
+      keyword: filters.join(" ") || "prepared meals",
+      filters,
+      count: 24,
+    }).map((meal) => ({
+      id: meal.id,
+      name: meal.name,
+      ...(meal.chef ? { chef: meal.chef } : {}),
+      dietaryTags: meal.dietaryTags,
+      url: meal.url,
+      imageUrl: meal.imageUrl,
+      description: meal.description,
+      rating: meal.rating,
+    }));
   }
 
   async searchImageCandidates(term: string) {

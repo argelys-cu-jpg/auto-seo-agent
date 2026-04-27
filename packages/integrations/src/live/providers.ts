@@ -1,4 +1,4 @@
-import { getConfig } from "@cookunity-seo-agent/shared";
+import { getConfig, searchCookunityMeals } from "@cookunity-seo-agent/shared";
 import type {
   AhrefsProvider,
   AnalyticsProvider,
@@ -488,8 +488,21 @@ export class LiveWorkflowResearchProvider implements WorkflowResearchProvider {
     return [];
   }
 
-  async fetchMeals(): Promise<Array<{ id: string; name: string; chef?: string; dietaryTags: string[] }>> {
-    throw new Error("Live meal knowledge base retrieval is not implemented yet.");
+  async fetchMeals(filters: string[]): Promise<Array<{ id: string; name: string; chef?: string; dietaryTags: string[]; url?: string; imageUrl?: string; description?: string; rating?: number }>> {
+    return searchCookunityMeals({
+      keyword: filters.join(" ") || "prepared meals",
+      filters,
+      count: 24,
+    }).map((meal) => ({
+      id: meal.id,
+      name: meal.name,
+      ...(meal.chef ? { chef: meal.chef } : {}),
+      dietaryTags: meal.dietaryTags,
+      url: meal.url,
+      imageUrl: meal.imageUrl,
+      description: meal.description,
+      rating: meal.rating,
+    }));
   }
 
   async searchImageCandidates(): Promise<Array<{ id: string; url: string; width: number; height: number }>> {

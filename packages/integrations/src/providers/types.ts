@@ -111,6 +111,10 @@ export interface MealSearchRecord {
   name: string;
   chef?: string;
   dietaryTags: string[];
+  url?: string;
+  imageUrl?: string;
+  description?: string;
+  rating?: number;
 }
 
 export interface ReviewDocumentProvider {

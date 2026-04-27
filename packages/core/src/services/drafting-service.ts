@@ -1,4 +1,4 @@
-import { getConfig, type OutlinePackage } from "@cookunity-seo-agent/shared";
+import { buildCookunitySevenDayMealPlan, getConfig, type MealRecommendation, type OutlinePackage } from "@cookunity-seo-agent/shared";
 import { loadBrandVoice, promptTemplates } from "@cookunity-seo-agent/prompts";
 import type { ContentBrief, Draft } from "@cookunity-seo-agent/shared";
 
@@ -290,10 +290,86 @@ export class DraftingService {
     ];
   }
 
+  private buildMealPlanDays(brief: ContentBrief): Array<{ day: number; lunch: MealRecommendation; dinner: MealRecommendation }> {
+    const outlinePackage = this.readOutlinePackage(brief);
+    const fromOutline = outlinePackage?.mealRecommendations ?? [];
+    const days = new Map<number, { lunch?: MealRecommendation; dinner?: MealRecommendation }>();
+
+    for (const meal of fromOutline) {
+      if (!meal.day || !meal.slot) continue;
+      const current = days.get(meal.day) ?? {};
+      if (meal.slot === "lunch") current.lunch = meal;
+      if (meal.slot === "dinner") current.dinner = meal;
+      days.set(meal.day, current);
+    }
+
+    if (days.size >= 7) {
+      return [...days.entries()]
+        .sort((left, right) => left[0] - right[0])
+        .flatMap(([day, meals]) => (meals.lunch && meals.dinner ? [{ day, lunch: meals.lunch, dinner: meals.dinner }] : []))
+        .slice(0, 7);
+    }
+
+      return buildCookunitySevenDayMealPlan(brief.primaryKeyword, brief.secondaryKeywords).map((day) => ({
+      day: day.day,
+      lunch: {
+        id: day.lunch.id,
+        name: day.lunch.name,
+        ...(day.lunch.chef ? { chef: day.lunch.chef } : {}),
+        dietaryTags: day.lunch.dietaryTags,
+        url: day.lunch.url,
+        imageUrl: day.lunch.imageUrl,
+        description: day.lunch.description,
+        rating: day.lunch.rating,
+        day: day.day,
+        slot: "lunch",
+        reason: `Recommended for day ${day.day} lunch.`,
+      },
+      dinner: {
+        id: day.dinner.id,
+        name: day.dinner.name,
+        ...(day.dinner.chef ? { chef: day.dinner.chef } : {}),
+        dietaryTags: day.dinner.dietaryTags,
+        url: day.dinner.url,
+        imageUrl: day.dinner.imageUrl,
+        description: day.dinner.description,
+        rating: day.dinner.rating,
+        day: day.day,
+        slot: "dinner",
+        reason: `Recommended for day ${day.day} dinner.`,
+      },
+    }));
+  }
+
   private buildAthleteMealPlanSections(brief: ContentBrief): Draft["sections"] {
     const secondaryA = brief.secondaryKeywords[0] ?? `${brief.primaryKeyword} guide`;
     const secondaryB = brief.secondaryKeywords[1] ?? `${brief.primaryKeyword} ideas`;
     const secondaryC = brief.secondaryKeywords[2] ?? `best ${brief.primaryKeyword}`;
+    const mealPlanDays = this.buildMealPlanDays(brief);
+    const dayContexts = [
+      "Mid-morning training day",
+      "Afternoon training day",
+      "Active recovery day",
+      "Early morning training day",
+      "Night training day",
+      "Rest and reset day",
+      "Late afternoon training day",
+    ];
+
+    const daySections = mealPlanDays.map((dayPlan, index) => {
+      const context = dayContexts[index] ?? `Training day ${dayPlan.day}`;
+      const lunchChef = dayPlan.lunch.chef ? ` from Chef ${dayPlan.lunch.chef}` : "";
+      const dinnerChef = dayPlan.dinner.chef ? ` from Chef ${dayPlan.dinner.chef}` : "";
+      return {
+        heading: `Day ${dayPlan.day}: ${context}`,
+        level: 2,
+        body: [
+          `Lunch can carry the first big recovery job of the day. ${dayPlan.lunch.name}${lunchChef} works here because it gives the athlete a more complete midday meal: a meaningful protein anchor, enough substance to steady appetite, and the kind of practical structure that keeps the rest of the afternoon from sliding into snack-based improvisation.`,
+          `Dinner should close the day without creating another project. ${dayPlan.dinner.name}${dinnerChef} fits that role because it keeps recovery-supportive food ready on the nights when training, commuting, and general fatigue make cooking the first thing to collapse.`,
+          `This is what makes the weekly plan feel usable instead of aspirational. The meals are not random examples. They show how a real athlete week can keep lunch and dinner aligned with training demands while still using convenience strategically.`,
+        ].join("\n\n"),
+      };
+    });
 
     return [
       {
@@ -318,46 +394,11 @@ export class DraftingService {
         heading: "What a 7-day meal plan for athletes can look like",
         level: 2,
         body: [
-          `The sample structure below is not a universal prescription. It is a realistic example of how an athlete might organize a week with a mix of training days, lighter days, and recovery windows. The point is to show what consistency can look like when meals are built around real schedule demands.`,
+          `The sample structure below is not a universal prescription. It is a realistic example of how an athlete might organize a week with a mix of training days, lighter days, and recovery windows. The point is to show what consistency can look like when real lunches and dinners are assigned to real days instead of being left as vague placeholders.`,
           `Across the week, the pattern stays recognizable: a stable breakfast, a lunch that supports the next block of the day, a smarter pre-workout or post-workout snack when needed, and a dinner that does enough recovery work without creating more friction than the athlete can sustain.`,
         ].join("\n\n"),
       },
-      {
-        heading: "Day 1: Mid-morning training day",
-        level: 2,
-        body: [
-          `Breakfast can be simple and carbohydrate-forward, like toast or an English muffin with nut butter, fruit, and milk. The goal is enough energy to start the day without making the first session feel heavy.`,
-          `After the workout, lunch should do more recovery work. A strong option might include a protein anchor like chicken, tofu, chickpeas, or Greek yogurt, plus a grain or wrap and fruit on the side. Dinner can then stay balanced rather than oversized: a chef-made bowl, grilled protein with starch and vegetables, or another complete meal that keeps the athlete from playing catch-up late at night.`,
-          `This kind of day shows how ${brief.primaryKeyword} flexes around training timing. The first post-workout meal often carries more nutritional weight than an average lunch on a non-training day, and the plan should reflect that.`,
-        ].join("\n\n"),
-      },
-      {
-        heading: "Day 2: Afternoon training day",
-        level: 2,
-        body: [
-          `On a later training day, breakfast and lunch need to build the runway. A more substantial breakfast with eggs, oats, potatoes, yogurt, or fruit can work well, while lunch should provide enough carbohydrate and protein that the athlete does not head into the session underfueled.`,
-          `A pre-workout snack in the late afternoon might be lighter and easier to digest: toast, crackers, fruit, or a small yogurt-based option depending on the timing window. Dinner becomes the main recovery meal, with enough protein and carbohydrate to support the session without turning the evening into a second round of prep.`,
-          `This is a useful place to reinforce supporting demand around ${secondaryA}. A good athlete meal plan is not just a list of foods. It is a timing strategy that keeps the whole day coherent.`,
-        ].join("\n\n"),
-      },
-      {
-        heading: "Day 3: Active recovery or lower-intensity day",
-        level: 2,
-        body: [
-          `Lower-intensity days do not need the same carbohydrate emphasis as hard training days, but they still need structure. Breakfast, lunch, and dinner still need to stay protein-aware and satisfying enough that the athlete does not drift into unplanned under-eating or constant snacking.`,
-          `This is often a good day for simpler meals: eggs and toast, leftovers with grains and vegetables, yogurt with fruit, salmon with potatoes, or another balanced dinner that feels restorative instead of overly engineered. The plan should remain supportive without pretending every day requires the same fueling pattern.`,
-          `For search intent, this is one of the sections that makes the article more complete. Readers want to know how the plan adjusts, not just how it performs on the hardest day of the week.`,
-        ].join("\n\n"),
-      },
-      {
-        heading: "Days 4 through 7: Repeat the pattern without repeating the exact meals",
-        level: 2,
-        body: [
-          `The final four days should show how the structure continues: a harder early session may call for quicker pre-workout carbohydrate, a late game may require dinner to happen earlier, and a full rest day may shift the focus toward simpler balanced meals rather than aggressive fueling.`,
-          `The key is not to prescribe seven rigid days of identical eating. The key is to show repeatable logic. Athletes need enough variety to stay engaged, but enough consistency that performance nutrition does not turn into a constant decision-making exercise.`,
-          `That is also where prepared meals can be especially useful. If the athlete already has a strong dinner option ready on the nights when training runs long or work spills over, the weekly plan becomes much easier to maintain. That is what makes the CookUnity bridge feel practical instead of forced.`,
-        ].join("\n\n"),
-      },
+      ...daySections,
       {
         heading: "Where CookUnity fits into an athlete meal plan",
         level: 2,
