@@ -7,7 +7,7 @@ import type {
   WorkflowStepName,
   WorkflowStepStatus,
 } from "@cookunity-seo-agent/shared";
-import { mockBrief, mockDraft } from "@cookunity-seo-agent/shared";
+import { getConfig, mockBrief, mockDraft } from "@cookunity-seo-agent/shared";
 import { unstable_noStore as noStore } from "next/cache";
 
 function toJsonValue(value: unknown) {
@@ -1366,11 +1366,15 @@ export async function publishOpportunityFromGrid(opportunityId: string, actor: s
 
 export async function getGridControlPlaneData() {
   noStore();
+  const config = getConfig();
+  const ahrefsMode: "live" | "mock" =
+    config.APP_MODE === "live" && !config.ENABLE_MOCK_DATA && Boolean(config.AHREFS_API_KEY) ? "live" : "mock";
   const rows = await safeListGridControlPlane();
   if (!rows) {
     return {
       persistenceMode: "mock" as const,
       databaseReady: false,
+      ahrefsMode,
       rows: mockRows(),
     };
   }
@@ -1378,6 +1382,7 @@ export async function getGridControlPlaneData() {
   return {
     persistenceMode: "database" as const,
     databaseReady: true,
+    ahrefsMode,
     rows,
   };
 }

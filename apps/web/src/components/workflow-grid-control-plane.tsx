@@ -873,6 +873,7 @@ export function WorkflowGridControlPlane(props: {
   initialRows: GridOpportunityRow[];
   persistenceMode: "database" | "mock";
   databaseReady: boolean;
+  ahrefsMode: "live" | "mock";
   workspaceKey: string;
   workspaceTitle: string;
   workspaceDescription: string;
@@ -1306,6 +1307,7 @@ export function WorkflowGridControlPlane(props: {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Badge variant="grid">{props.persistenceMode === "database" ? "Database-backed" : "Mock fallback"}</Badge>
             <Badge variant="grid">{props.databaseReady ? "DB connected" : "DB unavailable"}</Badge>
+            <Badge variant="grid">{props.ahrefsMode === "live" ? "Ahrefs live" : "Ahrefs mock"}</Badge>
             <Badge variant="grid">{pending ? "Running action" : "Ready"}</Badge>
           </div>
         </div>

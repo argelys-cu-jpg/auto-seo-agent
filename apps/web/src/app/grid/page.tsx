@@ -70,6 +70,7 @@ export default async function WorkflowGridPage({
             initialRows={data.rows}
             persistenceMode={data.persistenceMode}
             databaseReady={data.databaseReady}
+            ahrefsMode={data.ahrefsMode}
             workspaceKey={workspace.key}
             workspaceTitle={workspace.title}
             workspaceDescription={workspace.description}
