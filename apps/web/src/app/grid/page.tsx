@@ -3,6 +3,9 @@ import Link from "next/link";
 import { WorkflowGridControlPlane } from "../../components/workflow-grid-control-plane";
 import { getGridControlPlaneData } from "../../lib/workflow-grid-store";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const workspaces = [
   { key: "general", label: "General", title: "Bulk editor", description: "Add, edit, remove, and run topics in one place." },
   { key: "diets", label: "Diets", title: "Diet bulk editor", description: "Manage diet pages, supporting blog articles, and diet comparison work." },

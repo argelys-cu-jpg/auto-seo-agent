@@ -8,6 +8,7 @@ import type {
   WorkflowStepStatus,
 } from "@cookunity-seo-agent/shared";
 import { mockBrief, mockDraft } from "@cookunity-seo-agent/shared";
+import { unstable_noStore as noStore } from "next/cache";
 
 function toJsonValue(value: unknown) {
   return value as Record<string, unknown> | null;
@@ -1364,6 +1365,7 @@ export async function publishOpportunityFromGrid(opportunityId: string, actor: s
 }
 
 export async function getGridControlPlaneData() {
+  noStore();
   const rows = await safeListGridControlPlane();
   if (!rows) {
     return {
