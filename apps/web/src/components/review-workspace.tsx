@@ -9,6 +9,22 @@ import type { GridOpportunityDetail, GridStepView } from "../lib/workflow-grid-s
 
 const REVIEW_STORAGE_KEY = "cookunity-review-draft";
 
+async function requestJson(url: string, options?: RequestInit) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options?.headers ?? {}),
+    },
+  });
+  const raw = await response.text();
+  const payload = raw ? (JSON.parse(raw) as { success: boolean; message?: string; result?: GridOpportunityDetail }) : null;
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.message ?? raw ?? "Request failed.");
+  }
+  return payload;
+}
+
 function getStepPayload(step?: GridStepView | null) {
   if (!step) return null;
   return (step.manualOutput ?? step.output ?? null) as Record<string, unknown> | null;
@@ -55,6 +71,7 @@ export function ReviewWorkspace() {
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<"in_review" | "approved" | "revision_requested" | "rejected">("in_review");
   const [message, setMessage] = useState<string | null>(null);
+  const [pending, setPending] = useState<false | "approve" | "request_changes" | "rewrite">(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +144,12 @@ export function ReviewWorkspace() {
   const competitorSummary = typeof briefAnalysis?.competitorSummary === "string" ? briefAnalysis.competitorSummary : "";
 
   const renderedPreview = draftPreviewHtml(draftPayload, draftTitle);
+  const draftStepId = draftStep?.id ?? null;
+  const canUseWorkflowStepActions =
+    Boolean(draftStepId) &&
+    !draftStepId?.startsWith("local_") &&
+    !draftStepId?.startsWith("pending_") &&
+    !draftStepId?.startsWith("mock_");
 
   function persistUpdatedDetail(nextDetail: GridOpportunityDetail) {
     setDetail(nextDetail);
@@ -164,6 +187,90 @@ export function ReviewWorkspace() {
           ? "Draft rejected in the review workspace."
           : "Change request saved in the review workspace.",
     );
+  }
+
+  async function persistRevisionRequest() {
+    if (!notes.trim()) {
+      setMessage("Add change request notes before saving feedback.");
+      return;
+    }
+    if (!detail || !draftStepId || !canUseWorkflowStepActions) {
+      applyLocalReview("revision_requested");
+      return;
+    }
+    setPending("request_changes");
+    setMessage(null);
+    try {
+      const payload = await requestJson(`/api/workflow/steps/${draftStepId}/revision`, {
+        method: "POST",
+        body: JSON.stringify({ note: notes.trim() }),
+      });
+      if (payload.result) {
+        persistUpdatedDetail(payload.result);
+      }
+      setStatus("revision_requested");
+      setMessage("Change request saved. Use Rewrite draft to generate the next version from this feedback.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to save change request.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function rewriteDraftFromFeedback() {
+    if (!notes.trim()) {
+      setMessage("Add draft feedback before rewriting.");
+      return;
+    }
+    if (!detail || !draftStepId || !canUseWorkflowStepActions) {
+      applyLocalReview("revision_requested");
+      setMessage("Saved feedback locally. Open the source row in Bulk editor and rerun Draft to apply it.");
+      return;
+    }
+    setPending("rewrite");
+    setMessage(null);
+    try {
+      await requestJson(`/api/workflow/steps/${draftStepId}/revision`, {
+        method: "POST",
+        body: JSON.stringify({ note: notes.trim() }),
+      });
+      const rerunPayload = await requestJson(`/api/workflow/steps/${draftStepId}/rerun`, {
+        method: "POST",
+        body: JSON.stringify({ note: notes.trim() }),
+      });
+      if (rerunPayload.result) {
+        persistUpdatedDetail(rerunPayload.result);
+      }
+      setStatus("in_review");
+      setMessage("Draft rewritten from review feedback.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to rewrite draft.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function approveDraft() {
+    if (!detail || !draftStepId || !canUseWorkflowStepActions) {
+      applyLocalReview("approved");
+      return;
+    }
+    setPending("approve");
+    setMessage(null);
+    try {
+      const payload = await requestJson(`/api/workflow/steps/${draftStepId}/approve`, {
+        method: "POST",
+      });
+      if (payload.result) {
+        persistUpdatedDetail(payload.result);
+      }
+      setStatus("approved");
+      setMessage("Draft approved.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to approve draft.");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -331,13 +438,16 @@ export function ReviewWorkspace() {
                   placeholder="Add review notes"
                 />
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <button type="button" className="app-button is-primary" onClick={() => applyLocalReview("approved")}>
+                  <button type="button" className="app-button is-primary" disabled={Boolean(pending)} onClick={() => void approveDraft()}>
                     Approve draft
                   </button>
-                  <button type="button" className="app-button" onClick={() => applyLocalReview("revision_requested")}>
+                  <button type="button" className="app-button" disabled={Boolean(pending)} onClick={() => void persistRevisionRequest()}>
                     Ask for changes
                   </button>
-                  <button type="button" className="app-button" onClick={() => applyLocalReview("rejected")}>
+                  <button type="button" className="app-button" disabled={Boolean(pending)} onClick={() => void rewriteDraftFromFeedback()}>
+                    Rewrite draft
+                  </button>
+                  <button type="button" className="app-button" disabled={Boolean(pending)} onClick={() => applyLocalReview("rejected")}>
                     Reject
                   </button>
                 </div>

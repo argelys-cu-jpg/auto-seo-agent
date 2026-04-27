@@ -1009,6 +1009,19 @@ export function WorkflowGridControlPlane(props: {
   }, [selectedId, props.persistenceMode]);
 
   useEffect(() => {
+    if (!detail) return;
+    setStepNotes((current) => {
+      const next = { ...current };
+      for (const step of detail.steps) {
+        if (step.revisionNote && !next[step.id]) {
+          next[step.id] = step.revisionNote;
+        }
+      }
+      return next;
+    });
+  }, [detail]);
+
+  useEffect(() => {
     if (props.persistenceMode === "database") {
       setRows(props.initialRows);
       return;
