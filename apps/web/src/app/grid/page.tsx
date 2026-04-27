@@ -15,11 +15,12 @@ const workspaces = [
 export default async function WorkflowGridPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ workspace?: string }>;
+  searchParams?: Promise<{ workspace?: string; selected?: string; review?: string }>;
 }) {
   const data = await getGridControlPlaneData();
   const params = searchParams ? await searchParams : undefined;
   const workspace = workspaces.find((item) => item.key === params?.workspace) ?? workspaces[0]!;
+  const initialSelectedId = params?.selected ?? params?.review ?? null;
 
   return (
     <div className="airops-shell">
@@ -69,6 +70,7 @@ export default async function WorkflowGridPage({
             workspaceKey={workspace.key}
             workspaceTitle={workspace.title}
             workspaceDescription={workspace.description}
+            initialSelectedId={initialSelectedId}
           />
         </div>
       </main>

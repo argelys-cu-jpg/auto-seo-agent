@@ -852,10 +852,15 @@ export function WorkflowGridControlPlane(props: {
   workspaceKey: string;
   workspaceTitle: string;
   workspaceDescription: string;
+  initialSelectedId?: string | null;
 }) {
   const router = useRouter();
   const [rows, setRows] = useState<GridOpportunityRow[]>(props.initialRows);
-  const [selectedId, setSelectedId] = useState<string | null>(props.initialRows[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    props.initialSelectedId && props.initialRows.some((row) => row.id === props.initialSelectedId)
+      ? props.initialSelectedId
+      : props.initialRows[0]?.id ?? null,
+  );
   const [detail, setDetail] = useState<GridOpportunityDetail | null>(null);
   const [form, setForm] = useState({
     keyword: "",
@@ -1024,6 +1029,11 @@ export function WorkflowGridControlPlane(props: {
   useEffect(() => {
     if (props.persistenceMode === "database") {
       setRows(props.initialRows);
+      if (props.initialSelectedId && props.initialRows.some((row) => row.id === props.initialSelectedId)) {
+        setSelectedId(props.initialSelectedId);
+      } else if (!selectedId && props.initialRows[0]?.id) {
+        setSelectedId(props.initialRows[0].id);
+      }
       return;
     }
 
@@ -1044,7 +1054,7 @@ export function WorkflowGridControlPlane(props: {
     } catch {
       setRows(props.initialRows);
     }
-  }, [props.initialRows, props.persistenceMode, props.workspaceKey]);
+  }, [props.initialRows, props.persistenceMode, props.workspaceKey, props.initialSelectedId, selectedId]);
 
   useEffect(() => {
     if (selectedId) {
@@ -1356,17 +1366,16 @@ export function WorkflowGridControlPlane(props: {
                         setSelectedId(createdDetail.id);
                         setDrawerOpen(true);
                         await refreshRow(createdDetail.id);
-                        setNotice("Opportunity created and workflow artifacts generated.");
+                        setNotice(response.warning ? `Opportunity created. ${response.warning}` : "Opportunity created and workflow artifacts generated.");
                       } else {
                         setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
                         router.refresh();
                         setNotice("Opportunity created.");
                       }
                     } catch (nextError) {
-                      const localDetail = buildLocalDetail(optimisticRow);
-                      setLocalDetail(localDetail);
-                      setNotice("Opportunity created with local fallback draft.");
-                      setError(null);
+                      setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
+                      setSelectedId((current) => (current === optimisticRow.id ? (rows[0]?.id ?? null) : current));
+                      throw nextError;
                     }
                   } else {
                     const created = buildMockOpportunity(payload);
