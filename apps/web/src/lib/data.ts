@@ -43,6 +43,8 @@ export interface DashboardPublicationSummary {
   slug: string;
   status: string;
   title: string;
+  source?: "database" | "live_blog";
+  liveUrl?: string;
   publishedAt?: string;
   metricSnapshots: DashboardMetricSnapshotSummary[];
   optimizationTasks: DashboardOptimizationTaskSummary[];
@@ -517,6 +519,8 @@ export async function getDashboardData(): Promise<DashboardData> {
         slug: publication.slug,
         status: publication.status,
         title: publication.topicCandidate.title,
+        source: "database",
+        liveUrl: `https://www.cookunity.com/blog/${publication.slug}`,
         ...(publication.publishedAt ? { publishedAt: publication.publishedAt.toISOString() } : {}),
         metricSnapshots: [],
         optimizationTasks: [],
