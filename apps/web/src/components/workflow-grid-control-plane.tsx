@@ -1214,15 +1214,8 @@ export function WorkflowGridControlPlane(props: {
 
   async function generateDraftForSelected(opportunityId: string) {
     const targetRow = rows.find((row) => row.id === opportunityId) ?? selectedRow;
-    const isDirectLocalFallback =
-      props.persistenceMode !== "database" ||
-      !props.databaseReady ||
-      Boolean(targetRow?.id.startsWith("pending_")) ||
-      Boolean(targetRow?.steps.some((step) => isLocalStep(step)));
+    const isDirectLocalFallback = props.persistenceMode !== "database" || !props.databaseReady;
     if (isDirectLocalFallback && targetRow) {
-      if (props.persistenceMode === "database" && props.databaseReady) {
-        throw new Error("This row has not persisted to the database yet. Refresh the grid and confirm it exists before rerunning draft.");
-      }
       const localDetail = buildLocalDetail(targetRow, "qa", detail?.id === targetRow.id ? detail : undefined);
       setLocalDetail(localDetail);
       setNotice("Draft generated locally from fallback copy.");
@@ -1230,10 +1223,10 @@ export function WorkflowGridControlPlane(props: {
       return;
     }
     try {
-      let currentDetail = detail?.id === opportunityId ? detail : null;
+      const initialPayload = await requestJson(`/api/opportunities/${opportunityId}`);
+      let currentDetail = initialPayload.result ?? null;
       if (!currentDetail) {
-        const initialPayload = await requestJson(`/api/opportunities/${opportunityId}`);
-        currentDetail = initialPayload.result ?? null;
+        throw new Error("The row could not be loaded from the database.");
       }
       for (const stepName of ["discovery", "prioritization", "brief", "draft", "qa"] as const) {
         const step = currentDetail?.steps.find((item) => item.stepName === stepName);
@@ -1258,19 +1251,10 @@ export function WorkflowGridControlPlane(props: {
       await refreshRow(opportunityId);
       setNotice("Draft generated.");
     } catch (nextError) {
-      if (props.persistenceMode === "database" && props.databaseReady) {
-        throw nextError;
-      }
       if (!targetRow) {
         throw nextError;
       }
-      const localDetail = buildLocalDetail(targetRow, "qa", detail?.id === targetRow.id ? detail : undefined);
-      setDetail(localDetail);
-      setRows((current) => applyDetailToRows(current, localDetail));
-      setSelectedId(localDetail.id);
-      setDrawerOpen(true);
-      setNotice("Draft generated locally from fallback copy.");
-      setError(null);
+      throw nextError;
     }
   }
 
