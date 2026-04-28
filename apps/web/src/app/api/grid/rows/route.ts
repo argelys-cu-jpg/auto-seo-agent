@@ -4,10 +4,20 @@ import {
   listGridControlPlane,
 } from "../../../../lib/workflow-grid-store";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(): Promise<NextResponse> {
   try {
     const rows = await listGridControlPlane();
-    return NextResponse.json({ success: true, rows });
+    return NextResponse.json(
+      { success: true, rows },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      },
+    );
   } catch (error) {
     return NextResponse.json(
       {

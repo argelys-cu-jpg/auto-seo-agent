@@ -104,6 +104,7 @@ async function requestJson(url: string, options?: RequestInit) {
 
 async function requestGridRows() {
   const response = await fetch("/api/grid/rows", {
+    cache: "no-store",
     headers: {
       Accept: "application/json",
     },
