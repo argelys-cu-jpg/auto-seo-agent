@@ -1220,6 +1220,9 @@ export function WorkflowGridControlPlane(props: {
       Boolean(targetRow?.id.startsWith("pending_")) ||
       Boolean(targetRow?.steps.some((step) => isLocalStep(step)));
     if (isDirectLocalFallback && targetRow) {
+      if (props.persistenceMode === "database" && props.databaseReady) {
+        throw new Error("This row has not persisted to the database yet. Refresh the grid and confirm it exists before rerunning draft.");
+      }
       const localDetail = buildLocalDetail(targetRow, "qa", detail?.id === targetRow.id ? detail : undefined);
       setLocalDetail(localDetail);
       setNotice("Draft generated locally from fallback copy.");
@@ -1255,6 +1258,9 @@ export function WorkflowGridControlPlane(props: {
       await refreshRow(opportunityId);
       setNotice("Draft generated.");
     } catch (nextError) {
+      if (props.persistenceMode === "database" && props.databaseReady) {
+        throw nextError;
+      }
       if (!targetRow) {
         throw nextError;
       }
