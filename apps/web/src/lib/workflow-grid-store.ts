@@ -27,6 +27,20 @@ function normalizeKeyword(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function canonicalKeywordKey(value: string) {
+  return normalizeKeyword(value);
+}
+
+function uniqueOpportunityKey(value: string, suffix?: string) {
+  const base = canonicalKeywordKey(value);
+  return `${base}__${suffix ?? Date.now().toString()}`;
+}
+
+function preserveOpportunitySuffix(normalizedKeyword: string) {
+  const parts = normalizedKeyword.split("__");
+  return parts.length > 1 ? parts.slice(1).join("__") : Date.now().toString();
+}
+
 function inferIntent(keyword: string, path: OpportunityPath): string {
   const normalized = keyword.toLowerCase();
   if (path === "landing_page") {
@@ -639,8 +653,10 @@ async function materializeFallbackWorkflow(opportunityId: string, targetStep?: W
     data: { status: "running" },
   });
 
+  const canonicalNormalizedKeyword = canonicalKeywordKey(opportunity.keyword);
+
   const keyword = await prisma.keyword.upsert({
-    where: { normalizedTerm: opportunity.normalizedKeyword },
+    where: { normalizedTerm: canonicalNormalizedKeyword },
     update: {
       term: opportunity.keyword,
       source: "manual",
@@ -650,7 +666,7 @@ async function materializeFallbackWorkflow(opportunityId: string, targetStep?: W
     },
     create: {
       term: opportunity.keyword,
-      normalizedTerm: opportunity.normalizedKeyword,
+      normalizedTerm: canonicalNormalizedKeyword,
       source: "manual",
       searchVolume: 1200,
       keywordDifficulty: 24,
@@ -659,7 +675,7 @@ async function materializeFallbackWorkflow(opportunityId: string, targetStep?: W
   });
 
   const topicCandidate = await prisma.topicCandidate.upsert({
-    where: { normalizedKeyword: opportunity.normalizedKeyword },
+    where: { normalizedKeyword: canonicalNormalizedKeyword },
     update: {
       title: opportunity.keyword,
       keywordId: keyword.id,
@@ -684,7 +700,7 @@ async function materializeFallbackWorkflow(opportunityId: string, targetStep?: W
     },
     create: {
       title: opportunity.keyword,
-      normalizedKeyword: opportunity.normalizedKeyword,
+      normalizedKeyword: canonicalNormalizedKeyword,
       keywordId: keyword.id,
       source: "manual",
       workflowState: "queued",
@@ -957,11 +973,10 @@ export async function createOpportunityRecord(input: {
   competitorPageUrl?: string;
 }) {
   const prisma = await getPrismaClient();
-  const normalizedKeyword = normalizeKeyword(input.keyword);
-  return prisma.opportunity.upsert({
-    where: { normalizedKeyword },
-    update: {
+  return prisma.opportunity.create({
+    data: {
       keyword: input.keyword.trim(),
+      normalizedKeyword: uniqueOpportunityKey(input.keyword),
       path: input.path,
       type: input.type,
       pageIdea: input.pageIdea?.trim() || null,
@@ -970,17 +985,30 @@ export async function createOpportunityRecord(input: {
       rowStatus: "idle",
       lastError: null,
     },
-    create: {
-      keyword: input.keyword.trim(),
-      normalizedKeyword,
-      path: input.path,
-      type: input.type,
-      pageIdea: input.pageIdea?.trim() || null,
-      competitorPageUrl: input.competitorPageUrl?.trim() || null,
-      intent: inferIntent(input.keyword, input.path),
-      rowStatus: "idle",
-    },
   });
+}
+
+async function ensureUniqueOpportunityKey(
+  prisma: Awaited<ReturnType<typeof getPrismaClient>>,
+  keyword: string,
+  currentOpportunityId: string,
+  currentNormalizedKeyword: string,
+) {
+  const suffix = preserveOpportunitySuffix(currentNormalizedKeyword);
+  const candidateKey = uniqueOpportunityKey(keyword, suffix);
+  const existing = await prisma.opportunity.findFirst({
+    where: {
+      normalizedKeyword: candidateKey,
+      NOT: { id: currentOpportunityId },
+    },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    return candidateKey;
+  }
+
+  return uniqueOpportunityKey(keyword, `${suffix}_${Date.now()}`);
 }
 
 export async function updateOpportunityRecord(
@@ -1007,7 +1035,7 @@ export async function updateOpportunityRecord(
     where: { id: opportunityId },
     data: {
       keyword: nextKeyword,
-      normalizedKeyword: normalizeKeyword(nextKeyword),
+      normalizedKeyword: await ensureUniqueOpportunityKey(prisma, nextKeyword, opportunityId, existing.normalizedKeyword),
       path: nextPath,
       type: nextType,
       ...(input.pageIdea !== undefined ? { pageIdea: input.pageIdea?.trim() || null } : {}),
