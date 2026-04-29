@@ -140,6 +140,17 @@ function applyDetailToRows(
   return nextRows;
 }
 
+function mergeRowsById(primary: GridOpportunityRow[], secondary: GridOpportunityRow[]) {
+  const seen = new Set<string>();
+  const merged: GridOpportunityRow[] = [];
+  for (const row of [...primary, ...secondary]) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    merged.push(row);
+  }
+  return merged.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
 function titleizeKeyword(value: string) {
   return value.replace(/\b\w/g, (character) => character.toUpperCase());
 }
@@ -985,6 +996,10 @@ export function WorkflowGridControlPlane(props: {
     return `cookunity-grid:${props.workspaceKey}`;
   }
 
+  function persistedDbStorageKey() {
+    return `cookunity-grid-db:${props.workspaceKey}`;
+  }
+
   function buildMockOpportunity(input: {
     keyword: string;
     path: OpportunityPath;
@@ -1087,6 +1102,30 @@ export function WorkflowGridControlPlane(props: {
     }
   }
 
+  function readPersistedDbRows() {
+    if (typeof window === "undefined") return [] as GridOpportunityRow[];
+    const saved = window.localStorage.getItem(persistedDbStorageKey());
+    if (!saved) return [] as GridOpportunityRow[];
+    try {
+      const parsed = JSON.parse(saved) as GridOpportunityRow[];
+      return parsed.filter((row) => !row.id.startsWith("pending_"));
+    } catch {
+      return [] as GridOpportunityRow[];
+    }
+  }
+
+  function writePersistedDbRows(nextRows: GridOpportunityRow[]) {
+    if (typeof window === "undefined") return;
+    const cleanRows = nextRows.filter((row) => !row.id.startsWith("pending_"));
+    window.localStorage.setItem(persistedDbStorageKey(), JSON.stringify(cleanRows));
+  }
+
+  function mergePersistedDbRows(nextRows: GridOpportunityRow[]) {
+    const merged = mergeRowsById(nextRows, readPersistedDbRows());
+    writePersistedDbRows(merged);
+    return merged;
+  }
+
   function openReviewWorkspace(sourceDetail: GridOpportunityDetail) {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(REVIEW_STORAGE_KEY, JSON.stringify(sourceDetail));
@@ -1127,15 +1166,16 @@ export function WorkflowGridControlPlane(props: {
 
   useEffect(() => {
     if (props.persistenceMode === "database") {
-      setRows(props.initialRows);
+      const nextRows = typeof window === "undefined" ? props.initialRows : mergePersistedDbRows(props.initialRows);
+      setRows(nextRows);
       setSelectedId((current) => {
-        if (props.initialSelectedId && props.initialRows.some((row) => row.id === props.initialSelectedId)) {
+        if (props.initialSelectedId && nextRows.some((row) => row.id === props.initialSelectedId)) {
           return props.initialSelectedId;
         }
-        if (current && props.initialRows.some((row) => row.id === current)) {
+        if (current && nextRows.some((row) => row.id === current)) {
           return current;
         }
-        return props.initialRows[0]?.id ?? null;
+        return nextRows[0]?.id ?? null;
       });
       return;
     }
@@ -1164,15 +1204,16 @@ export function WorkflowGridControlPlane(props: {
 
     void requestGridRows()
       .then((nextRows) => {
-        setRows(nextRows);
+        const mergedRows = mergePersistedDbRows(nextRows);
+        setRows(mergedRows);
         setSelectedId((current) => {
-          if (props.initialSelectedId && nextRows.some((row) => row.id === props.initialSelectedId)) {
+          if (props.initialSelectedId && mergedRows.some((row) => row.id === props.initialSelectedId)) {
             return props.initialSelectedId;
           }
-          if (current && nextRows.some((row) => row.id === current)) {
+          if (current && mergedRows.some((row) => row.id === current)) {
             return current;
           }
-          return nextRows[0]?.id ?? null;
+          return mergedRows[0]?.id ?? null;
         });
       })
       .catch((nextError) => {
@@ -1193,7 +1234,11 @@ export function WorkflowGridControlPlane(props: {
     const nextDetail = payload.result ?? null;
     if (!nextDetail) return;
     setDetail(nextDetail);
-    setRows((current) => applyDetailToRows(current, nextDetail));
+    setRows((current) => {
+      const nextRows = applyDetailToRows(current, nextDetail);
+      writePersistedDbRows(nextRows);
+      return nextRows;
+    });
   }
 
   async function runWorkflowInline(opportunityId: string) {
@@ -1207,7 +1252,11 @@ export function WorkflowGridControlPlane(props: {
       return;
     }
     setDetail(nextDetail);
-    setRows((current) => applyDetailToRows(current, nextDetail));
+    setRows((current) => {
+      const nextRows = applyDetailToRows(current, nextDetail);
+      writePersistedDbRows(nextRows);
+      return nextRows;
+    });
     setSelectedId(opportunityId);
     setDrawerOpen(true);
   }
@@ -1246,7 +1295,11 @@ export function WorkflowGridControlPlane(props: {
       }
       if (currentDetail) {
         setDetail(currentDetail);
-        setRows((current) => applyDetailToRows(current, currentDetail));
+        setRows((current) => {
+          const nextRows = applyDetailToRows(current, currentDetail);
+          writePersistedDbRows(nextRows);
+          return nextRows;
+        });
       }
       await refreshRow(opportunityId);
       setNotice("Draft generated.");
@@ -1318,7 +1371,13 @@ export function WorkflowGridControlPlane(props: {
 
   function setLocalDetail(nextDetail: GridOpportunityDetail) {
     setDetail(nextDetail);
-    setRows((current) => applyDetailToRows(current, nextDetail));
+    setRows((current) => {
+      const nextRows = applyDetailToRows(current, nextDetail);
+      if (props.persistenceMode === "database") {
+        writePersistedDbRows(nextRows);
+      }
+      return nextRows;
+    });
     setSelectedId(nextDetail.id);
     setDrawerOpen(true);
   }
@@ -1333,6 +1392,7 @@ export function WorkflowGridControlPlane(props: {
     const nextRows = rows.filter((row) => row.id !== rowId);
     if (props.persistenceMode === "database") {
       setRows(nextRows);
+      writePersistedDbRows(nextRows);
     } else {
       saveMockRows(nextRows);
     }
@@ -1476,7 +1536,11 @@ export function WorkflowGridControlPlane(props: {
                       });
                       const createdDetail = response.result ?? null;
                       if (createdDetail) {
-                        setRows((current) => applyDetailToRows(current.filter((row) => row.id !== optimisticRow.id), createdDetail));
+                        setRows((current) => {
+                          const nextRows = applyDetailToRows(current.filter((row) => row.id !== optimisticRow.id), createdDetail);
+                          writePersistedDbRows(nextRows);
+                          return nextRows;
+                        });
                         setDetail(createdDetail);
                         setSelectedId(createdDetail.id);
                         setDrawerOpen(true);
@@ -1485,7 +1549,8 @@ export function WorkflowGridControlPlane(props: {
                         if (!liveRows.some((row) => row.id === createdDetail.id)) {
                           throw new Error("The row was not returned by the live grid after creation.");
                         }
-                        setRows(liveRows);
+                        const mergedRows = mergePersistedDbRows(liveRows);
+                        setRows(mergedRows);
                         setNotice(response.warning ? `Opportunity created. ${response.warning}` : "Opportunity created and workflow artifacts generated.");
                       } else {
                         setRows((current) => current.filter((row) => row.id !== optimisticRow.id));
