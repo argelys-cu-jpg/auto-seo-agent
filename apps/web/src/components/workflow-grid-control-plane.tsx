@@ -997,7 +997,7 @@ export function WorkflowGridControlPlane(props: {
   }
 
   function persistedDbStorageKey() {
-    return `cookunity-grid-db:${props.workspaceKey}`;
+    return "cookunity-grid-db";
   }
 
   function buildMockOpportunity(input: {
@@ -1536,6 +1536,11 @@ export function WorkflowGridControlPlane(props: {
                       });
                       const createdDetail = response.result ?? null;
                       if (createdDetail) {
+                        const optimisticMergedRows = applyDetailToRows(
+                          rows.filter((row) => row.id !== optimisticRow.id),
+                          createdDetail,
+                        );
+                        writePersistedDbRows(optimisticMergedRows);
                         setRows((current) => {
                           const nextRows = applyDetailToRows(current.filter((row) => row.id !== optimisticRow.id), createdDetail);
                           writePersistedDbRows(nextRows);
