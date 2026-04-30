@@ -16,6 +16,9 @@ import type { GridOpportunityDetail, GridOpportunityRow, GridStepView } from "..
 const orderedSteps = ["discovery", "prioritization", "brief", "draft", "qa", "publish"] as const;
 type DrawerTab = "overview" | "brief" | "draft" | "qa" | "history";
 
+const isPendingRowId = (id: string | null | undefined): boolean =>
+  typeof id === "string" && id.startsWith("pending_");
+
 const operatorErrorMessages = {
   notFound: "This row is not yet saved to the database. Some actions are not available until persistence is connected.",
   server: "The server hit an error running this step. Try again, or check Diagnostics.",
@@ -136,7 +139,7 @@ function applyDetailToRows(
 ): GridOpportunityRow[] {
   const existingIndex = current.findIndex((row) => row.id === nextDetail.id);
   if (existingIndex === -1) {
-    return [nextDetail, ...current.filter((row) => !row.id.startsWith("pending_"))];
+    return [nextDetail, ...current.filter((row) => !isPendingRowId(row.id))];
   }
   const nextRows = [...current];
   nextRows[existingIndex] = nextDetail;
@@ -1305,7 +1308,7 @@ export function WorkflowGridControlPlane(props: {
     if (!saved) return [] as GridOpportunityRow[];
     try {
       const parsed = JSON.parse(saved) as GridOpportunityRow[];
-      return parsed.filter((row) => !row.id.startsWith("pending_"));
+      return parsed.filter((row) => !isPendingRowId(row.id));
     } catch {
       return [] as GridOpportunityRow[];
     }
@@ -1313,7 +1316,7 @@ export function WorkflowGridControlPlane(props: {
 
   function writePersistedDbRows(nextRows: GridOpportunityRow[]) {
     if (typeof window === "undefined") return;
-    const cleanRows = nextRows.filter((row) => !row.id.startsWith("pending_"));
+    const cleanRows = nextRows.filter((row) => !isPendingRowId(row.id));
     window.localStorage.setItem(persistedDbStorageKey(), JSON.stringify(cleanRows));
   }
 
@@ -1336,6 +1339,10 @@ export function WorkflowGridControlPlane(props: {
 
   useEffect(() => {
     if (!selectedId || props.persistenceMode !== "database") {
+      setDetail(null);
+      return;
+    }
+    if (isPendingRowId(selectedId)) {
       setDetail(null);
       return;
     }
@@ -1428,6 +1435,7 @@ export function WorkflowGridControlPlane(props: {
 
   async function refreshRow(opportunityId: string) {
     if (props.persistenceMode !== "database") return;
+    if (isPendingRowId(opportunityId)) return;
     const payload = await requestJson(`/api/opportunities/${opportunityId}`);
     const nextDetail = payload.result ?? null;
     if (!nextDetail) return;
@@ -1441,6 +1449,9 @@ export function WorkflowGridControlPlane(props: {
 
   async function generateDraftForSelected(opportunityId: string) {
     const targetRow = rows.find((row) => row.id === opportunityId) ?? selectedRow;
+    if (isPendingRowId(opportunityId)) {
+      throw new Error(operatorErrorMessages.notFound);
+    }
     const isDirectLocalFallback = props.persistenceMode !== "database" || !props.databaseReady;
     if (isDirectLocalFallback && targetRow) {
       const localDetail = buildLocalDetail(targetRow, "qa", detail?.id === targetRow.id ? detail : undefined);
@@ -1498,7 +1509,7 @@ export function WorkflowGridControlPlane(props: {
   async function saveRowEdit(rowId: string) {
     const draft = rowEdits[rowId];
     if (!draft) return;
-    if (props.persistenceMode !== "database") {
+    if (props.persistenceMode !== "database" || isPendingRowId(rowId)) {
       const nextRows = rows.map((row) =>
         row.id === rowId
           ? {
@@ -1511,7 +1522,11 @@ export function WorkflowGridControlPlane(props: {
             }
           : row,
       );
-      saveMockRows(nextRows);
+      if (props.persistenceMode !== "database") {
+        saveMockRows(nextRows);
+      } else {
+        setRows(nextRows);
+      }
       setEditingRowId(null);
       return;
     }
@@ -1556,20 +1571,23 @@ export function WorkflowGridControlPlane(props: {
   const isLocalWorkflow =
     props.persistenceMode !== "database" ||
     !props.databaseReady ||
-    Boolean(selectedRow?.id.startsWith("pending_")) ||
+    isPendingRowId(selectedRow?.id) ||
     currentSteps.some((step) => isLocalStep(step));
 
   function rowUsesLocalWorkflow(row: GridOpportunityRow) {
     return (
       props.persistenceMode !== "database" ||
       !props.databaseReady ||
-      row.id.startsWith("pending_") ||
+      isPendingRowId(row.id) ||
       row.steps.some((step) => isLocalStep(step))
     );
   }
 
   async function runStepForRow(row: GridOpportunityRow, stepName: typeof orderedSteps[number]) {
     const step = getStep(row, stepName);
+    if (isPendingRowId(row.id)) {
+      throw new Error(operatorErrorMessages.notFound);
+    }
     if (rowUsesLocalWorkflow(row)) {
       const existingDetail = detail?.id === row.id ? detail : undefined;
       const localDetail = buildLocalDetail(row, stepName, existingDetail);
@@ -1582,7 +1600,10 @@ export function WorkflowGridControlPlane(props: {
     if (!step || step.version === 0 || step.status === "not_started") {
       await requestJson(`/api/opportunities/${row.id}/steps/${stepName}/run`, { method: "POST" });
     } else {
-      await requestJson(`/api/workflow/steps/${step.id}/rerun`, { method: "POST" });
+      await requestJson(`/api/workflow/steps/${step.id}/rerun`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
     }
     await refreshRow(row.id);
     router.refresh();
@@ -1701,6 +1722,7 @@ export function WorkflowGridControlPlane(props: {
   useEffect(() => {
     if (props.persistenceMode !== "database") return;
     if (!selectedId) return;
+    if (isPendingRowId(selectedId)) return;
     if (!drawerOpen) return;
     const hasRunningStep = currentSteps.some((step) => step.status === "running");
     if (!hasRunningStep) return;
@@ -2103,7 +2125,7 @@ export function WorkflowGridControlPlane(props: {
                     disabled={pending}
                     onClick={() =>
                       runAction(async () => {
-                        if (props.persistenceMode !== "database") {
+                        if (props.persistenceMode !== "database" || isPendingRowId(selectedRow.id)) {
                           removeRowLocally(selectedRow.id);
                           setNotice("Row removed.");
                           return;
@@ -2862,6 +2884,9 @@ export function WorkflowGridControlPlane(props: {
                         disabled={pending}
                         onClick={() =>
                           runAction(async () => {
+                            if (isPendingRowId(selectedRow.id)) {
+                              throw new Error(operatorErrorMessages.notFound);
+                            }
                             if (isLocalWorkflow || isLocalStep(step)) {
                               const localDetail = buildLocalDetail(selectedRow, step.stepName, detail ?? undefined);
                               setLocalDetail(localDetail);

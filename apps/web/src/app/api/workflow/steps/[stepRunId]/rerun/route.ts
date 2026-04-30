@@ -7,7 +7,15 @@ export async function POST(
 ) {
   const params = await context.params;
   try {
-    const body = (await request.json()) as { note?: string };
+    let body: { note?: string } = {};
+    try {
+      const text = await request.text();
+      if (text.trim().length > 0) {
+        body = JSON.parse(text) as { note?: string };
+      }
+    } catch {
+      body = {};
+    }
     const result = await rerunWorkflowStep(
       params.stepRunId,
       process.env.ADMIN_EMAIL ?? "reviewer@cookunity.local",
