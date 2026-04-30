@@ -126,8 +126,8 @@ function makeMockStep(stepName: WorkflowStepName, status: WorkflowStepStatus): G
         : stepName === "draft"
           ? {
               h1: "Mediterranean meal delivery ideas for busy weeks",
-              intro: "A richer draft appears here once the database and providers are connected.",
-              html: "<article><h1>Mediterranean meal delivery ideas for busy weeks</h1><p>Mock draft preview.</p></article>",
+              intro: "Mediterranean meals are built for busy weeks because they balance bright flavor, satisfying protein, vegetables, grains, and sauces that make dinner feel generous without making it complicated.",
+              html: "<article><h1>Mediterranean meal delivery ideas for busy weeks</h1><p>Mediterranean meals are built for busy weeks because they balance bright flavor, satisfying protein, vegetables, grains, and sauces that make dinner feel generous without making it complicated.</p></article>",
             }
           : null,
   };
@@ -512,25 +512,25 @@ function buildFallbackDraft(opportunity: {
   const slug = keywordToSlug(opportunity.keyword);
   const secondaryKeywords = buildFallbackSecondaryKeywords(opportunity.keyword);
   const keyTakeaways = [
-    `Answer the core ${opportunity.keyword} query directly before branching into supporting context.`,
-    `Use secondary support terms like ${secondaryKeywords.slice(0, 3).join(", ")} where they deepen the article naturally.`,
+    `${opportunity.keyword} works best when the basics are clear first: what matters, what to compare, and how the choice fits a real week.`,
+    `Related questions like ${secondaryKeywords.slice(0, 3).join(", ")} are most useful when they make the decision easier, not louder.`,
     opportunity.path === "blog"
-      ? "Close with a practical bridge into menu exploration or capture."
-      : "Close with a direct, low-friction path into trial.",
+      ? "From there, CookUnity can enter naturally as a chef-led way to make better meals easier to keep in rotation."
+      : "From there, CookUnity can make the next step simple: choose restaurant-quality prepared meals and get dinner handled in minutes.",
   ];
   const intro =
     opportunity.path === "blog"
-      ? `${title} helps readers understand the topic quickly, then builds out the answer with supporting subtopics so the page feels complete instead of thin.`
-      : `${title} helps high-intent readers compare options clearly, understand the strongest decision criteria, and see how CookUnity fits the category.`;
+      ? `${title} is easiest to understand when it starts with the real-life question behind the search: how does this fit dinner, time, taste, and the rest of the week?`
+      : `${title} matters when someone is close to choosing a service and wants a clear reason to trust the meal, the menu, and the routine it creates.`;
   const sections = buildFallbackDraftSections(opportunity.keyword, opportunity.path, secondaryKeywords);
   const faq = [
     {
-      question: `What should an article about ${opportunity.keyword} prioritize first?`,
-      answer: `It should answer the main query directly, then support the article with related angles like ${secondaryKeywords.slice(0, 2).join(" and ")} so the reader gets a fuller, more useful answer.`,
+      question: `What matters most when choosing ${opportunity.keyword}?`,
+      answer: `Start with the core promise, then compare practical fit: quality, convenience, variety, and whether the option still works on a busy week. Related angles like ${secondaryKeywords.slice(0, 2).join(" and ")} can help clarify the decision.`,
     },
     {
-      question: `How should secondary keywords show up in ${opportunity.keyword} content?`,
-      answer: `They should be woven into sections that genuinely expand the article, not dumped into one paragraph. Terms like ${secondaryKeywords.slice(0, 3).join(", ")} should help structure the supporting sections.`,
+      question: `How do related questions fit into ${opportunity.keyword}?`,
+      answer: `They show up naturally when they answer real follow-up questions. Terms like ${secondaryKeywords.slice(0, 3).join(", ")} can point to useful sections about comparison, timing, menu variety, or practical next steps.`,
     },
   ];
   const html = [
@@ -562,8 +562,8 @@ function buildFallbackDraft(opportunity: {
     titleTagOptions: [`${title} | CookUnity`],
     metaDescriptionOptions: [
       opportunity.path === "blog"
-        ? `Fallback draft for ${opportunity.keyword}. Review and refine for capture.`
-        : `Fallback draft for ${opportunity.keyword}. Review and refine for direct trial conversion.`,
+        ? `A practical guide to ${opportunity.keyword}, with clear comparison points and a CookUnity bridge.`
+        : `Compare ${opportunity.keyword} options and see how CookUnity makes restaurant-quality meals easier.`,
     ],
     ctaSuggestions:
       opportunity.path === "blog"
@@ -596,38 +596,38 @@ function buildFallbackDraftSections(keyword: string, path: OpportunityPath, seco
     {
       heading: `What readers are trying to solve when they search ${keyword}`,
       level: 2,
-      body: `Readers usually arrive here with a practical problem, not abstract curiosity. They want a direct answer about ${keyword}, but they also want the article to support adjacent intent like ${secondaryA} and ${secondaryB} so they do not have to keep searching for the basics the page should have covered already.`,
+      body: `Readers usually arrive here with a practical problem, not abstract curiosity. They want a direct answer about ${keyword}, plus enough context around ${secondaryA} and ${secondaryB} to make the next decision easier. The best starting point is simple: what matters, what to compare, and what actually fits a busy week.`,
     },
     {
-      heading: `How to frame ${keyword} so the article feels complete`,
+      heading: `How ${keyword} works in real life`,
       level: 2,
       body: directTrial
-        ? `Conversion-oriented content works best when it moves from explanation into comparison quickly. Supporting angles like ${secondaryC} help answer the real decision questions around quality, flexibility, and fit rather than stopping at vague category language.`
-        : `Editorial content works best when it moves from explanation into practical guidance. Supporting angles like ${secondaryC} make the article richer because they expand the answer instead of repeating the main keyword in different words.`,
+        ? `The decision gets clearer when ${keyword} is judged against real criteria: quality, flexibility, menu variety, and how little work it adds to the week. ${secondaryC} belongs in the conversation when it helps explain why one option feels easier to trust than another.`
+        : `The topic gets more useful when it moves from definition into practical choices. ${secondaryC} can deepen the answer by showing how the idea fits actual meals, schedules, and expectations instead of repeating the same keyword in different words.`,
     },
     {
-      heading: "Which supporting sections earn their place",
+      heading: "Where supporting questions fit",
       level: 2,
-      body: `A stronger article gives the secondary keywords real jobs. ${secondaryA} can help shape one section, ${secondaryB} can support a comparison or examples section, and ${secondaryD} can reinforce the close or FAQ. That approach makes the page denser and more useful without sounding engineered.`,
+      body: `Related searches give the topic more shape. ${secondaryA} can open up the basics, ${secondaryB} can support comparisons or examples, and ${secondaryD} can help readers decide what to do next. Used this way, the answer feels more complete because it follows the reader's natural questions.`,
     },
     {
-      heading: "How CookUnity should enter the conversation",
+      heading: "Where CookUnity fits",
       level: 2,
       body: directTrial
-        ? `CookUnity is strongest as the practical answer once the decision criteria are clear. The page can connect chef quality, menu breadth, and ease in a way that feels specific to the category rather than bolted on as a generic CTA.`
-        : `CookUnity works best as proof that the topic can be made practical. Connecting the guidance back to real meals and real routines is what separates useful editorial copy from thin SEO filler.`,
+        ? `CookUnity becomes relevant once the decision criteria are clear. Chef-led meals, broad menu choice, and fully prepared dinners make the category feel less like another subscription and more like an easier way to eat well at home.`
+        : `CookUnity makes the topic more concrete by connecting the advice back to real meals and real routines. Chef-made, ready-in-minutes meals turn a useful idea into something a reader can imagine using on a busy night.`,
     },
     {
-      heading: "What the conclusion needs to reinforce",
+      heading: "What matters before the final choice",
       level: 2,
-      body: `Before the article closes, the reader should be reminded what matters most about ${keyword}, with the strongest supporting subtopics pulled back into the summary. If the page has used ${secondaryA} and ${secondaryB} well, the conclusion will feel earned rather than abrupt.`,
+      body: `Before choosing, it helps to come back to what matters most about ${keyword}: the core benefit, the practical tradeoffs, and the related questions behind ${secondaryA} and ${secondaryB}. A good decision feels less like guesswork when those pieces are clear.`,
     },
     {
       heading: "Bottom line",
       level: 2,
       body: directTrial
-        ? `A strong ${keyword} draft reduces uncertainty, covers the key supporting terms naturally, and gives the reader a confident next step toward trial.`
-        : `A strong ${keyword} draft answers the primary query clearly, builds out the answer with the right supporting keywords, and leaves the reader with a more useful decision framework than they had before they arrived.`,
+        ? `${keyword} is easier to evaluate when quality, convenience, and fit are clear. CookUnity gives readers a simple next step: explore chef-led prepared meals and choose the dishes that fit the week ahead.`
+        : `${keyword} becomes more useful when the answer is direct, the supporting questions are handled naturally, and the reader leaves with a clearer way to decide what fits their routine.`,
     },
   ];
 }

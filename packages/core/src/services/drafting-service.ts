@@ -32,7 +32,7 @@ export class DraftingService {
     const faq = brief.faqCandidates.map((question) => ({
       question,
       answer:
-        "The strongest answer should stay practical, grounded, and specific to how people actually eat during the week. Use review to tighten facts, product details, and current CookUnity positioning before publish.",
+        "A useful answer stays practical, grounded, and specific to how people actually eat during the week. CookUnity belongs in that answer when chef-led meals, variety, and ready-in-minutes convenience make the routine easier to keep.",
     }));
     const html = this.composeHtml({
       title,
@@ -219,72 +219,72 @@ export class DraftingService {
         heading: "Key takeaways",
         level: 2,
         body: [
-          `Readers searching for ${brief.primaryKeyword} usually want a clear answer they can use this week. The article should help them compare quality, convenience, and flavor in plain language, then support the main topic with adjacent demand like ${secondaryA} and ${secondaryB} so the page feels complete instead of thin.`,
-          `The strongest version of this piece should answer the main question early, then build confidence with concrete detail. That means showing what matters in real life, what tradeoffs deserve attention, and where CookUnity fits without drifting into vague category language.`,
-          `A useful draft should also create enough depth to satisfy search intent on the first visit. Supporting angles like ${secondaryC} should be woven into the article where they strengthen the answer, not treated like detached keyword targets.`,
+          `If you are searching for ${brief.primaryKeyword}, you probably want a clear answer you can use this week: what matters, what to compare, and how the choice fits real meals instead of abstract category talk.`,
+          "Quality, convenience, and flavor all matter. A service can be easy to order and still fall flat if the meals are repetitive, bland, or hard to keep in the weekly routine.",
+          `Related questions like ${secondaryA}, ${secondaryB}, and ${secondaryC} are useful when they sharpen the decision: which option tastes good, saves time, and still feels worth eating after the first order.`,
         ].join("\n\n"),
       },
       {
         heading: `What to know before choosing ${brief.primaryKeyword}`,
         level: 2,
         body: [
-          `Start with the practical questions: does the food taste good enough to crave again, does it hold up on a hectic Wednesday, and does the menu leave room for appetite, variety, and dietary preferences. The strongest draft should treat those as real decision criteria, not lifestyle wallpaper, and should use terms like ${secondaryC} where they help sharpen the answer.`,
+          `Start with the practical questions: does the food taste good enough to crave again, does it hold up on a hectic Wednesday, and does the menu leave room for appetite, variety, and dietary preferences. Terms like ${secondaryC} matter when they help answer those real-life questions.`,
           `That framing matters because people rarely search this topic in the abstract. They are trying to make a real decision about convenience, quality, and repeatability, often in the middle of an already overloaded week.`,
-          `A complete article should help them evaluate the category through that lens. It should move from broad category understanding into a clearer decision framework instead of circling the topic with generic advice.`,
+          "The decision gets easier when the category is broken into simple criteria: what arrives, how much work is left to do, how flexible the menu feels, and whether the meals are satisfying enough to keep ordering.",
         ].join("\n\n"),
       },
       {
         heading: `How ${brief.primaryKeyword} options differ in practice`,
         level: 2,
         body: [
-          `Many services blur together at the category level, but the lived experience is different: chef quality, flavor range, portion feel, flexibility, and whether the meals still feel appealing after the first week. Give readers a concrete way to picture what shows up at the door and what ends up on the plate, and use ${secondaryA} or ${secondaryB} where those subtopics naturally expand the comparison.`,
-          `This is the section where the article should get specific. Explain what a stronger option actually feels like across several meals, not just on a single “hero” dinner. Readers are trying to predict consistency, not just first impressions.`,
-          `That specificity is also what separates a rich search result from a thin one. A competitive page needs enough detail that the reader can compare providers, expectations, and use cases without bouncing back to the SERP for basic context.`,
+          `Many services blur together at the category level, but the lived experience is different: chef quality, flavor range, portion feel, flexibility, and whether the meals still feel appealing after the first week. ${secondaryA} and ${secondaryB} are easiest to understand when they are tied to those practical differences.`,
+          "Specifics matter. A stronger option feels dependable across several meals, not just on a single “hero” dinner. That means enough variety to avoid boredom and enough quality to make convenience feel like a win instead of a compromise.",
+          "That level of detail helps the decision feel less risky. Readers can compare providers, expectations, and use cases without bouncing back to the SERP for basic context.",
         ].join("\n\n"),
       },
       {
         heading: "What to compare before you order",
         level: 2,
         body: [
-          `Encourage readers to compare menu rotation, dietary filters, delivery cadence, storage window, and the tradeoff between convenience and pleasure. The article should make room for taste and texture, not just logistics, because nobody sticks with a meal routine that feels dull. This is also where the article can pick up supporting intent around ${secondaryC} without losing the main thread.`,
-          `The draft should be explicit about what deserves more weight. Variety matters because repetition kills adherence. Flexibility matters because routines change from week to week. Quality matters because convenience only sticks when the meals still feel worth eating.`,
-          `This is also a natural place to support adjacent keyword demand. If users are also looking for ${secondaryA} or ${secondaryB}, the article should answer those angles with real criteria rather than turning them into awkward subheadings with no substance.`,
+          `Compare menu rotation, dietary filters, delivery cadence, storage window, and the tradeoff between convenience and pleasure. Taste and texture belong in the decision because nobody sticks with a meal routine that feels dull. ${secondaryC} fits naturally when it clarifies what a good option actually looks like.`,
+          "Variety deserves real weight because repetition kills adherence. Flexibility matters because routines change from week to week. Quality matters because convenience only sticks when the meals still feel worth eating.",
+          `Related searches like ${secondaryA} and ${secondaryB} often point to the same underlying question: which choice will still feel good after the first few meals? Answering that directly makes the guidance more useful.`,
         ].join("\n\n"),
       },
       {
         heading: "How CookUnity fits the decision set",
         level: 2,
         body: [
-          "Position CookUnity as a chef-led prepared meal option with more personality, more culinary point of view, and a stronger sense of menu discovery than generic subscription language suggests. Keep the comparison grounded in product experience and avoid sweeping claims you cannot support.",
-          "The draft should make the product fit feel obvious. That means connecting the service to weeknight relief, better meal variety, and the sense that prepared food does not need to feel generic or joyless.",
-          "The tone here matters. It should feel premium and assured, but still practical. Readers should understand why CookUnity is different without being hit with generic “healthy and convenient” copy that could apply to any provider in the category.",
+          "CookUnity stands out as a chef-led prepared meal option with a stronger culinary point of view than generic subscription language suggests. The difference is easiest to feel in the menu: more variety, more personality, and meals that arrive fully prepared.",
+          "That fit becomes obvious on the nights when dinner needs to be ready in minutes but still feel like real food. Chef-crafted meals can make weeknight relief feel delicious instead of dutiful.",
+          "The tone can stay premium without getting stiff. CookUnity sounds strongest when quality, convenience, and variety are grounded in the actual dinner decision: what sounds good tonight, what fits the week, and what will be easy to come back to.",
         ].join("\n\n"),
       },
       {
         heading: "Common tradeoffs and mistakes to avoid",
         level: 2,
         body: [
-          "Readers should understand the tradeoffs between convenience, price sensitivity, variety, and nutritional preferences. Call out common mistakes like obsessing over a single claim while ignoring flavor, freshness, or whether the plan still works on the most chaotic day of the week.",
-          "This is where the article can sound especially useful. Point out how easy it is to over-focus on surface-level claims while ignoring the practical reasons a meal routine succeeds or falls apart after two weeks.",
-          "A richer draft should help the reader avoid obvious traps: choosing for novelty without consistency, choosing for macro headlines without taste, or choosing for price without considering whether the experience will still feel worthwhile on busy nights.",
+          "The main tradeoffs are convenience, price sensitivity, variety, and nutritional preferences. It is easy to over-focus on a single claim and ignore flavor, freshness, or whether the routine still works on the most chaotic day of the week.",
+          "Surface-level claims can make every option sound similar. The better test is practical: how much effort remains, how many meals actually sound exciting, and whether the service can handle a week that does not go according to plan.",
+          "The common traps are choosing novelty without consistency, macro headlines without taste, or price without considering whether the experience will still feel worthwhile on busy nights.",
         ].join("\n\n"),
       },
       {
         heading: "How to make the choice work week after week",
         level: 2,
         body: [
-          `A comprehensive article should not stop at comparison. It should help the reader think about what happens after the first order: how meals fit into the week, how variety supports consistency, and how to keep the plan realistic when work and personal schedules shift.`,
+          "The decision does not end after the first order. The real test is how meals fit into the week, how variety supports consistency, and how the routine holds up when work and personal schedules shift.",
           `That follow-through matters for both rankings and usefulness. Readers are more likely to trust the piece when it anticipates the real-life questions that show up after the initial decision, including how to keep ${brief.primaryKeyword} sustainable instead of aspirational.`,
-          `This is also a good place to reinforce supporting demand around ${secondaryA}, ${secondaryB}, or ${secondaryC} if those terms help cover long-tail intent without making the article feel padded.`,
+          `Supporting questions around ${secondaryA}, ${secondaryB}, and ${secondaryC} can reinforce that point when they help readers understand how to keep the choice sustainable instead of aspirational.`,
         ].join("\n\n"),
       },
       {
         heading: "Bottom line",
         level: 2,
         body: [
-          "Close with a decision-oriented summary that helps the reader move forward. The conclusion should reinforce what matters most in the category and make the CookUnity CTA feel like a natural next move, not a sudden sales pivot.",
-          `A strong ending should leave the reader with clarity: what to prioritize, what to ignore, and how to evaluate fit with more confidence than they had at the start. That is what makes the page feel complete instead of merely optimized.`,
-          `For CookUnity, the close should bridge useful guidance into a concrete next step. In a blog flow that usually means a softer capture or menu-exploration CTA; in a landing-page flow it should move more directly into trial.`,
+          "The best choice is the one that makes dinner easier without making it feel smaller. Quality, variety, and convenience all have to work together for the routine to last.",
+          "A clear ending comes back to the basics: what to prioritize, what to ignore, and how to choose with more confidence than before.",
+          "For CookUnity, that next step is concrete. Blog readers can keep exploring meals and ideas; high-intent readers can move directly toward the menu and see what restaurant-quality prepared meals could look like this week.",
         ].join("\n\n"),
       },
     ];
@@ -385,8 +385,8 @@ export class DraftingService {
         heading: "Pre-workout and post-workout fueling basics",
         level: 2,
         body: [
-          `Pre-workout meals should usually emphasize digestible carbohydrate and leave enough room for comfort. The closer someone is eating to training, the simpler the food usually needs to be. If there is more time, the meal can include more fiber, more protein, and a little more fat without creating the same digestion tradeoff.`,
-          `Post-workout meals should focus on recovery. That usually means bringing protein back in quickly and pairing it with carbohydrate so the athlete can recover, replenish, and stabilize appetite for the rest of the day. The exact structure varies, but the principle stays steady: the session should not be treated like a nutritional afterthought.`,
+          "Pre-workout meals usually work best when they emphasize digestible carbohydrate and leave enough room for comfort. The closer someone is eating to training, the simpler the food usually needs to be. If there is more time, the meal can include more fiber, more protein, and a little more fat without creating the same digestion tradeoff.",
+          "Post-workout meals work best when they bring protein back in quickly and pair it with carbohydrate so the athlete can recover, replenish, and stabilize appetite for the rest of the day. The exact structure varies, but the principle stays steady: the session is part of the nutrition plan, not an afterthought.",
           `In practice, different timing windows call for different choices. An early session may only leave room for quick carbohydrate, while a later workout leaves more space for a fuller meal. The best guidance makes those differences concrete instead of flattening them into slogans.`,
         ].join("\n\n"),
       },
@@ -412,8 +412,8 @@ export class DraftingService {
         heading: "Bottom line",
         level: 2,
         body: [
-          `A strong meal plan for athletes should show how to fuel training days, recovery days, and the messy in-between. It should give the reader a structure they can adapt, not a brittle script they will abandon the moment the week changes.`,
-          `When the article is working, the reader finishes with a better sense of timing, balance, and what a sustainable athlete meal plan actually looks like. That makes the CookUnity bridge feel practical: one more way to protect the plan on the days when consistency is hardest to keep.`,
+          "A strong meal plan for athletes fuels training days, recovery days, and the messy in-between. It gives the reader a structure they can adapt, not a brittle script they will abandon the moment the week changes.",
+          "The reader leaves with a clearer sense of timing, balance, and what a sustainable athlete meal plan actually looks like. That makes CookUnity practical: one more way to protect the plan on the days when consistency is hardest to keep.",
         ].join("\n\n"),
       },
     ];
@@ -455,13 +455,13 @@ export class DraftingService {
     const internalLink = brief.recommendedInternalLinks[0]?.anchorText;
     const cta = brief.ctaRecommendations[0];
     return [
-      `Lead with the reader’s real decision around ${brief.primaryKeyword}, not category filler.`,
-      ...(brief.secondaryKeywords[0] ? [`Use ${brief.secondaryKeywords[0]} to reinforce the article where it adds real explanatory value.`] : []),
+      `${brief.primaryKeyword} comes down to the reader’s real decision: what fits the week, tastes good, and feels easy enough to repeat.`,
+      ...(brief.secondaryKeywords[0] ? [`${brief.secondaryKeywords[0]} matters when it adds practical context instead of extra keyword noise.`] : []),
       seoOpportunity
-        ? `${seoOpportunity.charAt(0).toUpperCase()}${seoOpportunity.slice(1)}.`
-        : "Keep the article practical, chef-aware, and rooted in real weeknight use.",
-      ...(internalLink ? [`Bring in ${internalLink} early enough to support the story, not as an afterthought.`] : []),
-      ...(cta ? [`Close with a CTA that feels earned and aligns naturally to “${cta}.”`] : []),
+        ? `The opportunity is clear: ${seoOpportunity.toLowerCase()}.`
+        : "The most useful guidance is practical, chef-aware, and rooted in real weeknight use.",
+      ...(internalLink ? [`${internalLink} can help readers keep exploring once the core answer is clear.`] : []),
+      ...(cta ? [`The next step can stay simple: ${cta}.`] : []),
     ].slice(0, 4);
   }
 
@@ -469,7 +469,7 @@ export class DraftingService {
     const support = brief.secondaryKeywords.slice(0, 2).join(" and ");
     return [
       `If you're evaluating ${brief.primaryKeyword}, the real question is not just what looks good on a landing page. It's what will still taste satisfying, feel convenient on a busy night, and hold up as part of your actual routine.`,
-      `A strong article should answer that directly, then use supporting angles like ${support || "comparison criteria and practical examples"} to make the page feel complete. The goal is not to hit a word count for its own sake. The goal is to cover the topic with enough depth that the reader can stop searching and start deciding.`,
+      `The answer starts there, then expands into ${support || "comparison criteria and practical examples"} so the decision feels complete. The goal is not a longer page for its own sake. The goal is enough useful detail that the reader can stop searching and start deciding.`,
     ].join("\n\n");
   }
 

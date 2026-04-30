@@ -14,6 +14,7 @@ import { Badge } from "./cards";
 import type { GridOpportunityDetail, GridOpportunityRow, GridStepView } from "../lib/workflow-grid-store";
 
 const orderedSteps = ["discovery", "prioritization", "brief", "draft", "qa", "publish"] as const;
+type DrawerTab = "overview" | "brief" | "draft" | "qa" | "history";
 
 function cellTone(status: string) {
   switch (status) {
@@ -409,24 +410,24 @@ function buildLocalOutlinePackage(row: GridOpportunityRow): OutlinePackage {
 function buildLocalKeyTakeaways(row: GridOpportunityRow) {
   if (row.path === "landing_page") {
     return [
-      "Lead with what shoppers actually compare: flavor, flexibility, and whether dinner feels easier by Wednesday, not just on day 1.",
-      "Explain why chef-made prepared meals fit real schedules better than ingredient-heavy alternatives that still demand time and cleanup.",
-      "Use a direct CTA only after the page has earned trust and made the fit feel obvious.",
+      "Shoppers compare flavor, flexibility, and whether dinner still feels easier by Wednesday, not just on day 1.",
+      "Chef-made prepared meals fit real schedules better than ingredient-heavy alternatives that still demand time and cleanup.",
+      "A direct next step works best once the meal quality, schedule fit, and menu variety feel obvious.",
     ];
   }
 
   if (row.keyword.toLowerCase().includes("athlete")) {
     return [
-      "A workable athlete meal plan should support training load, recovery, and consistency at the same time.",
+      "A workable athlete meal plan supports training load, recovery, and consistency at the same time.",
       "Protein matters, but so do total energy intake and well-timed carbohydrates when training volume climbs.",
       "Prepared meals can keep the plan intact on the days when cooking is the first thing to collapse.",
     ];
   }
 
   return [
-    "Readers want a practical answer they can use this week, not a generic overview dressed up as advice.",
-    "The article should connect convenience, quality, and repeatability in language that feels editorial and grounded.",
-    "A strong close should bridge naturally from useful guidance into menu exploration or capture.",
+    "You want a practical answer you can use this week, not a generic overview dressed up as advice.",
+    "Convenience, quality, and repeatability belong together; dinner has to be easy enough to choose and good enough to want again.",
+    "The next step is simple: use the guidance, then explore a CookUnity menu that makes the routine easier to keep.",
   ];
 }
 
@@ -466,31 +467,31 @@ function buildLocalDraftHtml(row: GridOpportunityRow, title: string, outlinePack
     return `<article>
 <h1>${title}</h1>
 <p>People looking for ${row.keyword} are usually close to a decision. They are trying to figure out whether a meal delivery service will actually make life easier, whether the food will taste good enough to look forward to, and whether the whole thing will still feel worth it once the novelty wears off.</p>
-<p>CookUnity should lead with meals from real chefs, strong weekly variety, and the relief of having dinner handled without another round of planning, shopping, chopping, or cleanup. That combination is what makes the offer feel genuinely useful, not just convenient in theory.</p>
-<p>A stronger landing-page draft also needs enough depth to satisfy evaluative search intent in 2026. That means answering the obvious comparison questions in full: what people are really buying, how the experience holds up after the first week, where quality shows up in practice, and why a chef-led prepared meal service feels materially different from thin convenience claims.</p>
+<p>CookUnity brings meals from real chefs, strong weekly variety, and the relief of having dinner handled without another round of planning, shopping, chopping, or cleanup. That combination makes the offer feel genuinely useful, not just convenient in theory.</p>
+<p>A useful decision starts with the obvious comparison questions: what people are really buying, how the experience holds up after the first week, where quality shows up in practice, and why a chef-led prepared meal service feels materially different from thin convenience claims.</p>
 ${keyTakeawaysHtml}
 <h2>Why this category matters in real life</h2>
-<p>Shoppers in this category are rarely comparing abstract features. They are comparing the lived experience of getting through a packed week with less friction and better food. The strongest copy should reflect that reality from the first screen while also supporting related demand like ${secondaryA} and ${secondaryB} in a way that feels useful instead of forced.</p>
-<p>That means emphasizing convenience, but not in a cheap or generic way. The right message is that CookUnity removes work while still feeling like a meal you would actually look forward to eating. Supporting terms such as ${secondaryC} should deepen the comparison rather than pull the page off topic.</p>
-<p>The page should explain what changes once dinner is already handled. Time opens up, decision fatigue drops, and the week becomes easier to manage. That is the functional benefit, but the emotional benefit matters too: readers want to feel relieved without feeling like they traded down on taste or variety.</p>
+<p>Shoppers in this category are rarely comparing abstract features. They are comparing the lived experience of getting through a packed week with less friction and better food. The real question is whether dinner becomes easier without becoming forgettable.</p>
+<p>Convenience matters, but not in a cheap or generic way. CookUnity removes work while still feeling like a meal you would actually look forward to eating. That is the difference between “fine, I guess” and opening the fridge with a little spark of relief.</p>
+<p>Once dinner is already handled, time opens up, decision fatigue drops, and the week becomes easier to manage. That is the functional benefit, but the emotional benefit matters too: relief without the sad little feeling that you traded down on taste or variety.</p>
 <h2>What people compare before they commit</h2>
 <p>Most visitors compare flexibility, menu range, dietary fit, and whether the service seems realistic for their schedule. They also want to know if the quality will feel consistent enough to justify ordering again after the first box arrives.</p>
-<p>This is where the page should help them think clearly. Spell out what matters: the number of weekly options, the ability to skip or adjust, and the difference between prepared meals and products that still require cooking. If ${secondaryD} belongs in the SERP around this topic, the page should address it in a concrete section instead of hoping the reader connects the dots alone.</p>
-<p>It also helps to show the criteria in plain language. Readers want to know whether the menu looks broad enough to stay interesting, whether the food sounds chef-driven rather than industrial, and whether the service can flex around the rhythms of a real household. Those are the questions that shape conversion, and the copy should treat them like first-class concerns.</p>
-<h2>How CookUnity should position the offer</h2>
-<p>CookUnity stands out when the page makes a simple promise: restaurant-quality prepared meals with enough variety to stay interesting across the week. The positioning should feel grounded, specific, and closely tied to everyday routines.</p>
-<p>That matters because many competing pages rely on broad lifestyle language instead of showing why the product fits into a real calendar. CookUnity should sound more operational, more useful, and more honest.</p>
-<p>The strongest positioning also shows the product in motion. Mention what it feels like to choose from a menu that actually has range, how prepared meals can still feel chef-made, and why that combination matters more than abstract convenience language. Readers are not just buying time back; they are buying a better weeknight standard.</p>
+<p>The clearest comparison starts with the number of weekly options, the ability to skip or adjust, and the difference between prepared meals and products that still require cooking. It is worth asking how much work is actually left after the box lands at the door.</p>
+<p>Plain criteria make the choice easier: whether the menu looks broad enough to stay interesting, whether the food sounds chef-driven rather than industrial, and whether the service can flex around the rhythms of a real household. Those are the questions that shape trust.</p>
+<h2>Where CookUnity fits the decision</h2>
+<p>CookUnity stands out with a simple promise: restaurant-quality prepared meals with enough variety to stay interesting across the week. The fit feels grounded, specific, and closely tied to everyday routines.</p>
+<p>That matters because many competing pages rely on broad lifestyle language instead of showing why the product fits into a real calendar. CookUnity comes across as more operational, more useful, and more honest when the focus stays on the dinner decision.</p>
+<p>The strongest proof is the product in motion. A menu with real range, meals that still feel chef-made, and a dinner routine that does not start from zero all matter more than abstract convenience language. You are not just buying time back; you are buying a better weeknight standard.</p>
 <h2>How this choice holds up after week one</h2>
-<p>A persuasive page should help the visitor think past the first order. Many services look fine in theory but start to lose their appeal once repetition sets in or schedules shift. That is why menu depth, flexibility, and meal quality matter so much more than generic value props.</p>
-<p>CookUnity should sound strongest here when the copy connects convenience with repeatability. A good service is not just easy to try. It is easy to keep. That long-view framing is part of what makes the page more complete and helps it compete for broader evaluative intent around ${secondaryA} and ${secondaryB}.</p>
+<p>It helps to think past the first order. Many services look fine in theory but start to lose their appeal once repetition sets in or schedules shift. That is why menu depth, flexibility, and meal quality matter so much more than generic value props.</p>
+<p>CookUnity is strongest when convenience connects with repeatability. A good service is not just easy to try. It is easy to keep, especially when the menu has enough range to make next week feel different from this one.</p>
 <h2>What turns interest into action</h2>
-<p>Interest becomes action when the visitor can see a clear next step. Show what the menu looks like, make the value proposition concrete, and keep the CTA close to the proof. The page should reduce uncertainty rather than forcing the visitor to guess what happens next.</p>
-<p>If the visitor leaves with a better sense of meal quality, flexibility, and relevance to their routine, the page has done its job.</p>
-<p>That action moment is also where trust matters most. The page should have done enough work by this point that the CTA feels earned. If the earlier sections clearly handled quality, variety, schedule fit, and decision criteria, conversion becomes a natural continuation instead of a leap.</p>
+<p>Interest becomes action when the next step is obvious. A visible menu and a concrete reason to try it reduce uncertainty instead of forcing anyone to guess what happens next.</p>
+<p>When the meal quality, flexibility, and routine fit are clear, the choice feels easier.</p>
+<p>That action moment is also where trust matters most. By this point, quality, variety, and schedule fit are clear enough that choosing the menu feels like the next sensible move, not a leap.</p>
 <h2>Bottom line</h2>
-<p>Close with a direct trial CTA. The final message should be simple: if you want prepared meals that feel high-quality and reduce weeknight effort, CookUnity gives you a stronger starting point than a generic subscription promise.</p>
-<p>The conclusion should leave the reader with a simple judgment: this is a category where quality and convenience should rise together, and CookUnity is positioned to do that better than generic alternatives. That is the line the whole page should be building toward.</p>
+<p>If you want prepared meals that feel high-quality and reduce weeknight effort, CookUnity gives you a stronger starting point than a generic subscription promise.</p>
+<p>The final judgment is simple: quality and convenience should rise together. CookUnity gives that idea a practical shape through chef-led meals, real variety, and dinner that is ready when the week gets loud.</p>
 </article>`;
   }
 
@@ -520,20 +521,20 @@ ${keyTakeawaysHtml}
 <h1>${title}</h1>
 <p>A good meal plan for athletes does not need to be perfect to be effective. It needs to be repeatable. Most athletes already know they should eat enough protein, recover well, and stay consistent through busy weeks. The harder part is building a structure that actually survives travel, work, early training sessions, and the days when cooking falls apart.</p>
 <p>The strongest plan starts by matching food intake to training reality. That means enough calories to support workload, enough protein to help recovery, enough carbohydrates to keep energy available, and enough convenience to make the whole thing realistic for more than a few determined days.</p>
-<p>That is why a strong meal plan for athletes has to move beyond surface-level wellness advice. The real value comes from showing how the week can be organized, how harder training days differ from easier ones, and how prepared meals can preserve consistency without turning the whole routine into bland “healthy eating” language.</p>
+<p>That is why a strong meal plan for athletes has to move beyond surface-level wellness advice. The real value is a week that can flex: harder training days get more support, easier days stay simple, and prepared meals can protect consistency without turning the routine into bland “healthy eating” language.</p>
 ${keyTakeawaysHtml}
-<h2>How athletes should think about a meal plan</h2>
-<p>A practical meal plan for athletes should solve two problems at once: how to fuel performance and how to keep the week executable. It is not enough for the food to look good on paper. The plan needs to hold up when the athlete has an early session, a long workday, a late commute, or a night when cooking is the first thing to collapse.</p>
+<h2>How athletes can think about a meal plan</h2>
+<p>A practical meal plan for athletes solves two problems at once: how to fuel performance and how to keep the week executable. It is not enough for the food to look good on paper. The plan needs to hold up when the athlete has an early session, a long workday, a late commute, or a night when cooking is the first thing to collapse.</p>
 <p>The smartest meal plans focus on patterns, not perfection. Athletes need enough energy, enough protein, and enough carbohydrate support to recover and train well, but they also need a rhythm they can repeat. If the plan only works on the ideal day, it is not much of a plan.</p>
-<p>That is why related questions like ${secondaryA} and ${secondaryB} keep showing up around this topic. People are trying to figure out how to make a performance-focused week realistic, not how to build a theoretically balanced plate that falls apart by Thursday.</p>
+<p>That is why people keep asking for more than a neat nutrition chart. They are trying to make a performance-focused week realistic, not build a theoretically balanced plate that falls apart by Thursday.</p>
 <h2>Pre-workout and post-workout fueling basics</h2>
-<p>Pre-workout meals should match the training window. If the athlete is eating close to the session, simpler carbohydrate usually makes more sense because it is easier to digest. If there is more time, the meal can carry more fiber, more protein, and a little more fat without causing the same drag.</p>
-<p>Post-workout meals should shift the emphasis toward recovery. That usually means bringing protein back in quickly and pairing it with carbohydrate so the athlete can replenish energy, support muscle repair, and feel stable through the rest of the day. The exact food can vary, but the principle stays consistent.</p>
+<p>Pre-workout meals work best when they match the training window. If the athlete is eating close to the session, simpler carbohydrate usually makes more sense because it is easier to digest. If there is more time, the meal can carry more fiber, more protein, and a little more fat without causing the same drag.</p>
+<p>Post-workout meals work best when they shift the emphasis toward recovery. That usually means bringing protein back in quickly and pairing it with carbohydrate so the athlete can replenish energy, support muscle repair, and feel stable through the rest of the day. The exact food can vary, but the principle stays consistent.</p>
 <p>In practice, that means the best option changes with timing and session intensity. Someone heading into an early lift may do well with toast, fruit, or cereal before training, while a later session leaves room for a more substantial pre-workout meal. The more intense the session, the less useful vague advice becomes and the more useful real examples become.</p>
 <h2>Start with the energy demands of the week</h2>
 <p>Before choosing individual meals, it helps to look at the week as a whole. Hard training days, double sessions, and long workdays create very different energy needs than lighter recovery days. Athletes who undereat on the busiest days often feel it first in performance, recovery, and appetite swings later in the week.</p>
 <p>A more useful approach is to think in ranges rather than rigid rules. Heavier days need more support, especially from carbohydrates and total calories, while lighter days can stay simpler without becoming restrictive.</p>
-<p>This weekly view is what keeps the plan grounded. Instead of building the article around isolated macro targets, it should help the reader recognize where their routine actually breaks down: too little food on long days, too much reliance on convenience snacks, or not enough structure once work and training start competing for time.</p>
+<p>This weekly view is what keeps the plan grounded. Instead of focusing only on isolated macro targets, it becomes easier to spot where the routine actually breaks down: too little food on long days, too much reliance on convenience snacks, or not enough structure once work and training start competing for time.</p>
 <h2>Build each meal around protein and recovery</h2>
 <p>Protein is the easiest place to create consistency. A meal plan becomes much easier to follow when each lunch and dinner already starts with a meaningful protein source, then builds out with vegetables, grains, legumes, or other recovery-supporting sides.</p>
 <p>For most athletes, the goal is not to chase a perfect number in every meal. The goal is to make sure protein shows up often enough that recovery does not depend on a single shake or an oversized dinner at the end of the day.</p>
@@ -541,22 +542,22 @@ ${keyTakeawaysHtml}
 <h2>Use carbohydrates strategically instead of avoiding them</h2>
 <p>Carbohydrates are often the difference between feeling fueled and constantly feeling flat. Athletes who train hard usually benefit from using carbohydrates around sessions rather than treating them as something to minimize by default.</p>
 <p>That can look simple in practice: grains, potatoes, fruit, or legumes on training days, and meals that leave enough room to recover without feeling heavy. The plan works best when the food supports performance instead of fighting it.</p>
-<p>This is where the article can bring more nuance. Not every athlete needs the same pattern, but most perform better when carbohydrates are used intentionally rather than feared. The copy should explain that clearly enough to answer search intent without slipping into clinical language that loses the reader halfway through the section.</p>
+<p>Not every athlete needs the same pattern, but most perform better when carbohydrates are used intentionally rather than feared. The useful middle ground is clear enough to act on without turning dinner into a clinical worksheet.</p>
 <h2>Make the plan realistic for training days and rest days</h2>
 <p>The biggest mistake in athlete meal planning is pretending every day looks the same. It doesn’t. Some days require speed and convenience, while others leave enough room for a slower meal or more prep at home.</p>
-<p>A workable plan accounts for both. Training days should remove friction, and rest days should help reset the week without turning meal prep into a second job.</p>
-<p>That difference matters because sustainability comes from fit. If the article only describes the ideal plan and never addresses the messy schedule that most athletes actually live with, it will read as aspirational but not useful. A better draft helps the reader imagine how the plan survives normal disruptions.</p>
+<p>A workable plan accounts for both. Training days remove friction, and rest days help reset the week without turning meal prep into a second job.</p>
+<p>That difference matters because sustainability comes from fit. The ideal plan is not the one that looks best on a clean calendar. It is the one that survives normal disruptions and still gives the athlete a clear way to eat well.</p>
 <h2>What a 7-day athlete meal plan can look like</h2>
-<p>A useful seven-day example goes beyond broad principles and shows how the week changes when workout timing changes. It does not need to prescribe an exact calorie target for every reader, but it should make the structure visible enough that someone can adapt it to their own routine.</p>
+<p>A useful seven-day example goes beyond broad principles and shows how the week changes when workout timing changes. It does not need to prescribe an exact calorie target for every reader. It only needs enough structure for someone to adapt it to their own routine.</p>
 ${dayPlanHtml}
 <h2>Keep convenience high enough to stay consistent</h2>
 <p>Consistency usually breaks when the plan depends on too much cooking, too much cleanup, or too many decisions at the exact moment energy is lowest. That is where prepared meals can help: they reduce friction without forcing athletes into repetitive or low-quality choices.</p>
-<p>For CookUnity, the relevant angle is not “healthy meals” in the abstract. It is the ability to have balanced, satisfying meals ready on the nights when training, work, and recovery leave very little room for more effort.</p>
+<p>CookUnity becomes useful on the nights when training, work, and recovery leave very little room for more effort. Balanced, satisfying meals are already handled, which makes it easier to protect the plan without turning dinner into another task.</p>
 <p>The most convincing version of that argument stays grounded in the athlete’s actual week. The goal is not to replace every meal with a prepared option. The goal is to make the hardest parts of the week easier to execute well, especially when fatigue and time pressure would otherwise lead to missed meals or lower-quality convenience food.</p>
 <h2>Where CookUnity fits into the athlete week</h2>
 <p>CookUnity works best in this plan as a consistency tool, not a shortcut around sports nutrition. On late training nights, travel-heavy weeks, or recovery days when decision fatigue is high, having chef-made meals ready can keep the athlete on track instead of pushing dinner into the “figure it out later” category.</p>
 <p>That matters because adherence usually breaks where effort spikes. A menu with real variety, strong protein options, and dinners that already feel handled can protect the plan on the exact nights when cooking is most likely to collapse. The value is practical: less friction, fewer skipped meals, and a better chance of keeping the week nutritionally intact.</p>
-<p>It also helps answer why terms like ${secondaryC} matter in this topic cluster. Athletes are often comparing systems, not just ingredients. They want to know what actually makes it easier to stay on plan for a full week, and a dependable prepared-meal option can be part of that answer.</p>
+<p>Athletes are often comparing systems, not just ingredients. They want to know what actually makes it easier to stay on plan for a full week, and a dependable prepared-meal option can be part of that answer.</p>
 <h2>Frequently asked questions</h2>
 <h3>Should athletes eat the same way every day?</h3>
 <p>Not necessarily. The best plans flex with training load, appetite, and schedule. What matters most is keeping the core structure strong enough that hard days are supported and lighter days still feel balanced.</p>
@@ -565,43 +566,43 @@ ${dayPlanHtml}
 <h3>What should athletes prioritize first?</h3>
 <p>Most athletes do better when they start with the basics: enough total food, enough protein, enough carbohydrate around training, and enough convenience to keep the plan working on the most demanding days of the week.</p>
 <h2>Bottom line</h2>
-<p>A strong meal plan for athletes should support performance, recovery, and consistency at the same time. If prepared meals make it easier to stay on plan during the busiest parts of the week, they can be a meaningful part of the solution rather than a compromise.</p>
+<p>A strong meal plan for athletes supports performance, recovery, and consistency at the same time. If prepared meals make it easier to stay on plan during the busiest parts of the week, they can be a meaningful part of the solution rather than a compromise.</p>
 <p>The practical standard is simple: eat in a way that supports the work, build enough structure to stay consistent, and use convenience where it protects the plan instead of weakening it. That is the kind of answer that feels worth acting on because it can survive a real week.</p>
 </article>`;
   }
 
   return `<article>
 <h1>${title}</h1>
-<p>Most people looking for ${row.keyword} are not searching for theory. They want a workable answer that fits into a busy schedule and helps them make a better decision today. Usually that means understanding what matters most, what mistakes to avoid, and how to choose something they can actually stick with once real life barges in.</p>
-<p>For CookUnity, the opportunity is to deliver that clarity in plain language and then make the next step obvious. The article should feel useful first and persuasive second, with enough texture that it sounds like it was written by someone who actually cares what dinner tastes like.</p>
-<p>That also means the draft needs enough depth to satisfy intent in one sitting. A competitive article in 2026 cannot stop at broad framing. It needs to answer the primary question directly, support it with adjacent demand like ${secondaryA}, ${secondaryB}, and ${secondaryC}, and give the reader a complete decision framework rather than a short editorial sketch.</p>
+<p>Most people searching for ${row.keyword} are not looking for theory. They want a real answer that fits a busy week and helps them make a decision tonight, not next month. Usually that means understanding what matters most, what mistakes to avoid, and how to choose something they can actually stick with once real life barges in.</p>
+<p>That is where chef-led, fully prepared meals start to make sense, not as a luxury, but as a way to keep dinner worthwhile when the week stops cooperating. CookUnity belongs in the conversation when quality, variety, and ready-in-minutes convenience all have to work together.</p>
+<p>There is a lot to weigh: meal variety, dietary fit, how the food actually tastes after reheating, and whether the routine survives a tough Wednesday. Worth getting all of it on the table before picking a service.</p>
 ${keyTakeawaysHtml}
 <h2>Define the goal before building the week</h2>
-<p>Any useful plan starts with the real constraint. Sometimes the issue is lack of time. Sometimes it is inconsistent eating during workdays. Sometimes it is the gap between wanting better meals and having the energy to keep planning them. Naming the constraint clearly helps the rest of the plan feel relevant instead of generic, and it gives terms like ${secondaryA} a reason to show up in the article instead of floating around as metadata.</p>
-<p>Once the goal is defined, decision-making gets easier. The reader can evaluate meals based on fit, not just aspiration.</p>
-<p>This section should do more than define the problem. It should help the reader recognize their own version of it. That is what turns a page from “SEO content” into something useful enough to keep reading, save, or act on. The more clearly the article identifies the real friction in the week, the more persuasive the rest of the structure becomes.</p>
+<p>Any useful plan starts with the real constraint. Sometimes the issue is lack of time. Sometimes it is inconsistent eating during workdays. Sometimes it is the gap between wanting better meals and having the energy to keep planning them. Naming the constraint clearly makes the rest of the plan feel relevant instead of generic.</p>
+<p>Once the goal is defined, decision-making gets easier. Meals can be evaluated by fit, not just aspiration.</p>
+<p>The friction is rarely “I don’t know what’s healthy.” It is “I’m tired, it’s 7pm, and dinner has to happen.” Naming that honestly is the first step toward a routine that survives real weeks.</p>
 <h2>Choose meals that are easy to repeat</h2>
 <p>The best plans usually rely on a few repeatable patterns rather than constant novelty. That does not mean eating the same thing every day. It means having a dependable structure for lunch and dinner so the week does not start from zero every time.</p>
-<p>Repeatable meals reduce decision fatigue. They also make it easier to keep quality high without spending the entire weekend planning, shopping, and prepping. Supporting phrases like ${secondaryB} and ${secondaryC} should appear where they genuinely sharpen the advice, not where they merely inflate the page.</p>
-<p>A stronger article should also explain why repeatability matters psychologically. People are much more likely to follow a plan when meals are easy to choose, easy to remember, and satisfying enough to keep in rotation. That is the practical layer that searchers are looking for, even if they do not phrase the query that way.</p>
+<p>Repeatable meals reduce decision fatigue. They also make it easier to keep quality high without spending the entire weekend planning, shopping, and prepping. The questions worth asking are simple: how often will I actually eat this, how much variety do I need, and what happens when life pulls me off the plan?</p>
+<p>Repeatability matters because people are much more likely to follow a plan when meals are easy to choose, easy to remember, and satisfying enough to keep in rotation. That is the practical layer behind most dinner decisions.</p>
 <h2>Balance convenience with quality</h2>
-<p>Convenience matters most when it supports consistency. A plan only works if it is easy enough to follow on the nights when work runs late or energy is low. That is why prepared meals can be useful: they preserve time without forcing the reader to settle for food that feels like an afterthought.</p>
-<p>CookUnity should frame this as a practical advantage. The point is not just speed. The point is access to meals that still feel satisfying when life gets crowded.</p>
-<p>This is also where the draft should sound distinctively CookUnity. It should not collapse into generic convenience language. It should talk about chef quality, menu breadth, and the feeling that a prepared dinner can still feel worthwhile at the end of a long day. That is a stronger and more defensible position than “healthy and easy.”</p>
+<p>Convenience matters most when it supports consistency. A plan only works if it is easy enough to follow on the nights when work runs late or energy is low. That is why prepared meals can be useful: they preserve time without making dinner feel like an afterthought.</p>
+<p>CookUnity makes that advantage practical. The point is not just speed. The point is access to meals that still feel satisfying when life gets crowded.</p>
+<p>Chef quality, menu breadth, and the feeling that a prepared dinner can still be worth looking forward to all matter here. That is a stronger and more defensible position than “healthy and easy.”</p>
 <h2>Plan for the days most likely to break the routine</h2>
-<p>Every strong meal routine has weak points. Travel, late meetings, social plans, or fatigue after a long day will test the plan faster than the average Tuesday ever will. Articles that ignore this tend to feel unrealistic.</p>
-<p>A stronger draft addresses those friction points directly. It shows the reader how to protect the routine even when the week stops behaving the way they expected. If ${secondaryD} matters to searchers in this cluster, that section should earn its place by making the plan more actionable.</p>
-<p>The richer the article gets here, the more useful it becomes. This is where you can show what an actual fallback plan looks like, how to maintain standards without perfection, and how to keep the week from collapsing the moment one evening goes sideways.</p>
+<p>Every strong meal routine has weak points. Travel, late meetings, social plans, or fatigue after a long day will test the plan faster than the average Tuesday ever will. A plan that ignores those moments is not ready for real life.</p>
+<p>A resilient routine plans for those friction points before they hit. The goal is to make the plan useful when the week stops behaving, not only when the calendar looks calm.</p>
+<p>The useful move is to build a fallback plan before it is needed: keep a few dependable meals ready, maintain standards without chasing perfection, and avoid letting one sideways evening collapse the whole week.</p>
 <h2>What a realistic weekly structure can include</h2>
-<p>Readers benefit from seeing how the plan might play out across several days. That does not require a rigid calendar. It requires a practical rhythm: dependable lunches, lower-effort dinners on hard days, and enough variety that the whole thing does not become stale by the weekend.</p>
-<p>A good article uses this section to make the advice concrete. It should help the reader picture what makes the plan sustainable, where prepared meals can lighten the load, and how adjacent concerns like ${secondaryA} or ${secondaryB} fit into the broader decision.</p>
-<h2>Use the close to move the reader forward</h2>
-<p>Once the article has clarified the problem and offered a practical framework, the close should give the reader a clear next step. For blog content, that usually means a menu or email-capture bridge rather than a hard sell.</p>
-<p>The transition works best when the article has already earned trust. If the advice feels concrete, the CTA will feel like a natural continuation instead of a jarring pivot.</p>
-<p>The page should not sound finished just because it reached the CTA. A complete close summarizes the decision logic, reinforces what matters most, and then offers the next step. That is what helps the article convert without sacrificing editorial usefulness.</p>
+<p>It helps to see how the plan might play out across several days. That does not require a rigid calendar. It requires a practical rhythm: dependable lunches, lower-effort dinners on hard days, and enough variety that the whole thing does not become stale by the weekend.</p>
+<p>A realistic structure makes the advice concrete. It shows what makes the plan sustainable, where prepared meals can lighten the load, and how much variety it takes to avoid getting bored by week three.</p>
+<h2>Take the next step</h2>
+<p>Once the problem is clear and the plan feels practical, the next step can stay light. Browsing the menu or saving a few dishes for later feels better than getting shoved into a hard sell.</p>
+<p>Trust builds when the advice feels concrete. From there, looking at the menu feels like a natural continuation instead of a jarring pivot.</p>
+<p>The short version: pick something that fits how you actually eat, not how you wish you ate. CookUnity's menu changes weekly, so there is room to find the dishes that stick and skip the ones that do not.</p>
 <h2>Bottom line</h2>
-<p>A useful answer to ${row.keyword} should leave the reader with a clearer decision framework and an easier next step. That is the real job of the article, and it is where CookUnity can be differentiated without sounding generic.</p>
-<p>When the article is doing its job, the reader finishes with enough clarity to act. They understand what matters, what to compare, what to avoid, and why CookUnity is relevant to that decision. That is the standard the draft should meet before it moves to review.</p>
+<p>A useful answer to ${row.keyword} leaves dinner feeling less like a nightly negotiation. CookUnity can stand apart here without sounding generic because the value is concrete: chef-led meals, real variety, and dinner that is ready when the week gets messy.</p>
+<p>By the end, the choice is simpler: know what matters, know what to avoid, and know where chef-led prepared meals can make the week easier.</p>
 </article>`;
 }
 
@@ -893,6 +894,91 @@ function getNextAction(row: GridOpportunityRow) {
   return { label: "View", action: "view" as const };
 }
 
+function displayField(value: unknown) {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "number") return Number.isFinite(value) ? value.toLocaleString() : "—";
+  const stringValue = String(value).trim();
+  return stringValue ? stringValue : "—";
+}
+
+function stripTags(value: string) {
+  return value.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+}
+
+function getDraftOutline(html: string | null) {
+  if (!html) return [] as Array<{ id: string; level: string; label: string }>;
+  return [...html.matchAll(/<h([2-3])[^>]*>(.*?)<\/h\1>/gi)].map((match, index) => ({
+    id: `draft-section-${index + 1}`,
+    level: match[1],
+    label: stripTags(match[2] ?? ""),
+  }));
+}
+
+function addDraftAnchors(html: string | null) {
+  if (!html) return null;
+  let index = 0;
+  return html.replace(/<h([2-3])([^>]*)>(.*?)<\/h\1>/gi, (_match, level: string, attributes: string, content: string) => {
+    index += 1;
+    if (/\sid=/.test(attributes)) return `<h${level}${attributes}>${content}</h${level}>`;
+    return `<h${level}${attributes} id="draft-section-${index}">${content}</h${level}>`;
+  });
+}
+
+function renderListOrEmpty(items: string[], emptyMessage: string) {
+  if (!items.length) {
+    return <p className="air-section-muted">{emptyMessage}</p>;
+  }
+  return (
+    <ul className="air-plain-list">
+      {items.map((item, index) => (
+        <li key={`${item}_${index}`}>{item}</li>
+      ))}
+    </ul>
+  );
+}
+
+function getNextBestMoveReason(row: GridOpportunityRow, outlinePackage: OutlinePackage | null, nextActionLabel: string) {
+  if (outlinePackage?.analysis.evaluation.verdict) return outlinePackage.analysis.evaluation.verdict;
+  if (outlinePackage?.analysis.searchIntent) {
+    return `${outlinePackage.analysis.searchIntent} The next operator move is to ${nextActionLabel.toLowerCase()} so this opportunity keeps moving toward publish.`;
+  }
+  switch (nextActionLabel) {
+    case "Build brief":
+      return "Build the brief first so the draft has a clear intent, audience, keyword strategy, and CookUnity angle before copy is written.";
+    case "Approve brief":
+      return "Review the strategy choices and approve the brief before drafting so the writer has a stable plan to follow.";
+    case "Write draft":
+      return "The strategy is ready. Write the draft next so the team can review real copy instead of planning notes.";
+    case "Review draft":
+      return "A draft exists. Review it for intent match, brand voice, CTA alignment, and publish readiness.";
+    case "Prepare publish":
+      return "The draft is approved. Prepare the page for publishing and confirm the final QA checklist.";
+    case "Refresh page":
+      return "This page is marked for refresh. Inspect the current content, update the brief, and rewrite the parts that no longer answer search demand.";
+    default:
+      return `Inspect this opportunity and decide whether to ${nextActionLabel.toLowerCase()} next.`;
+  }
+}
+
+function getReadableStepLabel(step: GridStepView) {
+  switch (step.stepName) {
+    case "brief":
+      return stepIsApproved(step) ? "Brief approved" : "Brief generated";
+    case "draft":
+      return "Draft written";
+    case "qa":
+      return step.status === "failed" ? "QA failed" : "QA passed";
+    case "publish":
+      return "Publish step updated";
+    case "discovery":
+      return "Topic researched";
+    case "prioritization":
+      return "Strategy prioritized";
+    default:
+      return `${humanizeStepName(step.stepName)} updated`;
+  }
+}
+
 function isDiagnosticNotice(value: string | null) {
   if (!value) return false;
   return /without live data|fallback|mock|database|db unavailable|ahrefs/i.test(value);
@@ -1052,7 +1138,8 @@ export function WorkflowGridControlPlane(props: {
   const [rowEdits, setRowEdits] = useState<Record<string, { keyword: string; path: "blog" | "landing_page"; type: "keyword" | "page_idea" | "competitor_page" | "lp_optimization" }>>({});
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [drawerTab, setDrawerTab] = useState<"recommendation" | "draft" | "history">("recommendation");
+  const [drawerTab, setDrawerTab] = useState<DrawerTab>("overview");
+  const [showStructuredDraft, setShowStructuredDraft] = useState(false);
   const [pending, startTransition] = useTransition();
   const [drawerOpen, setDrawerOpen] = useState(Boolean(props.initialRows[0]?.id));
 
@@ -1288,7 +1375,8 @@ export function WorkflowGridControlPlane(props: {
   useEffect(() => {
     if (selectedId) {
       setDrawerOpen(true);
-      setDrawerTab("recommendation");
+      setDrawerTab("overview");
+      setShowStructuredDraft(false);
     }
   }, [selectedId]);
 
@@ -1525,7 +1613,7 @@ export function WorkflowGridControlPlane(props: {
       default:
         setSelectedId(row.id);
         setDrawerOpen(true);
-        setDrawerTab(nextAction.action === "prepare_publish" ? "history" : "recommendation");
+        setDrawerTab(nextAction.action === "prepare_publish" ? "qa" : "overview");
     }
   }
 
@@ -1941,54 +2029,31 @@ export function WorkflowGridControlPlane(props: {
       <div className={`air-drawer-scrim ${drawerOpen ? "is-open" : ""}`} onClick={() => setDrawerOpen(false)} />
       <div className={`air-drawer ${drawerOpen ? "is-open" : ""}`}>
         <div className="air-drawer-panel">
-          {selectedRow ? (
-            <div className="air-drawer-head">
-              <div>
-                <div className="air-drawer-title">{selectedRow.keyword}</div>
-                <div className="air-drawer-subtitle">{selectedRow.path === "blog" ? "Blog capture workflow" : "Landing page conversion workflow"}</div>
-              </div>
-              <button type="button" className="air-drawer-close" onClick={() => setDrawerOpen(false)}>
-                ×
-              </button>
-            </div>
-          ) : null}
-          {!selectedRow ? (
-            <p style={{ marginTop: 0, marginBottom: 0 }}>Pick a row to review outputs, revisions, and audit history.</p>
-          ) : (
-            <div className="air-pane-grid">
-              <div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <Badge variant="grid">{getIntentLabel(selectedRow)}</Badge>
-                  <Badge variant="grid">{humanizeStatus(selectedRow.rowStatus)}</Badge>
-                  {selectedRow.searchVolume ? <Badge variant="grid">{`${selectedRow.searchVolume.toLocaleString()} volume`}</Badge> : null}
+          {selectedRow ? (() => {
+            const nextAction = getNextAction(selectedRow);
+            const briefStep = currentSteps.find((step) => step.stepName === "brief");
+            const outlinePackage = briefStep ? getBriefPackage(briefStep) : null;
+            const drawerTitle = outlinePackage?.selectedTitle ?? outlinePackage?.titleOptions[0] ?? selectedRow.keyword;
+            return (
+              <div className="air-drawer-head">
+                <div>
+                  <h2 className="air-drawer-title">{drawerTitle}</h2>
+                  <div className="air-drawer-subtitle">
+                    {getPathLabel(selectedRow)} · {getTypeLabel(selectedRow)} · {getIntentLabel(selectedRow)} intent
+                  </div>
                 </div>
-                <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div className="air-drawer-head-actions">
                   <button
                     type="button"
+                    className="air-primary-action"
                     disabled={pending}
-                    onClick={() =>
-                      runAction(async () => {
-                        await generateDraftForSelected(selectedRow.id);
-                        if (props.persistenceMode === "database") {
-                          router.refresh();
-                        }
-                      })
-                    }
+                    onClick={() => runAction(async () => runNextAction(selectedRow))}
                   >
-                    Write draft
+                    {nextAction.label}
                   </button>
                   <button
                     type="button"
-                    disabled={!detail && !selectedRow}
-                    onClick={() => {
-                      const reviewDetail = detail ?? buildLocalDetail(selectedRow);
-                      openReviewWorkspace(reviewDetail);
-                    }}
-                  >
-                    Review draft
-                  </button>
-                  <button
-                    type="button"
+                    className="air-secondary-action"
                     disabled={pending}
                     onClick={() =>
                       runAction(async () => {
@@ -2006,25 +2071,84 @@ export function WorkflowGridControlPlane(props: {
                   >
                     Delete row
                   </button>
+                  <button type="button" className="air-drawer-close" onClick={() => setDrawerOpen(false)}>
+                    ×
+                  </button>
                 </div>
               </div>
-
+            );
+          })() : null}
+          {!selectedRow ? (
+            <p style={{ marginTop: 0, marginBottom: 0 }}>Pick a row to review outputs, revisions, and audit history.</p>
+          ) : (
+            <div className="air-pane-grid">
               <div className="air-drawer-tabs">
                 {[
-                  { key: "recommendation", label: "Brief" },
+                  { key: "overview", label: "Overview" },
+                  { key: "brief", label: "Brief" },
                   { key: "draft", label: "Draft" },
+                  { key: "qa", label: "QA" },
                   { key: "history", label: "History" },
                 ].map((tab) => (
                   <button
                     key={tab.key}
                     type="button"
                     className={`air-drawer-tab${drawerTab === tab.key ? " is-active" : ""}`}
-                    onClick={() => setDrawerTab(tab.key as "recommendation" | "draft" | "history")}
+                    onClick={() => setDrawerTab(tab.key as DrawerTab)}
                   >
                     {tab.label}
                   </button>
                 ))}
               </div>
+
+              {drawerTab === "overview" && (() => {
+                const briefStep = currentSteps.find((step) => step.stepName === "brief");
+                const outlinePackage = briefStep ? getBriefPackage(briefStep) : null;
+                const nextAction = getNextAction(selectedRow);
+                const selectedTitle = outlinePackage?.selectedTitle ?? outlinePackage?.titleOptions[0] ?? selectedRow.keyword;
+                const selectedSlug = outlinePackage?.selectedSlug ?? outlinePackage?.slugOptions[0] ?? keywordToSlug(selectedRow.keyword);
+                return (
+                  <div className="air-drawer-section">
+                    <div className="air-overview-grid">
+                      <div className="air-field-grid">
+                        {[
+                          ["Topic / page title", selectedTitle],
+                          ["Target keyword", selectedRow.keyword],
+                          ["URL or proposed slug", selectedSlug ? `/${selectedSlug}` : ""],
+                          ["Path", getPathLabel(selectedRow)],
+                          ["Type", getTypeLabel(selectedRow)],
+                          ["Intent", getIntentLabel(selectedRow)],
+                          ["Audience", outlinePackage?.analysis.persona],
+                        ].map(([label, value]) => (
+                          <div key={label} className="air-field">
+                            <div className="air-field-label">{label}</div>
+                            <div className="air-field-value">{displayField(value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="air-field-grid">
+                        {[
+                          ["Search volume", selectedRow.searchVolume ?? outlinePackage?.keywordOverview?.searchVolume],
+                          ["Current position", undefined],
+                          ["Traffic potential", undefined],
+                          ["Estimated trial impact", undefined],
+                          ["Confidence", undefined],
+                          ["Recommended next action", nextAction.label],
+                        ].map(([label, value]) => (
+                          <div key={label} className="air-field">
+                            <div className="air-field-label">{label}</div>
+                            <div className="air-field-value">{displayField(value)}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="air-next-card">
+                      <div className="air-next-card-title">Next best move</div>
+                      <p>{getNextBestMoveReason(selectedRow, outlinePackage, nextAction.label)}</p>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {drawerTab === "draft" && (() => {
                 const draftStep = currentSteps.find((step) => step.stepName === "draft");
@@ -2033,41 +2157,73 @@ export function WorkflowGridControlPlane(props: {
                 const targetKeywords = Array.isArray(draftPayload?.targetKeywords)
                   ? draftPayload.targetKeywords.map((item) => String(item))
                   : [];
+                const draftOutline = getDraftOutline(draftHtml);
+                const anchoredDraftHtml = addDraftAnchors(draftHtml);
                 return (
                   <div className="air-drawer-section">
-                    <div className="air-drawer-section-title">Draft</div>
-                    <div className="air-drawer-note">
-                      {draftHtml
-                        ? "Current draft for review."
-                        : "No draft has been written yet. Use Write draft to create one before review."}
-                    </div>
+                    {!draftHtml ? (
+                      <div className="air-empty-state">
+                        <p>No draft yet. Approve the brief first, then write the draft.</p>
+                        <button
+                          type="button"
+                          className="air-primary-action"
+                          disabled={pending}
+                          onClick={() =>
+                            runAction(async () => {
+                              await generateDraftForSelected(selectedRow.id);
+                              if (props.persistenceMode === "database") router.refresh();
+                            })
+                          }
+                        >
+                          Write draft
+                        </button>
+                      </div>
+                    ) : null}
                     {targetKeywords.length ? (
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                      <div className="air-keyword-row">
                         {targetKeywords.map((keyword) => (
                           <Badge key={keyword} variant="grid">{keyword}</Badge>
                         ))}
                       </div>
                     ) : null}
-                    <div
-                      className="air-draft-preview"
-                      style={{
-                        maxHeight: 420,
-                      }}
-                      dangerouslySetInnerHTML={{ __html: draftHtml ?? "<p>No draft preview available yet.</p>" }}
-                    />
+                    {draftHtml ? (
+                      <div className="air-draft-layout">
+                        <aside className="air-draft-outline">
+                          <div className="air-section-heading">Outline</div>
+                          {draftOutline.length ? draftOutline.map((item) => (
+                            <a key={item.id} href={`#${item.id}`} className={`air-draft-anchor is-h${item.level}`}>
+                              {item.label}
+                            </a>
+                          )) : <p className="air-section-muted">No section headings found.</p>}
+                        </aside>
+                        <div
+                          className="air-draft-preview"
+                          dangerouslySetInnerHTML={{ __html: anchoredDraftHtml ?? "<p>No draft preview available yet.</p>" }}
+                        />
+                      </div>
+                    ) : null}
                     {draftStep ? (
                       <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-                        <textarea
-                          className="air-textarea"
-                          value={
-                            stepEdits[draftStep.id] ??
-                            JSON.stringify(getStepPayload(draftStep) ?? {}, null, 2)
-                          }
-                          onChange={(event) => setStepEdits((current) => ({ ...current, [draftStep.id]: event.target.value }))}
-                          placeholder="Manual draft edit JSON"
-                          style={{ minHeight: 160, fontFamily: "monospace" }}
-                        />
-                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          className="air-structured-toggle"
+                          onClick={() => setShowStructuredDraft((current) => !current)}
+                        >
+                          {showStructuredDraft ? "Hide structured fields" : "View structured fields"}
+                        </button>
+                        {showStructuredDraft ? (
+                          <textarea
+                            className="air-textarea"
+                            value={
+                              stepEdits[draftStep.id] ??
+                              JSON.stringify(getStepPayload(draftStep) ?? {}, null, 2)
+                            }
+                            onChange={(event) => setStepEdits((current) => ({ ...current, [draftStep.id]: event.target.value }))}
+                            placeholder="Manual draft edit JSON"
+                            style={{ minHeight: 160, fontFamily: "monospace" }}
+                          />
+                        ) : null}
+                        <div className="air-action-row">
                           <button
                             type="button"
                             disabled={pending}
@@ -2090,41 +2246,76 @@ export function WorkflowGridControlPlane(props: {
                               openReviewWorkspace(reviewDetail);
                             }}
                           >
-                            Review draft
+                            Send to review
                           </button>
                           <button
                             type="button"
-                            disabled={pending}
+                            disabled={pending || draftStep.version === 0}
                             onClick={() =>
                               runAction(async () => {
-                                const manualOutput = JSON.parse(stepEdits[draftStep.id] ?? "{}") as unknown;
                                 if (isLocalWorkflow || isLocalStep(draftStep)) {
                                   updateLocalDetail((current) => ({
                                     ...current,
-                                    steps: current.steps.map((item) =>
-                                      item.id === draftStep.id
-                                        ? {
-                                            ...item,
-                                            manualOutput: manualOutput as Record<string, unknown>,
-                                            completedAt: new Date().toISOString(),
-                                            status: "needs_review",
-                                          }
-                                        : item,
-                                    ),
+                                    rowStatus: "blocked",
+                                    revisionNotes: [
+                                      {
+                                        id: `local_revision_${Date.now()}`,
+                                        note: "Revision requested from the draft workspace.",
+                                        requestedBy: "reviewer@cookunity.local",
+                                        createdAt: new Date().toISOString(),
+                                      },
+                                      ...current.revisionNotes,
+                                    ],
                                   }));
-                                  setNotice("Draft changes saved locally.");
+                                  setNotice("Revision request saved.");
                                   return;
                                 }
-                                await requestJson(`/api/workflow/steps/${draftStep.id}/edit`, {
+                                await requestJson(`/api/workflow/steps/${draftStep.id}/revision`, {
                                   method: "POST",
-                                  body: JSON.stringify({ manualOutput }),
+                                  body: JSON.stringify({ note: "Revision requested from the draft workspace." }),
                                 });
                                 await refreshRow(selectedRow.id);
+                                router.refresh();
                               })
                             }
                           >
-                            Save changes
+                            Request revision
                           </button>
+                          {showStructuredDraft ? (
+                            <button
+                              type="button"
+                              disabled={pending}
+                              onClick={() =>
+                                runAction(async () => {
+                                  const manualOutput = JSON.parse(stepEdits[draftStep.id] ?? "{}") as unknown;
+                                  if (isLocalWorkflow || isLocalStep(draftStep)) {
+                                    updateLocalDetail((current) => ({
+                                      ...current,
+                                      steps: current.steps.map((item) =>
+                                        item.id === draftStep.id
+                                          ? {
+                                              ...item,
+                                              manualOutput: manualOutput as Record<string, unknown>,
+                                              completedAt: new Date().toISOString(),
+                                              status: "needs_review",
+                                            }
+                                          : item,
+                                      ),
+                                    }));
+                                    setNotice("Draft changes saved locally.");
+                                    return;
+                                  }
+                                  await requestJson(`/api/workflow/steps/${draftStep.id}/edit`, {
+                                    method: "POST",
+                                    body: JSON.stringify({ manualOutput }),
+                                  });
+                                  await refreshRow(selectedRow.id);
+                                })
+                              }
+                            >
+                              Save changes
+                            </button>
+                          ) : null}
                         </div>
                       </div>
                     ) : null}
@@ -2132,13 +2323,20 @@ export function WorkflowGridControlPlane(props: {
                 );
               })()}
 
-              {drawerTab === "recommendation" && (() => {
+              {drawerTab === "brief" && (() => {
                 const briefStep = currentSteps.find((step) => step.stepName === "brief");
                 if (!briefStep || !getBriefPackage(briefStep)) {
                   return (
-                    <div className="air-drawer-section">
-                      <div className="air-drawer-section-title">Brief</div>
-                      <p style={{ margin: 0 }}>No brief has been generated yet. Run brief to see the working plan.</p>
+                    <div className="air-empty-state">
+                      <p>No brief yet. Build one to define the strategy before drafting.</p>
+                      <button
+                        type="button"
+                        className="air-primary-action"
+                        disabled={pending}
+                        onClick={() => runAction(async () => runStepForRow(selectedRow, "brief"))}
+                      >
+                        Build brief
+                      </button>
                     </div>
                   );
                 }
@@ -2160,15 +2358,32 @@ export function WorkflowGridControlPlane(props: {
                     </div>
 
                     <div className="air-section-panel">
-                      <div className="air-section-heading">Search demand</div>
+                      <div className="air-section-heading">Search intent</div>
                       <div style={{ fontSize: 13 }}>
-                        Search volume: {outlinePackage.keywordOverview?.searchVolume?.toLocaleString?.() ?? "n/a"}
+                        Search volume: {displayField(outlinePackage.keywordOverview?.searchVolume)}
                       </div>
-                      <div className="air-section-muted" style={{ fontSize: 13 }}>{outlinePackage.analysis.searchIntent}</div>
+                      <div className="air-section-muted" style={{ fontSize: 13 }}>{displayField(outlinePackage.analysis.searchIntent)}</div>
                     </div>
 
                     <div className="air-section-panel">
-                      <div className="air-section-heading">Intent strategy</div>
+                      <div className="air-section-heading">Audience</div>
+                      <p className="air-section-muted">{displayField(outlinePackage.analysis.persona)}</p>
+                      {renderListOrEmpty(outlinePackage.analysis.personaAnalysis.audiences, "No audience notes yet.")}
+                    </div>
+
+                    <div className="air-section-panel">
+                      <div className="air-section-heading">Content gaps</div>
+                      {renderListOrEmpty(
+                        [
+                          ...outlinePackage.analysis.seoOpportunities,
+                          ...(outlinePackage.analysis.competitorSummary ? [outlinePackage.analysis.competitorSummary] : []),
+                        ],
+                        "No content gaps identified yet.",
+                      )}
+                    </div>
+
+                    <div className="air-section-panel">
+                      <div className="air-section-heading">Strategy</div>
                       <div style={{ fontSize: 13 }}><strong className="air-field-label">Primary intent:</strong> {outlinePackage.analysis.intentAnalysis.primaryIntent}</div>
                       <div style={{ fontSize: 13 }}><strong className="air-field-label">Journey stage:</strong> {outlinePackage.analysis.intentAnalysis.journeyStage}</div>
                       <div style={{ fontSize: 13 }}><strong className="air-field-label">Recommended format:</strong> {outlinePackage.analysis.intentAnalysis.recommendedContentFormat}</div>
@@ -2264,7 +2479,7 @@ export function WorkflowGridControlPlane(props: {
                     </div>
 
                     <div className="air-section-panel">
-                      <div className="air-section-heading">Proposed structure</div>
+                      <div className="air-section-heading">Required sections</div>
                       {outlinePackage.analysis.outline.map((item, index) => (
                         <div key={`${item.heading}_${index}`} style={{ fontSize: 13 }}>
                           <strong>{`H${item.level} • ${item.heading}`}</strong>
@@ -2273,30 +2488,199 @@ export function WorkflowGridControlPlane(props: {
                       ))}
                     </div>
 
-                    <button
-                      type="button"
-                      disabled={pending || props.persistenceMode !== "database"}
-                      onClick={() =>
-                        runAction(async () => {
-                          const selectedKeywordObjects = outlinePackage.secondaryKeywordOptions.filter((item) =>
-                            selectedSecondaryKeywords.includes(item.keyword),
-                          );
-                          const manualOutput = serializeBriefManualOutput(
-                            step,
-                            selectedTitle,
-                            selectedSlug,
-                            selectedKeywordObjects,
-                          );
-                          await requestJson(`/api/workflow/steps/${step.id}/edit`, {
-                            method: "POST",
-                            body: JSON.stringify({ manualOutput }),
-                          });
-                          await refreshRow(selectedRow.id);
-                        })
-                      }
-                    >
-                      Save brief choices
-                    </button>
+                    <div className="air-section-panel">
+                      <div className="air-section-heading">CTA strategy</div>
+                      {renderListOrEmpty(
+                        outlinePackage.analysis.cookunityPositioning.ctaDirection
+                          ? [outlinePackage.analysis.cookunityPositioning.ctaDirection]
+                          : [],
+                        "No CTA strategy yet.",
+                      )}
+                    </div>
+
+                    <div className="air-section-panel">
+                      <div className="air-section-heading">Internal links</div>
+                      {renderListOrEmpty(
+                        outlinePackage.internalLinks.map((link) => `${link.anchorText} → ${link.url}`),
+                        "No internal links selected yet.",
+                      )}
+                    </div>
+
+                    <div className="air-section-panel">
+                      <div className="air-section-heading">Brand and voice notes</div>
+                      {renderListOrEmpty(
+                        [
+                          ...outlinePackage.analysis.cookunityPositioning.uniqueValue,
+                          outlinePackage.analysis.evaluation.toneAndStyle,
+                        ].filter(Boolean),
+                        "No brand or voice notes yet.",
+                      )}
+                    </div>
+
+                    <div className="air-action-row">
+                      {!stepIsApproved(step) ? (
+                        <button
+                          type="button"
+                          className="air-primary-action"
+                          disabled={pending}
+                          onClick={() => runAction(async () => approveBriefForRow(selectedRow))}
+                        >
+                          Approve brief
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="air-secondary-action"
+                        disabled={pending}
+                        onClick={() =>
+                          runAction(async () => {
+                            const selectedKeywordObjects = outlinePackage.secondaryKeywordOptions.filter((item) =>
+                              selectedSecondaryKeywords.includes(item.keyword),
+                            );
+                            const manualOutput = serializeBriefManualOutput(
+                              step,
+                              selectedTitle,
+                              selectedSlug,
+                              selectedKeywordObjects,
+                            );
+                            if (isLocalWorkflow || isLocalStep(step)) {
+                              updateLocalDetail((current) => ({
+                                ...current,
+                                steps: current.steps.map((item) =>
+                                  item.id === step.id
+                                    ? { ...item, manualOutput: manualOutput as Record<string, unknown>, completedAt: new Date().toISOString() }
+                                    : item,
+                                ),
+                              }));
+                              setNotice("Brief changes saved locally.");
+                              return;
+                            }
+                            await requestJson(`/api/workflow/steps/${step.id}/edit`, {
+                              method: "POST",
+                              body: JSON.stringify({ manualOutput }),
+                            });
+                            await refreshRow(selectedRow.id);
+                          })
+                        }
+                      >
+                        Edit brief
+                      </button>
+                      {stepIsApproved(step) && !getDraftHtml(currentSteps.find((item) => item.stepName === "draft") ?? step) ? (
+                        <button
+                          type="button"
+                          className="air-primary-action"
+                          disabled={pending}
+                          onClick={() =>
+                            runAction(async () => {
+                              await generateDraftForSelected(selectedRow.id);
+                              if (props.persistenceMode === "database") router.refresh();
+                            })
+                          }
+                        >
+                          Write draft
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {drawerTab === "qa" && (() => {
+                const qaStep = currentSteps.find((step) => step.stepName === "qa");
+                const qaPayload = qaStep ? getStepPayload(qaStep) : null;
+                const qaHasRun = stepHasRun(qaStep);
+                const qaFailed = qaStep?.status === "failed" || qaPayload?.passed === false;
+                const qaStatus = !qaHasRun ? "not_run" : qaFailed ? "fail" : "pass";
+                const qaChecks = [
+                  "Search intent match",
+                  "Keyword usage",
+                  "CTA / path alignment",
+                  "Internal links",
+                  "Brand voice",
+                  "Mobile readability",
+                  "Publish readiness",
+                ];
+                return (
+                  <div className="air-drawer-section">
+                    {!qaHasRun ? (
+                      <div className="air-empty-state">
+                        <p>QA not run yet</p>
+                        <button
+                          type="button"
+                          className="air-primary-action"
+                          disabled={pending}
+                          onClick={() => runAction(async () => runStepForRow(selectedRow, "qa"))}
+                        >
+                          Run QA
+                        </button>
+                      </div>
+                    ) : null}
+                    <div className="air-qa-list">
+                      {qaChecks.map((item) => (
+                        <div key={item} className="air-qa-item">
+                          <span className={`air-qa-mark is-${qaStatus}`}>{qaStatus === "pass" ? "✓" : qaStatus === "fail" ? "×" : "•"}</span>
+                          <span>{item}</span>
+                          <span className="air-qa-status">{qaStatus === "not_run" ? "Not run" : qaStatus === "pass" ? "Pass" : "Fail"}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {qaPayload?.notes && Array.isArray(qaPayload.notes) ? (
+                      <div className="air-section-panel">
+                        <div className="air-section-heading">QA notes</div>
+                        {renderListOrEmpty(qaPayload.notes.map((item) => String(item)), "No QA notes.")}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()}
+
+              {drawerTab === "history" && (() => {
+                const timelineEvents = [
+                  {
+                    id: `${selectedRow.id}_created`,
+                    label: "Topic created",
+                    detail: selectedRow.keyword,
+                    timestamp: selectedRow.updatedAt,
+                  },
+                  ...currentSteps
+                    .filter(stepHasRun)
+                    .map((step) => ({
+                      id: step.id,
+                      label: getReadableStepLabel(step),
+                      detail: `${humanizeStepName(step.stepName)} · ${humanizeStatus(step.status)}`,
+                      timestamp: step.approvedAt ?? step.completedAt ?? step.startedAt ?? selectedRow.updatedAt,
+                    })),
+                  ...(detail?.auditLog ?? []).map((entry) => ({
+                    id: entry.id,
+                    label: entry.action.replaceAll("_", " "),
+                    detail: entry.actorId ? `${entry.actorType} · ${entry.actorId}` : entry.actorType,
+                    timestamp: entry.createdAt,
+                  })),
+                  ...(detail?.revisionNotes ?? []).map((entry) => ({
+                    id: entry.id,
+                    label: "Revision requested",
+                    detail: entry.note,
+                    timestamp: entry.createdAt,
+                  })),
+                ].sort((left, right) => right.timestamp.localeCompare(left.timestamp));
+                return (
+                  <div className="air-drawer-section">
+                    {timelineEvents.length ? (
+                      <div className="air-timeline">
+                        {timelineEvents.map((event) => (
+                          <div key={event.id} className="air-timeline-event">
+                            <span className="air-timeline-dot" />
+                            <div>
+                              <div className="air-timeline-label">{event.label}</div>
+                              {event.detail ? <div className="air-timeline-detail">{event.detail}</div> : null}
+                            </div>
+                            <time className="air-timeline-time">{new Date(event.timestamp).toLocaleString()}</time>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="air-section-muted">No history yet.</p>
+                    )}
                   </div>
                 );
               })()}
