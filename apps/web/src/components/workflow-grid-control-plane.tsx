@@ -16,6 +16,30 @@ import type { GridOpportunityDetail, GridOpportunityRow, GridStepView } from "..
 const orderedSteps = ["discovery", "prioritization", "brief", "draft", "qa", "publish"] as const;
 type DrawerTab = "overview" | "brief" | "draft" | "qa" | "history";
 
+const operatorErrorMessages = {
+  notFound: "This row is not yet saved to the database. Some actions are not available until persistence is connected.",
+  server: "The server hit an error running this step. Try again, or check Diagnostics.",
+  network: "Couldn't reach the server. Check your connection and try again.",
+  empty: "The server returned an empty response. This usually means the action is not supported in the current environment.",
+  unknown: "Something went wrong. Try again, or check Diagnostics.",
+} as const;
+
+function responseErrorMessage(status: number) {
+  if (status === 404) return operatorErrorMessages.notFound;
+  if (status >= 500) return operatorErrorMessages.server;
+  return operatorErrorMessages.unknown;
+}
+
+function userFacingErrorMessage(error: unknown) {
+  if (
+    error instanceof Error &&
+    (Object.values(operatorErrorMessages) as string[]).includes(error.message)
+  ) {
+    return error.message;
+  }
+  return operatorErrorMessages.unknown;
+}
+
 function cellTone(status: string) {
   switch (status) {
     case "approved":
@@ -39,22 +63,33 @@ async function requestJson(url: string, options?: RequestInit) {
       "Content-Type": "application/json",
       ...(options?.headers ?? {}),
     },
+  }).catch(() => {
+    throw new Error(operatorErrorMessages.network);
   });
+
+  if (!response.ok) {
+    throw new Error(responseErrorMessage(response.status));
+  }
+
   const raw = await response.text();
   let payload:
     | { success: boolean; message?: string; warning?: string; result?: GridOpportunityDetail & { id: string } }
     | null = null;
 
+  if (!raw) {
+    throw new Error(operatorErrorMessages.empty);
+  }
+
   if (raw) {
     try {
       payload = JSON.parse(raw) as { success: boolean; message?: string; warning?: string; result?: GridOpportunityDetail & { id: string } };
     } catch {
-      throw new Error(raw.slice(0, 240));
+      throw new Error(operatorErrorMessages.empty);
     }
   }
 
-  if (!response.ok || !payload?.success) {
-    throw new Error(payload?.message ?? raw.slice(0, 240) ?? "Request failed.");
+  if (!payload?.success) {
+    throw new Error(operatorErrorMessages.unknown);
   }
   return payload;
 }
@@ -65,20 +100,31 @@ async function requestGridRows() {
     headers: {
       Accept: "application/json",
     },
+  }).catch(() => {
+    throw new Error(operatorErrorMessages.network);
   });
+
+  if (!response.ok) {
+    throw new Error(responseErrorMessage(response.status));
+  }
+
   const raw = await response.text();
   let payload: { success: boolean; message?: string; rows?: GridOpportunityRow[] } | null = null;
+
+  if (!raw) {
+    throw new Error(operatorErrorMessages.empty);
+  }
 
   if (raw) {
     try {
       payload = JSON.parse(raw) as { success: boolean; message?: string; rows?: GridOpportunityRow[] };
     } catch {
-      throw new Error(raw.slice(0, 240));
+      throw new Error(operatorErrorMessages.empty);
     }
   }
 
-  if (!response.ok || !payload?.success || !payload.rows) {
-    throw new Error(payload?.message ?? raw.slice(0, 240) ?? "Failed to load grid rows.");
+  if (!payload?.success || !payload.rows) {
+    throw new Error(operatorErrorMessages.unknown);
   }
 
   return payload.rows;
@@ -1298,7 +1344,7 @@ export function WorkflowGridControlPlane(props: {
         setDetail(payload.result ?? null);
       })
       .catch((nextError) => {
-        setError(nextError instanceof Error ? nextError.message : "Failed to load detail.");
+        setError(userFacingErrorMessage(nextError));
       });
   }, [selectedId, props.persistenceMode]);
 
@@ -1368,7 +1414,7 @@ export function WorkflowGridControlPlane(props: {
         });
       })
       .catch((nextError) => {
-        setError(nextError instanceof Error ? nextError.message : "Failed to refresh grid rows.");
+        setError(userFacingErrorMessage(nextError));
       });
   }, [props.initialSelectedId, props.persistenceMode]);
 
@@ -1483,7 +1529,7 @@ export function WorkflowGridControlPlane(props: {
     setNotice(null);
     startTransition(() => {
       void action().catch((nextError) => {
-        setError(nextError instanceof Error ? nextError.message : "Action failed.");
+        setError(userFacingErrorMessage(nextError));
       });
     });
   }
