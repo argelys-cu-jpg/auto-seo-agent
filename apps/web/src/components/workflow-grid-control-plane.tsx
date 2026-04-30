@@ -790,6 +790,19 @@ function getDraftHtml(step: GridStepView) {
   return typeof payload?.html === "string" ? payload.html : null;
 }
 
+function shouldRunStepForDraftPipeline(stepName: typeof orderedSteps[number], step?: GridStepView) {
+  if (!step || step.version === 0 || step.status === "not_started" || step.status === "failed" || step.status === "running") {
+    return true;
+  }
+  if (stepName === "brief" && !getBriefPackage(step)) {
+    return true;
+  }
+  if (stepName === "draft" && !getDraftHtml(step)) {
+    return true;
+  }
+  return false;
+}
+
 function getStep(row: GridOpportunityRow, stepName: typeof orderedSteps[number]) {
   return row.steps.find((step) => step.stepName === stepName);
 }
@@ -870,9 +883,9 @@ function getNextAction(row: GridOpportunityRow) {
 
   if (isRefreshAlert(row)) return { label: "Refresh page", action: "refresh_page" as const };
   if (row.rowStatus === "published") return { label: "Inspect page", action: "inspect" as const };
-  if (!stepHasRun(brief)) return { label: "Build brief", action: "build_brief" as const };
+  if (!brief || !stepHasRun(brief) || !getBriefPackage(brief)) return { label: "Build brief", action: "build_brief" as const };
   if (!stepIsApproved(brief)) return { label: "Approve brief", action: "approve_brief" as const };
-  if (!stepHasRun(draft)) return { label: "Write draft", action: "write_draft" as const };
+  if (!draft || !stepHasRun(draft) || !getDraftHtml(draft)) return { label: "Write draft", action: "write_draft" as const };
   if (!stepIsApproved(draft) && !stepIsApproved(qa)) return { label: "Review draft", action: "review_draft" as const };
   if (row.rowStatus === "approved" || stepIsApproved(draft) || stepIsApproved(qa)) {
     return { label: "Prepare publish", action: "prepare_publish" as const };
@@ -1310,13 +1323,7 @@ export function WorkflowGridControlPlane(props: {
       }
       for (const stepName of ["discovery", "prioritization", "brief", "draft", "qa"] as const) {
         const step = currentDetail?.steps.find((item) => item.stepName === stepName);
-        const shouldRun =
-          !step ||
-          step.version === 0 ||
-          step.status === "not_started" ||
-          step.status === "failed" ||
-          step.status === "running";
-        if (!shouldRun) {
+        if (!shouldRunStepForDraftPipeline(stepName, step)) {
           continue;
         }
         const payload = await requestJson(`/api/opportunities/${opportunityId}/steps/${stepName}/run`, {
@@ -1622,37 +1629,11 @@ export function WorkflowGridControlPlane(props: {
           {notice && isDiagnosticNotice(notice) ? <div style={{ marginTop: 10 }}>{notice}</div> : null}
         </details>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-            gap: 12,
-          }}
-        >
+        <div className="air-summary-grid">
           {summaryCards.map((card) => (
-            <div
-              key={card.label}
-              style={{
-                border: "1px solid var(--color-border)",
-                borderLeft: "3px solid transparent",
-                borderRadius: 14,
-                background: "var(--color-surface)",
-                padding: "14px 16px",
-                transition: "border-color 140ms ease",
-              }}
-              onMouseEnter={(event) => {
-                event.currentTarget.style.borderLeftColor = "var(--color-action)";
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.borderLeftColor = "transparent";
-              }}
-            >
-              <div style={{ fontFamily: "DM Serif Display, Georgia, serif", fontSize: 38, lineHeight: 1, color: "var(--color-text-primary)" }}>
-                {card.value}
-              </div>
-              <div style={{ marginTop: 8, color: "var(--color-text-secondary)", fontSize: 13, fontWeight: 700 }}>
-                {card.label}
-              </div>
+            <div key={card.label} className="air-summary-card">
+              <div className="air-summary-value">{card.value}</div>
+              <div className="air-summary-label">{card.label}</div>
             </div>
           ))}
         </div>
@@ -2068,13 +2049,9 @@ export function WorkflowGridControlPlane(props: {
                       </div>
                     ) : null}
                     <div
+                      className="air-draft-preview"
                       style={{
-                        border: "1px solid #e2d7c7",
-                        borderRadius: 10,
-                        padding: 12,
-                        background: "#fff",
                         maxHeight: 420,
-                        overflowY: "auto",
                       }}
                       dangerouslySetInnerHTML={{ __html: draftHtml ?? "<p>No draft preview available yet.</p>" }}
                     />
@@ -2182,29 +2159,29 @@ export function WorkflowGridControlPlane(props: {
                       </div>
                     </div>
 
-                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                      <div style={{ fontWeight: 700 }}>Search demand</div>
+                    <div className="air-section-panel">
+                      <div className="air-section-heading">Search demand</div>
                       <div style={{ fontSize: 13 }}>
                         Search volume: {outlinePackage.keywordOverview?.searchVolume?.toLocaleString?.() ?? "n/a"}
                       </div>
-                      <div style={{ fontSize: 13, color: "#58685d" }}>{outlinePackage.analysis.searchIntent}</div>
+                      <div className="air-section-muted" style={{ fontSize: 13 }}>{outlinePackage.analysis.searchIntent}</div>
                     </div>
 
-                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                      <div style={{ fontWeight: 700 }}>Intent strategy</div>
-                      <div style={{ fontSize: 13 }}><strong>Primary intent:</strong> {outlinePackage.analysis.intentAnalysis.primaryIntent}</div>
-                      <div style={{ fontSize: 13 }}><strong>Journey stage:</strong> {outlinePackage.analysis.intentAnalysis.journeyStage}</div>
-                      <div style={{ fontSize: 13 }}><strong>Recommended format:</strong> {outlinePackage.analysis.intentAnalysis.recommendedContentFormat}</div>
+                    <div className="air-section-panel">
+                      <div className="air-section-heading">Intent strategy</div>
+                      <div style={{ fontSize: 13 }}><strong className="air-field-label">Primary intent:</strong> {outlinePackage.analysis.intentAnalysis.primaryIntent}</div>
+                      <div style={{ fontSize: 13 }}><strong className="air-field-label">Journey stage:</strong> {outlinePackage.analysis.intentAnalysis.journeyStage}</div>
+                      <div style={{ fontSize: 13 }}><strong className="air-field-label">Recommended format:</strong> {outlinePackage.analysis.intentAnalysis.recommendedContentFormat}</div>
                       <div style={{ display: "grid", gap: 4 }}>
                         {outlinePackage.analysis.intentAnalysis.evidence.map((item, index) => (
-                          <div key={`${item}_${index}`} style={{ fontSize: 13, color: "#58685d" }}>• {item}</div>
+                          <div key={`${item}_${index}`} className="air-section-muted" style={{ fontSize: 13 }}>• {item}</div>
                         ))}
                       </div>
                     </div>
 
-                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                      <div style={{ fontWeight: 700 }}>Title</div>
-                      <div style={{ fontSize: 13, color: "#58685d" }}>{outlinePackage.analysis.titleAnalysis.rationale}</div>
+                    <div className="air-section-panel">
+                      <div className="air-section-heading">Title</div>
+                      <div className="air-section-muted" style={{ fontSize: 13 }}>{outlinePackage.analysis.titleAnalysis.rationale}</div>
                       {outlinePackage.titleOptions.map((title) => (
                         <label key={title} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                           <input
@@ -2219,9 +2196,9 @@ export function WorkflowGridControlPlane(props: {
                     </div>
 
                     {outlinePackage.slugOptions.length ? (
-                      <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                        <div style={{ fontWeight: 700 }}>Slug</div>
-                        <div style={{ fontSize: 13, color: "#58685d" }}>{outlinePackage.analysis.slugAnalysis.rationale}</div>
+                      <div className="air-section-panel">
+                        <div className="air-section-heading">Slug</div>
+                        <div className="air-section-muted" style={{ fontSize: 13 }}>{outlinePackage.analysis.slugAnalysis.rationale}</div>
                         {outlinePackage.slugOptions.map((slug) => (
                           <label key={slug} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
                             <input
@@ -2236,9 +2213,9 @@ export function WorkflowGridControlPlane(props: {
                       </div>
                     ) : null}
 
-                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                      <div style={{ fontWeight: 700 }}>Supporting keywords</div>
-                      <div style={{ fontSize: 13, color: "#58685d" }}>{outlinePackage.analysis.keywordStrategy.primaryKeywordRole}</div>
+                    <div className="air-section-panel">
+                      <div className="air-section-heading">Supporting keywords</div>
+                      <div className="air-section-muted" style={{ fontSize: 13 }}>{outlinePackage.analysis.keywordStrategy.primaryKeywordRole}</div>
                       <div style={{ display: "grid", gap: 6 }}>
                         {outlinePackage.secondaryKeywordOptions.slice(0, 20).map((item) => {
                           const checked = selectedSecondaryKeywords.includes(item.keyword);
@@ -2263,7 +2240,7 @@ export function WorkflowGridControlPlane(props: {
                               <span>
                                 {item.keyword} • {item.searchVolume.toLocaleString()}
                                 {strategyItem ? (
-                                  <span style={{ display: "block", color: "#58685d", fontSize: 12, marginTop: 2 }}>
+                                  <span className="air-section-muted" style={{ display: "block", fontSize: 12, marginTop: 2 }}>
                                     {strategyItem.role} — {strategyItem.rationale}
                                   </span>
                                 ) : null}
@@ -2275,23 +2252,23 @@ export function WorkflowGridControlPlane(props: {
                       {outlinePackage.analysis.keywordStrategy.guidance.length ? (
                         <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
                           {outlinePackage.analysis.keywordStrategy.guidance.map((item, index) => (
-                            <div key={`${item}_${index}`} style={{ fontSize: 12, color: "#58685d" }}>• {item}</div>
+                            <div key={`${item}_${index}`} className="air-section-muted" style={{ fontSize: 12 }}>• {item}</div>
                           ))}
                         </div>
                       ) : null}
                     </div>
 
-                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                      <div style={{ fontWeight: 700 }}>What competitors cover</div>
+                    <div className="air-section-panel">
+                      <div className="air-section-heading">What competitors cover</div>
                       <p style={{ margin: 0, lineHeight: 1.6 }}>{outlinePackage.analysis.competitorSummary}</p>
                     </div>
 
-                    <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                      <div style={{ fontWeight: 700 }}>Proposed structure</div>
+                    <div className="air-section-panel">
+                      <div className="air-section-heading">Proposed structure</div>
                       {outlinePackage.analysis.outline.map((item, index) => (
                         <div key={`${item.heading}_${index}`} style={{ fontSize: 13 }}>
                           <strong>{`H${item.level} • ${item.heading}`}</strong>
-                          <div style={{ color: "#58685d" }}>{item.notes}</div>
+                          <div className="air-section-muted">{item.notes}</div>
                         </div>
                       ))}
                     </div>
@@ -2329,7 +2306,7 @@ export function WorkflowGridControlPlane(props: {
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 16 }}>{humanizeStepName(step.stepName)}</div>
-                        <div style={{ fontSize: 13, color: "#58685d", marginTop: 4 }}>
+                        <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 4 }}>
                           Version {step.version} {step.completedAt ? `• ${new Date(step.completedAt).toLocaleString()}` : ""}
                         </div>
                       </div>
@@ -2345,29 +2322,17 @@ export function WorkflowGridControlPlane(props: {
                       <div style={{ fontWeight: 700, marginBottom: 8 }}>Output</div>
                       {getDraftHtml(step) ? (
                         <div
+                          className="air-draft-preview"
                           style={{
-                            border: "1px solid #e2d7c7",
-                            borderRadius: 10,
-                            padding: 12,
-                            background: "#fff",
                             maxHeight: 280,
-                            overflowY: "auto",
                           }}
                           dangerouslySetInnerHTML={{ __html: String(getDraftHtml(step)) }}
                         />
                       ) : (
                         <pre
+                          className="air-output-pre"
                           style={{
-                            margin: 0,
-                            whiteSpace: "pre-wrap",
-                            fontSize: 12,
-                            lineHeight: 1.6,
-                            background: "#fff",
-                            border: "1px solid #e2d7c7",
-                            borderRadius: 10,
-                            padding: 12,
                             maxHeight: 260,
-                            overflowY: "auto",
                           }}
                         >
                           {JSON.stringify(step.manualOutput ?? step.output, null, 2)}
@@ -2553,9 +2518,9 @@ export function WorkflowGridControlPlane(props: {
                     <div className="air-drawer-section-title">Audit trail</div>
                     <div style={{ display: "grid", gap: 10 }}>
                       {(detail?.auditLog ?? []).map((entry) => (
-                        <div key={entry.id} style={{ borderTop: "1px solid #eadfce", paddingTop: 10 }}>
+                        <div key={entry.id} style={{ borderTop: "1px solid var(--color-border)", paddingTop: 10 }}>
                           <div style={{ fontWeight: 700 }}>{entry.action}</div>
-                          <div style={{ fontSize: 13, color: "#58685d" }}>
+                          <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
                             {entry.actorType}
                             {entry.actorId ? ` • ${entry.actorId}` : ""} • {new Date(entry.createdAt).toLocaleString()}
                           </div>
@@ -2569,9 +2534,9 @@ export function WorkflowGridControlPlane(props: {
                     <div className="air-drawer-section-title">Revision history</div>
                     <div style={{ display: "grid", gap: 10 }}>
                       {(detail?.revisionNotes ?? []).map((entry) => (
-                        <div key={entry.id} style={{ borderTop: "1px solid #eadfce", paddingTop: 10 }}>
+                        <div key={entry.id} style={{ borderTop: "1px solid var(--color-border)", paddingTop: 10 }}>
                           <div>{entry.note}</div>
-                          <div style={{ fontSize: 13, color: "#58685d" }}>
+                          <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
                             {entry.requestedBy} • {new Date(entry.createdAt).toLocaleString()}
                           </div>
                         </div>
