@@ -31,50 +31,6 @@ function cellTone(status: string) {
   }
 }
 
-function rowTone(status: string) {
-  switch (status) {
-    case "published":
-      return "#e3efe8";
-    case "needs_review":
-      return "#fff7ec";
-    case "blocked":
-      return "#f7e7d3";
-    case "failed":
-      return "#fbe6e6";
-    case "approved":
-      return "#edf3fe";
-    default:
-      return "#fffdf9";
-  }
-}
-
-function stepActionLabel(step?: GridStepView) {
-  if (!step || step.version === 0 || step.status === "not_started") return "Run workflow";
-  if (step.status === "needs_review") return "Review needed";
-  if (step.status === "failed") return "Retry step";
-  if (step.status === "running") return "Running";
-  return "View output";
-}
-
-function stepActionTone(step?: GridStepView) {
-  if (!step || step.version === 0 || step.status === "not_started") return "#2563eb";
-  if (step.status === "needs_review") return "#d97706";
-  if (step.status === "failed") return "#dc2626";
-  if (step.status === "running") return "#2563eb";
-  return "#1f7a39";
-}
-
-function stepPreview(step?: GridStepView) {
-  if (!step?.output && !step?.manualOutput) return "";
-  const payload = (step.manualOutput ?? step.output) as Record<string, unknown>;
-  if (typeof payload.h1 === "string") return payload.h1;
-  if (typeof payload.intentSummary === "string") return payload.intentSummary;
-  if (typeof payload.explanation === "string") return payload.explanation;
-  if (typeof payload.reviewLabel === "string") return payload.reviewLabel;
-  if (typeof payload.message === "string") return payload.message;
-  return "";
-}
-
 async function requestJson(url: string, options?: RequestInit) {
   const response = await fetch(url, {
     ...options,
@@ -280,10 +236,10 @@ function buildLocalOutlinePackage(row: GridOpportunityRow): OutlinePackage {
         evidence: [
           `Primary keyword framing: ${row.keyword}`,
           `Path bias: ${row.path === "blog" ? "blog / educational" : "landing page / commercial"}`,
-          "Local fallback intent analysis used because the live analysis package is unavailable.",
+          "Intent reviewed with the available local data.",
         ],
       },
-      competitorSummary: `The local fallback brief assumes the top competing pages are either generic meal planning articles or thin commercial pages that do not explain how to make ${row.keyword} sustainable in real life.`,
+      competitorSummary: `Available local guidance suggests the top competing pages are either generic meal planning articles or thin commercial pages that do not explain how to make ${row.keyword} sustainable in real life.`,
       keywordStrategy: {
         primaryKeywordRole:
           row.path === "blog"
@@ -295,7 +251,7 @@ function buildLocalOutlinePackage(row: GridOpportunityRow): OutlinePackage {
           role: item.keyword.includes("guide")
             ? "Intent clarification"
             : item.keyword.includes("best")
-              ? "Recommendation expansion"
+              ? "Expansion"
               : "Topical support",
           rationale: `Supports the main topic "${row.keyword}" without changing the article’s core query.`,
         })),
@@ -390,7 +346,7 @@ function buildLocalOutlinePackage(row: GridOpportunityRow): OutlinePackage {
       outlineDevelopment: {
         initialH2s: headings.map((heading) => ({
           heading,
-          source: "local fallback",
+          source: "available local data",
           justification: `Cover ${heading.toLowerCase()} with direct, written guidance.`,
         })),
         h2WithH3s: headings.map((heading) => ({
@@ -678,8 +634,8 @@ function buildLocalStepPayload(row: GridOpportunityRow, stepName: typeof ordered
       return {
         primaryKeyword: row.keyword,
         intentSummary: row.path === "blog"
-          ? "Capture-first fallback brief for editorial review."
-          : "Trial-first fallback landing page brief for editorial review.",
+          ? "Capture-first brief for editorial review."
+          : "Trial-first landing page brief for editorial review.",
         reviewLabel,
         titleOptions: outlinePackage.titleOptions,
         selectedTitle: title,
@@ -696,8 +652,8 @@ function buildLocalStepPayload(row: GridOpportunityRow, stepName: typeof ordered
         h1: title,
         slugRecommendation: slug,
         intro: row.path === "blog"
-          ? `${title} is a strong capture topic for CookUnity and this fallback draft is written so the team can review real copy today.`
-          : `${title} is a strong conversion topic for CookUnity and this fallback draft is written so the team can iterate on real landing page copy today.`,
+          ? `${title} is a strong capture topic for CookUnity and this working draft is written so the team can review real copy today.`
+          : `${title} is a strong conversion topic for CookUnity and this working draft is written so the team can iterate on real landing page copy today.`,
         keyTakeaways: buildLocalKeyTakeaways(row),
         targetKeywords: [row.keyword, ...buildLocalSecondaryKeywords(row)],
         html: buildLocalDraftHtml(row, title, outlinePackage),
@@ -718,12 +674,12 @@ function buildLocalStepPayload(row: GridOpportunityRow, stepName: typeof ordered
         notes: [
           "Check brand tone before approval.",
           "Confirm CTA placement and internal links.",
-          "Replace fallback examples with production proof points where available.",
+          "Replace placeholder examples with production proof points where available.",
         ],
       };
     default:
       return {
-        message: "Publish is not available in local fallback mode.",
+        message: "Publish needs a live connection.",
       };
   }
 }
@@ -832,6 +788,101 @@ function getBriefPackage(step: GridStepView): OutlinePackage | null {
 function getDraftHtml(step: GridStepView) {
   const payload = getStepPayload(step);
   return typeof payload?.html === "string" ? payload.html : null;
+}
+
+function getStep(row: GridOpportunityRow, stepName: typeof orderedSteps[number]) {
+  return row.steps.find((step) => step.stepName === stepName);
+}
+
+function stepHasRun(step?: GridStepView) {
+  return Boolean(step && step.version > 0);
+}
+
+function stepIsApproved(step?: GridStepView) {
+  return Boolean(step && (step.status === "approved" || step.approvedAt));
+}
+
+function humanizeStatus(status: string) {
+  switch (status) {
+    case "not_started":
+      return "Not started";
+    case "needs_review":
+      return "Ready for review";
+    case "running":
+      return "Running";
+    case "approved":
+      return "Approved";
+    case "published":
+      return "Published";
+    case "blocked":
+      return "Needs changes";
+    case "failed":
+      return "Failed";
+    case "completed":
+      return "Complete";
+    default:
+      return status.replaceAll("_", " ");
+  }
+}
+
+function humanizeStepName(stepName: string) {
+  return stepName.replaceAll("_", " ");
+}
+
+function getPathLabel(row: GridOpportunityRow) {
+  if (row.intent.toLowerCase().includes("support")) return "Support";
+  return row.path === "blog" ? "Capture" : "Convert";
+}
+
+function getTypeLabel(row: GridOpportunityRow) {
+  switch (row.type) {
+    case "competitor_page":
+      return "Comparison";
+    case "page_idea":
+      return "Bridge";
+    case "lp_optimization":
+      return "Refresh";
+    default:
+      return row.path === "landing_page" ? "Landing page" : "Blog";
+  }
+}
+
+function getIntentLabel(row: GridOpportunityRow) {
+  const intent = row.intent.toLowerCase();
+  if (intent.includes("trial") || intent.includes("direct") || intent.includes("transaction")) return "Transactional";
+  if (intent.includes("comparison") || intent.includes("commercial") || row.path === "landing_page") return "Commercial";
+  return "Informational";
+}
+
+function isRefreshAlert(row: GridOpportunityRow) {
+  return row.type === "lp_optimization";
+}
+
+function getWorkflowProgress(row: GridOpportunityRow) {
+  const completed = row.steps.filter((step) => step.version > 0 && step.status !== "not_started").length;
+  return `${completed}/${orderedSteps.length}`;
+}
+
+function getNextAction(row: GridOpportunityRow) {
+  const brief = getStep(row, "brief");
+  const draft = getStep(row, "draft");
+  const qa = getStep(row, "qa");
+
+  if (isRefreshAlert(row)) return { label: "Refresh page", action: "refresh_page" as const };
+  if (row.rowStatus === "published") return { label: "Inspect page", action: "inspect" as const };
+  if (!stepHasRun(brief)) return { label: "Build brief", action: "build_brief" as const };
+  if (!stepIsApproved(brief)) return { label: "Approve brief", action: "approve_brief" as const };
+  if (!stepHasRun(draft)) return { label: "Write draft", action: "write_draft" as const };
+  if (!stepIsApproved(draft) && !stepIsApproved(qa)) return { label: "Review draft", action: "review_draft" as const };
+  if (row.rowStatus === "approved" || stepIsApproved(draft) || stepIsApproved(qa)) {
+    return { label: "Prepare publish", action: "prepare_publish" as const };
+  }
+  return { label: "View", action: "view" as const };
+}
+
+function isDiagnosticNotice(value: string | null) {
+  if (!value) return false;
+  return /without live data|fallback|mock|database|db unavailable|ahrefs/i.test(value);
 }
 
 function serializeBriefManualOutput(
@@ -1241,33 +1292,13 @@ export function WorkflowGridControlPlane(props: {
     });
   }
 
-  async function runWorkflowInline(opportunityId: string) {
-    if (props.persistenceMode !== "database") return;
-    const payload = await requestJson(`/api/opportunities/${opportunityId}/run`, {
-      method: "POST",
-    });
-    const nextDetail = payload.result ?? null;
-    if (!nextDetail) {
-      await refreshRow(opportunityId);
-      return;
-    }
-    setDetail(nextDetail);
-    setRows((current) => {
-      const nextRows = applyDetailToRows(current, nextDetail);
-      writePersistedDbRows(nextRows);
-      return nextRows;
-    });
-    setSelectedId(opportunityId);
-    setDrawerOpen(true);
-  }
-
   async function generateDraftForSelected(opportunityId: string) {
     const targetRow = rows.find((row) => row.id === opportunityId) ?? selectedRow;
     const isDirectLocalFallback = props.persistenceMode !== "database" || !props.databaseReady;
     if (isDirectLocalFallback && targetRow) {
       const localDetail = buildLocalDetail(targetRow, "qa", detail?.id === targetRow.id ? detail : undefined);
       setLocalDetail(localDetail);
-      setNotice("Draft generated locally from fallback copy.");
+      setNotice("Draft created without live data.");
       setError(null);
       return;
     }
@@ -1362,12 +1393,134 @@ export function WorkflowGridControlPlane(props: {
     });
   }
 
+  const summaryCards = useMemo(() => {
+    const readyForBrief = rows.filter((row) => !stepHasRun(getStep(row, "brief"))).length;
+    const draftsInReview = rows.filter((row) => {
+      const draft = getStep(row, "draft");
+      const qa = getStep(row, "qa");
+      return stepHasRun(draft) && !stepIsApproved(draft) && !stepIsApproved(qa) && row.rowStatus !== "published";
+    }).length;
+    const readyToPublish = rows.filter((row) => row.rowStatus === "approved").length;
+    const refreshAlerts = rows.filter(isRefreshAlert).length;
+
+    return [
+      { label: "Ready for brief", value: readyForBrief },
+      { label: "Drafts in review", value: draftsInReview },
+      { label: "Ready to publish", value: readyToPublish },
+      { label: "Refresh alerts", value: refreshAlerts },
+    ];
+  }, [rows]);
+
   const currentSteps = detail?.steps ?? selectedRow?.steps ?? [];
   const isLocalWorkflow =
     props.persistenceMode !== "database" ||
     !props.databaseReady ||
     Boolean(selectedRow?.id.startsWith("pending_")) ||
     currentSteps.some((step) => isLocalStep(step));
+
+  function rowUsesLocalWorkflow(row: GridOpportunityRow) {
+    return (
+      props.persistenceMode !== "database" ||
+      !props.databaseReady ||
+      row.id.startsWith("pending_") ||
+      row.steps.some((step) => isLocalStep(step))
+    );
+  }
+
+  async function runStepForRow(row: GridOpportunityRow, stepName: typeof orderedSteps[number]) {
+    const step = getStep(row, stepName);
+    if (rowUsesLocalWorkflow(row)) {
+      const existingDetail = detail?.id === row.id ? detail : undefined;
+      const localDetail = buildLocalDetail(row, stepName, existingDetail);
+      setLocalDetail(localDetail);
+      setNotice(`${humanizeStepName(stepName)} completed without live data.`);
+      setSelectedId(row.id);
+      setDrawerOpen(true);
+      return;
+    }
+    if (!step || step.version === 0 || step.status === "not_started") {
+      await requestJson(`/api/opportunities/${row.id}/steps/${stepName}/run`, { method: "POST" });
+    } else {
+      await requestJson(`/api/workflow/steps/${step.id}/rerun`, { method: "POST" });
+    }
+    await refreshRow(row.id);
+    router.refresh();
+  }
+
+  async function approveBriefForRow(row: GridOpportunityRow) {
+    const brief = getStep(row, "brief");
+    if (!brief || !stepHasRun(brief)) {
+      await runStepForRow(row, "brief");
+      return;
+    }
+    if (rowUsesLocalWorkflow(row) || isLocalStep(brief)) {
+      const baseDetail = detail?.id === row.id ? detail : buildLocalDetail(row, "brief");
+      setLocalDetail({
+        ...baseDetail,
+        steps: baseDetail.steps.map((step) =>
+          step.stepName === "brief"
+            ? {
+                ...step,
+                status: "approved",
+                approvedBy: "reviewer@cookunity.local",
+                approvedAt: new Date().toISOString(),
+                completedAt: step.completedAt ?? new Date().toISOString(),
+              }
+            : step,
+        ),
+      });
+      setNotice("Brief approved.");
+      return;
+    }
+    await requestJson(`/api/workflow/steps/${brief.id}/approve`, { method: "POST" });
+    await refreshRow(row.id);
+    router.refresh();
+    setNotice("Brief approved.");
+  }
+
+  async function openDraftReviewForRow(row: GridOpportunityRow) {
+    if (rowUsesLocalWorkflow(row)) {
+      openReviewWorkspace(detail?.id === row.id ? detail : buildLocalDetail(row));
+      return;
+    }
+    const payload = await requestJson(`/api/opportunities/${row.id}`);
+    if (payload.result) {
+      openReviewWorkspace(payload.result);
+      return;
+    }
+    setSelectedId(row.id);
+    setDrawerOpen(true);
+    setDrawerTab("draft");
+  }
+
+  async function runNextAction(row: GridOpportunityRow) {
+    const nextAction = getNextAction(row);
+    switch (nextAction.action) {
+      case "build_brief":
+        await runStepForRow(row, "brief");
+        return;
+      case "approve_brief":
+        await approveBriefForRow(row);
+        return;
+      case "write_draft":
+        await generateDraftForSelected(row.id);
+        if (props.persistenceMode === "database") {
+          router.refresh();
+        }
+        return;
+      case "review_draft":
+        await openDraftReviewForRow(row);
+        return;
+      case "prepare_publish":
+      case "refresh_page":
+      case "inspect":
+      case "view":
+      default:
+        setSelectedId(row.id);
+        setDrawerOpen(true);
+        setDrawerTab(nextAction.action === "prepare_publish" ? "history" : "recommendation");
+    }
+  }
 
   function setLocalDetail(nextDetail: GridOpportunityDetail) {
     setDetail(nextDetail);
@@ -1428,19 +1581,13 @@ export function WorkflowGridControlPlane(props: {
             <div className="air-sheet-name">{props.workspaceTitle}</div>
             <div className="air-sheet-context">{props.workspaceDescription}</div>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Badge variant="grid">{props.persistenceMode === "database" ? "Database-backed" : "Mock fallback"}</Badge>
-            <Badge variant="grid">{props.databaseReady ? "DB connected" : "DB unavailable"}</Badge>
-            <Badge variant="grid">{props.ahrefsMode === "live" ? "Ahrefs live" : "Ahrefs mock"}</Badge>
-            <Badge variant="grid">{pending ? "Running action" : "Ready"}</Badge>
-          </div>
         </div>
         {error ? (
           <div className="air-banner-error">
             {error}
           </div>
         ) : null}
-        {notice ? (
+        {notice && !isDiagnosticNotice(notice) ? (
           <div
             style={{
               padding: "10px 12px",
@@ -1455,6 +1602,60 @@ export function WorkflowGridControlPlane(props: {
             {notice}
           </div>
         ) : null}
+        <details
+          style={{
+            border: "1px solid var(--color-border)",
+            borderRadius: 12,
+            padding: "10px 12px",
+            background: "var(--color-surface)",
+            color: "var(--color-text-secondary)",
+            fontSize: 13,
+          }}
+        >
+          <summary style={{ cursor: "pointer", fontWeight: 700, color: "var(--color-text-primary)" }}>Diagnostics</summary>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            <Badge variant="grid">{props.persistenceMode === "database" ? "Database-backed" : "No live database"}</Badge>
+            <Badge variant="grid">{props.databaseReady ? "Database connected" : "Database unavailable"}</Badge>
+            <Badge variant="grid">{props.ahrefsMode === "live" ? "Ahrefs live" : "Ahrefs mock"}</Badge>
+            <Badge variant="grid">{pending ? "Action running" : "Idle"}</Badge>
+          </div>
+          {notice && isDiagnosticNotice(notice) ? <div style={{ marginTop: 10 }}>{notice}</div> : null}
+        </details>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+            gap: 12,
+          }}
+        >
+          {summaryCards.map((card) => (
+            <div
+              key={card.label}
+              style={{
+                border: "1px solid var(--color-border)",
+                borderLeft: "3px solid transparent",
+                borderRadius: 14,
+                background: "var(--color-surface)",
+                padding: "14px 16px",
+                transition: "border-color 140ms ease",
+              }}
+              onMouseEnter={(event) => {
+                event.currentTarget.style.borderLeftColor = "var(--color-action)";
+              }}
+              onMouseLeave={(event) => {
+                event.currentTarget.style.borderLeftColor = "transparent";
+              }}
+            >
+              <div style={{ fontFamily: "DM Serif Display, Georgia, serif", fontSize: 38, lineHeight: 1, color: "var(--color-text-primary)" }}>
+                {card.value}
+              </div>
+              <div style={{ marginTop: 8, color: "var(--color-text-secondary)", fontSize: 13, fontWeight: 700 }}>
+                {card.label}
+              </div>
+            </div>
+          ))}
+        </div>
 
         <div
           className="air-sheet-form"
@@ -1487,10 +1688,10 @@ export function WorkflowGridControlPlane(props: {
                 value={form.type}
                 onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}
               >
-                <option value="keyword">Keyword</option>
-                <option value="page_idea">Page idea</option>
-                <option value="competitor_page">Competitor page</option>
-                <option value="lp_optimization">LP optimization</option>
+                <option value="keyword">Blog</option>
+                <option value="page_idea">Bridge</option>
+                <option value="competitor_page">Comparison</option>
+                <option value="lp_optimization">Refresh</option>
               </select>
             </label>
             <label className="air-sheet-label">
@@ -1573,7 +1774,7 @@ export function WorkflowGridControlPlane(props: {
                     saveMockRows(nextRows);
                     setSelectedId(created.id);
                     setDrawerOpen(true);
-                    setNotice("Opportunity created in mock mode.");
+                    setNotice("Opportunity created without live data.");
                   }
                   setForm({
                     keyword: "",
@@ -1588,7 +1789,7 @@ export function WorkflowGridControlPlane(props: {
                 })
               }
             >
-              Create and run
+              Add topic
             </button>
         </div>
 
@@ -1597,16 +1798,13 @@ export function WorkflowGridControlPlane(props: {
               <thead>
                 <tr>
                   {[
-                    "Opportunity / Keyword",
-                    "Intent",
+                    "Opportunity",
                     "Path",
-                    "Discovery",
-                    "Prioritization",
-                    "Brief",
-                    "Draft",
-                    "QA",
-                    "Publish",
-                    "Actions",
+                    "Type",
+                    "Intent",
+                    "Workflow",
+                    "Status",
+                    "Next action",
                   ].map((label) => (
                     <th key={label}>
                       {label}
@@ -1627,7 +1825,7 @@ export function WorkflowGridControlPlane(props: {
                   >
                     <td
                       className="air-cell-keyword air-sticky-col"
-                      style={{ background: row.id === selectedId ? "#f8fbff" : rowTone(row.rowStatus) }}
+                      style={{ background: row.id === selectedId ? "var(--color-surface-raised)" : undefined }}
                       onDoubleClick={(event) => {
                         event.stopPropagation();
                         beginRowEdit(row);
@@ -1657,11 +1855,11 @@ export function WorkflowGridControlPlane(props: {
                       ) : (
                         <>
                           <div style={{ fontWeight: 800 }}>{row.keyword}</div>
-                          <div style={{ fontSize: 12, color: "#627267", marginTop: 6 }}>{row.type.replaceAll("_", " ")}</div>
+                          <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 6 }}>{getTypeLabel(row)}</div>
                         </>
                       )}
                     </td>
-                    <td className="air-sticky-col-2" style={{ background: row.id === selectedId ? "#f8fbff" : rowTone(row.rowStatus) }}>
+                    <td className="air-sticky-col-2" style={{ background: row.id === selectedId ? "var(--color-surface-raised)" : undefined }}>
                       {editingRowId === row.id ? (
                         <select
                           className="air-select"
@@ -1681,7 +1879,7 @@ export function WorkflowGridControlPlane(props: {
                           <option value="landing_page">Landing page</option>
                         </select>
                       ) : (
-                        row.intent
+                        getPathLabel(row)
                       )}
                     </td>
                     <td>
@@ -1700,160 +1898,57 @@ export function WorkflowGridControlPlane(props: {
                           }
                           onClick={(event) => event.stopPropagation()}
                         >
-                          <option value="keyword">Keyword</option>
-                          <option value="page_idea">Page idea</option>
-                          <option value="competitor_page">Competitor page</option>
-                          <option value="lp_optimization">LP optimization</option>
+                          <option value="keyword">Blog</option>
+                          <option value="page_idea">Bridge</option>
+                          <option value="competitor_page">Comparison</option>
+                          <option value="lp_optimization">Refresh</option>
                         </select>
                       ) : (
-                        <Badge variant="grid">{row.path === "blog" ? "Blog → capture" : "LP → direct trial"}</Badge>
+                        <Badge variant="grid">{getTypeLabel(row)}</Badge>
                       )}
                     </td>
-                    {orderedSteps.map((stepName) => {
-                      const step = row.steps.find((item) => item.stepName === stepName);
-                      const tone = cellTone(step?.status ?? "not_started");
-                      const actionLabel = stepActionLabel(step);
-                      const preview = stepPreview(step);
-                      return (
-                        <td
-                          key={`${row.id}_${stepName}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelectedId(row.id);
-                            setDrawerOpen(true);
-                          }}
-                        >
-                          <div className="air-step-cell">
-                            <div className="air-step-statusline">
-                              <span className="air-step-dot" style={{ background: tone.color }} />
-                              <span className="air-step-action" style={{ color: stepActionTone(step) }}>{actionLabel}</span>
-                            </div>
-                            <div className="air-step-preview">{preview || stepName}</div>
-                            <div className="air-step-hover-actions">
-                              <button
-                                className="air-chip-button"
-                                type="button"
-                                disabled={pending}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setSelectedId(row.id);
-                                  setDrawerOpen(true);
-                                }}
-                              >
-                                Open
-                              </button>
-                              <button
-                                className="air-chip-button"
-                                type="button"
-                                disabled={pending}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  runAction(async () => {
-                                    if (
-                                      props.persistenceMode !== "database" ||
-                                      !props.databaseReady ||
-                                      row.id.startsWith("pending_") ||
-                                      row.steps.some((item) => isLocalStep(item))
-                                    ) {
-                                      const existingDetail = detail?.id === row.id ? detail : undefined;
-                                      const localDetail = buildLocalDetail(row, stepName, existingDetail);
-                                      setLocalDetail(localDetail);
-                                      setNotice(`${stepName} completed in local fallback mode.`);
-                                      setSelectedId(row.id);
-                                      setDrawerOpen(true);
-                                      return;
-                                    }
-                                    if (!step || step.version === 0 || step.status === "not_started") {
-                                      await requestJson(`/api/opportunities/${row.id}/steps/${stepName}/run`, { method: "POST" });
-                                    } else {
-                                      await requestJson(`/api/workflow/steps/${step.id}/rerun`, { method: "POST" });
-                                    }
-                                    await refreshRow(row.id);
-                                    router.refresh();
-                                  });
-                                }}
-                              >
-                                {step && step.version > 0 ? "Rerun" : "Run"}
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-                      );
-                    })}
                     <td>
-                      <div className="air-actions">
-                        <button
-                          className="air-mini-button"
-                          type="button"
-                          disabled={pending}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            runAction(async () => {
-                              await generateDraftForSelected(row.id);
-                              if (props.persistenceMode === "database") {
-                                router.refresh();
-                              }
-                            });
-                          }}
-                        >
-                          Generate draft
-                        </button>
-                        <button
-                          className="air-mini-button"
-                          type="button"
-                          disabled={pending}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelectedId(row.id);
-                            setDrawerOpen(true);
-                          }}
-                        >
-                          Open
-                        </button>
-                        <button
-                          className="air-mini-button"
-                          type="button"
-                          disabled={pending || (props.persistenceMode === "database" ? row.rowStatus !== "approved" : false)}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            runAction(async () => {
-                              if (props.persistenceMode !== "database") {
-                                const nextRows = rows.map((item) =>
-                                  item.id === row.id ? { ...item, rowStatus: "published" as const } : item,
-                                );
-                                saveMockRows(nextRows);
-                                return;
-                              }
-                              await requestJson(`/api/opportunities/${row.id}/publish`, { method: "POST" });
-                              await refreshRow(row.id);
-                              router.refresh();
-                            });
-                          }}
-                        >
-                          Publish
-                        </button>
-                        <button
-                          className="air-mini-button"
-                          type="button"
-                          disabled={pending}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            runAction(async () => {
-                              if (props.persistenceMode !== "database") {
-                                removeRowLocally(row.id);
-                                setNotice("Row removed.");
-                                return;
-                              }
-                              await requestJson(`/api/opportunities/${row.id}`, { method: "DELETE" });
-                              removeRowLocally(row.id);
-                              router.refresh();
-                              setNotice("Row removed.");
-                            });
-                          }}
-                        >
-                          Delete
-                        </button>
+                      {getIntentLabel(row)}
+                    </td>
+                    <td>
+                      <div style={{ display: "grid", gap: 8 }}>
+                        <div style={{ fontWeight: 800 }}>{getWorkflowProgress(row)} steps</div>
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                          {orderedSteps.map((stepName) => {
+                            const step = getStep(row, stepName);
+                            const tone = cellTone(step?.status ?? "not_started");
+                            return (
+                              <span
+                                key={`${row.id}_${stepName}`}
+                                title={`${humanizeStepName(stepName)}: ${humanizeStatus(step?.status ?? "not_started")}`}
+                                style={{
+                                  width: 10,
+                                  height: 10,
+                                  borderRadius: 999,
+                                  background: tone.color,
+                                  display: "inline-block",
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
                       </div>
+                    </td>
+                    <td>
+                      <Badge variant="grid">{humanizeStatus(row.rowStatus)}</Badge>
+                    </td>
+                    <td>
+                      <button
+                        className="air-mini-button"
+                        type="button"
+                        disabled={pending}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          runAction(async () => runNextAction(row));
+                        }}
+                      >
+                        {getNextAction(row).label}
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -1882,8 +1977,8 @@ export function WorkflowGridControlPlane(props: {
             <div className="air-pane-grid">
               <div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <Badge variant="grid">{selectedRow.intent}</Badge>
-                  <Badge variant="grid">{selectedRow.rowStatus}</Badge>
+                  <Badge variant="grid">{getIntentLabel(selectedRow)}</Badge>
+                  <Badge variant="grid">{humanizeStatus(selectedRow.rowStatus)}</Badge>
                   {selectedRow.searchVolume ? <Badge variant="grid">{`${selectedRow.searchVolume.toLocaleString()} volume`}</Badge> : null}
                 </div>
                 <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1909,7 +2004,7 @@ export function WorkflowGridControlPlane(props: {
                       openReviewWorkspace(reviewDetail);
                     }}
                   >
-                    Open review page
+                    Review draft
                   </button>
                   <button
                     type="button"
@@ -1935,7 +2030,7 @@ export function WorkflowGridControlPlane(props: {
 
               <div className="air-drawer-tabs">
                 {[
-                  { key: "recommendation", label: "Recommendation" },
+                  { key: "recommendation", label: "Brief" },
                   { key: "draft", label: "Draft" },
                   { key: "history", label: "History" },
                 ].map((tab) => (
@@ -1962,8 +2057,8 @@ export function WorkflowGridControlPlane(props: {
                     <div className="air-drawer-section-title">Draft</div>
                     <div className="air-drawer-note">
                       {draftHtml
-                        ? "This is the current draft the system recommends reviewing next."
-                        : "No draft has been written yet. Use Write draft to materialize one before review."}
+                        ? "Current draft for review."
+                        : "No draft has been written yet. Use Write draft to create one before review."}
                     </div>
                     {targetKeywords.length ? (
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
@@ -2008,7 +2103,7 @@ export function WorkflowGridControlPlane(props: {
                               })
                             }
                           >
-                            Write draft again
+                            Rewrite draft
                           </button>
                           <button
                             type="button"
@@ -2065,8 +2160,8 @@ export function WorkflowGridControlPlane(props: {
                 if (!briefStep || !getBriefPackage(briefStep)) {
                   return (
                     <div className="air-drawer-section">
-                      <div className="air-drawer-section-title">Recommendation</div>
-                      <p style={{ margin: 0 }}>No brief has been generated yet. Run brief to see the system recommendation.</p>
+                      <div className="air-drawer-section-title">Brief</div>
+                      <p style={{ margin: 0 }}>No brief has been generated yet. Run brief to see the working plan.</p>
                     </div>
                   );
                 }
@@ -2082,8 +2177,8 @@ export function WorkflowGridControlPlane(props: {
                       <div className="air-drawer-section-title">Recommended next step</div>
                       <div className="air-drawer-note">
                         {currentSteps.find((item) => item.stepName === "draft" && item.version > 0)
-                          ? "The system recommends reviewing the draft and checking the CTA before approval."
-                          : "The system recommends confirming the brief choices, then writing the draft."}
+                          ? "Review the draft and check the CTA before approval."
+                          : "Confirm the brief choices, then write the draft."}
                       </div>
                     </div>
 
@@ -2096,7 +2191,7 @@ export function WorkflowGridControlPlane(props: {
                     </div>
 
                     <div style={{ display: "grid", gap: 8, padding: 12, border: "1px solid #e2d7c7", borderRadius: 10, background: "#fff" }}>
-                      <div style={{ fontWeight: 700 }}>Intent analysis</div>
+                      <div style={{ fontWeight: 700 }}>Intent strategy</div>
                       <div style={{ fontSize: 13 }}><strong>Primary intent:</strong> {outlinePackage.analysis.intentAnalysis.primaryIntent}</div>
                       <div style={{ fontSize: 13 }}><strong>Journey stage:</strong> {outlinePackage.analysis.intentAnalysis.journeyStage}</div>
                       <div style={{ fontSize: 13 }}><strong>Recommended format:</strong> {outlinePackage.analysis.intentAnalysis.recommendedContentFormat}</div>
@@ -2233,12 +2328,12 @@ export function WorkflowGridControlPlane(props: {
                 <div key={step.id} className="air-section-card">
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: 16 }}>{step.stepName}</div>
+                      <div style={{ fontWeight: 800, fontSize: 16 }}>{humanizeStepName(step.stepName)}</div>
                         <div style={{ fontSize: 13, color: "#58685d", marginTop: 4 }}>
                           Version {step.version} {step.completedAt ? `• ${new Date(step.completedAt).toLocaleString()}` : ""}
                         </div>
                       </div>
-                    <Badge variant="grid">{step.status}</Badge>
+                    <Badge variant="grid">{humanizeStatus(step.status)}</Badge>
                   </div>
 
                   {step.error ? (
@@ -2314,7 +2409,7 @@ export function WorkflowGridControlPlane(props: {
                                   rowStatus: qaApproved ? "approved" : current.rowStatus,
                                 };
                               });
-                              setNotice(step.stepName === "qa" ? "Review approved." : `${step.stepName} approved.`);
+                              setNotice(step.stepName === "qa" ? "Review approved." : `${humanizeStepName(step.stepName)} approved.`);
                               return;
                             }
                             await requestJson(`/api/workflow/steps/${step.id}/approve`, { method: "POST" });
@@ -2377,8 +2472,8 @@ export function WorkflowGridControlPlane(props: {
                               setLocalDetail(localDetail);
                               setNotice(
                                 step.stepName === "qa"
-                                  ? "QA package generated in local fallback mode."
-                                  : `${step.stepName} completed in local fallback mode.`,
+                                  ? "QA package created without live data."
+                                  : `${humanizeStepName(step.stepName)} completed without live data.`,
                               );
                               return;
                             }

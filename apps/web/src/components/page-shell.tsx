@@ -3,15 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 
-const nav = [
-  { href: "/", label: "Work" },
-  { href: "/grid", label: "Bulk editor" },
-  { href: "/review", label: "Review" },
-  { href: "/published", label: "Published" },
-  { href: "/monitoring", label: "Performance" },
-  { href: "/agents", label: "System activity" },
+const navItems = [
+  { href: "/grid", label: "Pipeline", icon: "P" },
+  { href: "/review", label: "Review", icon: "R" },
+  { href: "/published", label: "Published", icon: "D" },
+  { href: "/monitoring", label: "Monitor", icon: "M" },
 ];
+
+function isActiveRoute(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export function PageShell({
   title,
@@ -25,59 +28,99 @@ export function PageShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const [railExpanded, setRailExpanded] = useState(true);
+  const [command, setCommand] = useState("");
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === "\\") {
+        event.preventDefault();
+        setRailExpanded((current) => !current);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
-    <div className="airops-shell">
-      <aside className="airops-rail">
-        <div className="airops-rail-logo">×</div>
-        <Link href="/grid" className="airops-rail-button" aria-label="Open grid">
-          +
-        </Link>
-        <div className="airops-rail-spacer" />
-        <Link href="/grid" className="airops-rail-button" aria-label="Grid">
-          ⊞
-        </Link>
-        <Link href="/inbox" className="airops-rail-button" aria-label="Queues">
-          ◴
-        </Link>
-        <Link href="/review" className="airops-rail-button" aria-label="Review">
-          ✓
-        </Link>
-        <Link href="/monitoring" className="airops-rail-button" aria-label="Monitoring">
-          ⚙
-        </Link>
-      </aside>
-      <div className="airops-main">
-        <header className="airops-topbar">
-          <div className="airops-titlebar">
-            <Link href="/" className="airops-back" aria-label="Back">
-              ←
-            </Link>
-            <div className="airops-green-dot" />
-            <div>
-              <div className="airops-title">CookUnity growth workbench</div>
-              <div className="airops-subtitle">AI-assisted operator workspace</div>
-            </div>
+    <div className={`airops-shell${railExpanded ? " is-rail-expanded" : ""}`}>
+      <aside className="airops-rail" aria-label="Primary navigation">
+        <div className="airops-rail-brand">
+          <Link href="/" className="airops-rail-mark" aria-label="CookUnity Growth workbench">
+            C
+          </Link>
+          <div className="airops-rail-brand-copy">
+            <div className="airops-rail-title">Growth workbench</div>
+            <div className="airops-rail-subtitle">CookUnity</div>
           </div>
-          <div className="airops-topbar-meta">{title}</div>
-        </header>
+        </div>
 
-        <nav className="airops-subnav">
-          {nav.map((item) => {
-            const isActive = pathname === item.href;
+        <button
+          type="button"
+          className="airops-rail-toggle"
+          onClick={() => setRailExpanded((current) => !current)}
+          aria-expanded={railExpanded}
+        >
+          <span className="airops-rail-icon">⌘\</span>
+          <span className="airops-rail-label">Collapse rail</span>
+        </button>
+
+        <nav className="airops-rail-nav">
+          {navItems.map((item) => {
+            const isActive = isActiveRoute(pathname, item.href);
             return (
-              <Link key={item.href} href={item.href} className={`airops-tab${isActive ? " is-active" : ""}`}>
-                {item.label}
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`airops-rail-link${isActive ? " is-active" : ""}`}
+                aria-current={isActive ? "page" : undefined}
+                title={item.label}
+              >
+                <span className="airops-rail-icon" aria-hidden="true">
+                  {item.icon}
+                </span>
+                <span className="airops-rail-label">{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="airops-canvas">
+        <div className="airops-rail-spacer" />
+
+        <Link href="/agents" className={`airops-rail-link${isActiveRoute(pathname, "/agents") ? " is-active" : ""}`} title="Settings">
+          <span className="airops-rail-icon" aria-hidden="true">
+            S
+          </span>
+          <span className="airops-rail-label">Settings</span>
+        </Link>
+
+        <div className="airops-user" title="User">
+          <span className="airops-user-avatar" aria-hidden="true">
+            A
+          </span>
+          <span className="airops-rail-label">Argelys</span>
+        </div>
+      </aside>
+
+      <div className="airops-main">
+        <header className="airops-commandbar">
+          <label className="airops-command" aria-label="Global command search">
+            <span className="airops-command-glyph" aria-hidden="true">
+              /
+            </span>
+            <input
+              value={command}
+              onChange={(event) => setCommand(event.target.value)}
+              placeholder="Search keywords, pages, drafts, or ask what to work on next"
+            />
+          </label>
+        </header>
+
+        <main className="airops-canvas">
           <div className="app-workspace">
             <header className="app-workspace-header">
-              <div>
-                <div className="app-kicker">CookUnity SEO agent</div>
+              <div className="app-workspace-heading">
                 <h1 className="app-title">{title}</h1>
                 {description ? <p className="app-description">{description}</p> : null}
               </div>
@@ -85,7 +128,7 @@ export function PageShell({
             </header>
             {children}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );
